@@ -1,17 +1,20 @@
 with stats as (
-    select * from {{ ref('stg_campaign_stats_daily') }}
+    select * from {{ ref('stg_ad_stats_daily') }}
+),
+ads as (
+    select * from {{ ref('stg_ad_dimension_latest') }}
 ),
 campaigns as (
     select * from {{ ref('stg_campaign_dimension_latest') }}
+),
+ad_groups as (
+    select * from {{ ref('stg_ad_group_dimension_latest') }}
 ),
 accounts as (
     select * from {{ ref('cfg_accounts') }}
 ),
 fx_daily as (
     select * from {{ ref('stg_account_fx_rates_daily') }}
-),
-fx_latest as (
-    select * from {{ ref('stg_exchange_rates_latest') }}
 ),
 base as (
     select
@@ -21,13 +24,19 @@ base as (
         a.currency,
         s.campaign_id,
         c.campaign_name,
-        c.campaign_status,
-        c.campaign_serving_status,
-        c.campaign_channel_type,
-        c.campaign_channel_sub_type,
-        c.bidding_strategy_type,
-        c.campaign_budget_original,
-        safe_multiply(c.campaign_budget_original, fxl.eur_exchange_rate) as campaign_budget_eur,
+        s.ad_group_id,
+        g.ad_group_name,
+        s.ad_id,
+        d.ad_type,
+        d.ad_status,
+        d.approval_status,
+        d.ad_strength,
+        d.ad_name,
+        d.ad_label,
+        d.headline_primary,
+        d.description_primary,
+        d.landing_page_url,
+        d.final_urls,
         s.report_date,
         s.cost_original,
         safe_multiply(s.cost_original, fxd.eur_exchange_rate) as cost_eur,
@@ -43,18 +52,27 @@ base as (
         safe_multiply(s.cpa_original, fxd.eur_exchange_rate) as cpa_eur,
         s.roas
     from stats s
+    left join ads d
+        on s.transfer_source = d.transfer_source
+       and s.account_id = d.account_id
+       and s.campaign_id = d.campaign_id
+       and s.ad_group_id = d.ad_group_id
+       and s.ad_id = d.ad_id
     left join campaigns c
         on s.transfer_source = c.transfer_source
        and s.account_id = c.account_id
        and s.campaign_id = c.campaign_id
+    left join ad_groups g
+        on s.transfer_source = g.transfer_source
+       and s.account_id = g.account_id
+       and s.campaign_id = g.campaign_id
+       and s.ad_group_id = g.ad_group_id
     join accounts a
         on s.account_id = cast(a.account_id as string)
        and a.is_active = true
     left join fx_daily fxd
         on s.account_id = fxd.account_id
        and s.report_date = fxd.report_date
-    left join fx_latest fxl
-        on a.currency = fxl.currency
 )
 
 select
@@ -64,13 +82,19 @@ select
     currency,
     campaign_id,
     campaign_name,
-    campaign_status,
-    campaign_serving_status,
-    campaign_channel_type,
-    campaign_channel_sub_type,
-    bidding_strategy_type,
-    campaign_budget_original,
-    campaign_budget_eur,
+    ad_group_id,
+    ad_group_name,
+    ad_id,
+    ad_type,
+    ad_status,
+    approval_status,
+    ad_strength,
+    ad_name,
+    ad_label,
+    headline_primary,
+    description_primary,
+    landing_page_url,
+    final_urls,
     report_date,
     cost_original,
     cost_eur,

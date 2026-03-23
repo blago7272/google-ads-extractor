@@ -124,6 +124,54 @@ models:
       - name: report_date
         tests: [not_null]
 
+  - name: stg_account_fx_rates_daily
+    description: Daily account-level EUR exchange rates resolved from the reporting FX seed.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: currency
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+      - name: eur_exchange_rate
+        tests: [not_null]
+
+  - name: stg_exchange_rates_latest
+    description: Latest configured EUR exchange rate per currency.
+    columns:
+      - name: currency
+        tests: [not_null]
+      - name: eur_exchange_rate
+        tests: [not_null]
+
+  - name: stg_ad_dimension_latest
+    description: Latest ad dimension state per account and transfer source.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: ad_group_id
+        tests: [not_null]
+      - name: ad_id
+        tests: [not_null]
+      - name: ad_label
+        tests: [not_null]
+
+  - name: stg_ad_stats_daily
+    description: Daily ad performance fact normalized from the Google Ads transfer.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: ad_group_id
+        tests: [not_null]
+      - name: ad_id
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+
   - name: stg_search_query_stats_daily
     description: Daily search term performance fact used by the search terms report.
     columns:
@@ -137,4 +185,3 @@ models:
         tests: [not_null]
       - name: report_date
         tests: [not_null]
-

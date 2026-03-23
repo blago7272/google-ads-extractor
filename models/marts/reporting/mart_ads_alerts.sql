@@ -56,7 +56,7 @@ keyword_alerts as (
         client_id,
         account_id,
         account_name,
-        current_date() as report_date,
+        report_date_end as report_date,
         'keyword_issue' as alert_type,
         'medium' as severity,
         concat('Keyword "', keyword_text, '" flagged as ', audit_reason) as alert_message
@@ -69,4 +69,3 @@ union all
 select * from budget_alerts
 union all
 select * from keyword_alerts
-

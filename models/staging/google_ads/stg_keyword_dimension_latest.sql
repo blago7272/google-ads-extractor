@@ -16,8 +16,8 @@ with src as (
         ad_group_criterion_quality_info_creative_quality_score as creative_quality_score,
         ad_group_criterion_quality_info_post_click_quality_score as post_click_quality_score,
         ad_group_criterion_quality_info_search_predicted_ctr as predicted_ctr_score,
-        ad_group_criterion_position_estimates_first_page_cpc_micros / 1000000.0 as first_page_cpc_eur,
-        ad_group_criterion_position_estimates_top_of_page_cpc_micros / 1000000.0 as top_of_page_cpc_eur,
+        ad_group_criterion_position_estimates_first_page_cpc_micros / 1000000.0 as first_page_cpc_original,
+        ad_group_criterion_position_estimates_top_of_page_cpc_micros / 1000000.0 as top_of_page_cpc_original,
         _PARTITIONTIME as loaded_at
     from `{{ raw_project }}.{{ raw_dataset }}.p_ads_Keyword_*`
 ),
@@ -45,8 +45,7 @@ select
     creative_quality_score,
     post_click_quality_score,
     predicted_ctr_score,
-    first_page_cpc_eur,
-    top_of_page_cpc_eur
+    first_page_cpc_original,
+    top_of_page_cpc_original
 from ranked
 where rn = 1
-

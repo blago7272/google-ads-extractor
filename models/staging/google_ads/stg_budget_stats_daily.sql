@@ -9,11 +9,10 @@ select
     campaign_name,
     campaign_status,
     segments_date as report_date,
-    sum(metrics_cost_micros) / 1000000.0 as cost_eur,
+    sum(metrics_cost_micros) / 1000000.0 as cost_original,
     sum(metrics_clicks) as clicks,
     sum(metrics_impressions) as impressions,
     sum(metrics_conversions) as conversions,
-    sum(metrics_conversions_value) as conversion_value
+    sum(metrics_conversions_value) as conversion_value_original
 from `{{ raw_project }}.{{ raw_dataset }}.p_ads_BudgetStats_*`
 group by 1, 2, 3, 4, 5, 6, 7
-

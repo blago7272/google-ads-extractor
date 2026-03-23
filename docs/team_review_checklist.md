@@ -45,7 +45,7 @@ Decision states:
 - [ ] Dual-currency reporting is required in phase 1
   Native account currency plus EUR reporting values
   Decision: Recommend Approve
-  Notes: The current `cost_eur` naming is unsafe for non-EUR accounts. Original and EUR values should both exist in the mart layer.
+  Notes: Implemented in the current build. Original and EUR values now both exist in the mart layer.
 
 - [ ] Exchange-rate cadence is agreed
   Options: daily, monthly
@@ -86,11 +86,11 @@ Decision states:
 
 - [ ] Ad-level reporting should be the next ads-only extension after the first HTML pages
   Decision: Recommend Approve
-  Notes: Ad-level reporting adds clear agency value and is the logical next layer after overview, campaign, keyword, and search-term pages.
+  Notes: Implemented in the current build through `mart_ads_ad_performance_daily`. Team should ratify it as part of the phase-1 baseline.
 
 - [ ] RSA asset-level reporting is deferred from the first ad-level release
   Decision: Recommend Approve
-  Notes: Start with ad-level performance first. Asset-level RSA analysis can follow once the base ad mart is proven useful.
+  Notes: Current build stops at ad-level performance. Asset-level RSA analysis can follow once the base ad mart is proven useful.
 
 - [ ] Auction insights remains optional unless the team marks it as required
   Decision: Recommend Approve
@@ -100,7 +100,7 @@ Decision states:
 
 - [ ] Mart contracts should be enforced before the HTML layer is built
   Decision: Recommend Approve
-  Notes: This reduces the risk of silent schema drift breaking the app.
+  Notes: Implemented in the current build. This reduces the risk of silent schema drift breaking the app.
 
 - [ ] Breaking schema changes should require a deprecation period
   Decision: Recommend Approve

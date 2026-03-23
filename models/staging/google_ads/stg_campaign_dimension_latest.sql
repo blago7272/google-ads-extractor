@@ -12,7 +12,7 @@ with src as (
         campaign_advertising_channel_type as campaign_channel_type,
         campaign_advertising_channel_sub_type as campaign_channel_sub_type,
         campaign_bidding_strategy_type as bidding_strategy_type,
-        campaign_budget_amount_micros / 1000000.0 as campaign_budget_eur,
+        campaign_budget_amount_micros / 1000000.0 as campaign_budget_original,
         _PARTITIONTIME as loaded_at
     from `{{ raw_project }}.{{ raw_dataset }}.p_ads_Campaign_*`
 ),
@@ -36,7 +36,6 @@ select
     campaign_channel_type,
     campaign_channel_sub_type,
     bidding_strategy_type,
-    campaign_budget_eur
+    campaign_budget_original
 from ranked
 where rn = 1
-

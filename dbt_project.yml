@@ -24,6 +24,8 @@ models:
     marts:
       +schema: gads_reporting_mart
       +materialized: table
+      +contract:
+        enforced: true
 
 seeds:
   google_ads_extractor:
@@ -48,6 +50,13 @@ seeds:
         client_id: string
         threshold_key: string
         threshold_value: float64
+        notes: string
+    cfg_exchange_rates:
+      +column_types:
+        currency: string
+        valid_from: date
+        eur_exchange_rate: float64
+        rate_source: string
         notes: string
     cfg_segments:
       +column_types:

@@ -19,16 +19,16 @@ Already reflected in the contract:
 - `client_id` is treated as part of every mart grain
 - null search terms remain excluded in staging
 - `cfg_segments` is documented as a real segmentation mechanism, not placeholder-only metadata
+- currency handling now preserves original currency and adds EUR reporting values
+- search terms now remain date-filterable at daily grain
+- ad-level reporting now exists through `mart_ads_ad_performance_daily`
+- mart schemas are now enforced through dbt contracts in `gads_reporting_mart`
 
 Agreed direction, implementation pending:
 
-- currency handling must preserve original currency and add EUR reporting values
-- search terms must remain date-filterable at daily grain
 - keyword reporting should separate daily fact storage from audit rollups
 - data freshness should become a first-class metadata output
 - application queries must always enforce `client_id` filtering
-- ad-level reporting should be added as the next ads-only extension
-- mart schemas should move toward enforced dbt contracts
 
 Still open, with recommended resolution:
 
@@ -142,6 +142,28 @@ Comment:
 
 - move mart schemas toward enforced dbt contracts before the HTML layer depends on them
 
+## Current Implementation Snapshot
+
+Verified in this workspace on `2026-03-23`.
+
+- `dbt debug`: passed
+- `dbt seed --full-refresh`: passed
+- staging build: passed
+- mart build: passed
+- `dbt test`: `151/151` passed
+
+Current pilot mart row counts:
+
+- `mart_ads_overview_daily`: `201`
+- `mart_ads_overview_monthly`: `7`
+- `mart_ads_campaign_daily`: `1086`
+- `mart_ads_keyword_audit_detail`: `149`
+- `mart_ads_search_terms`: `86292`
+- `mart_ads_budget_exhaustion`: `1086`
+- `mart_ads_adgroup_daypart`: `72`
+- `mart_ads_alerts`: `115`
+- `mart_ads_ad_performance_daily`: `6574`
+
 ### 10. Infrastructure Decisions
 
 Recommendation:
@@ -215,6 +237,7 @@ Objects:
 - `cfg_accounts`
 - `cfg_account_groups`
 - `cfg_thresholds`
+- `cfg_exchange_rates`
 - `cfg_segments`
 
 Purpose:
@@ -287,7 +310,7 @@ Current pilot account:
 
 Status:
 
-- agreed, implementation pending
+- implemented for phase 1
 
 Rules:
 
@@ -304,7 +327,7 @@ Required direction:
 - `conversion_value_eur`
 - derived cost-per metrics should have both original-currency and EUR variants where relevant
 
-Planned config dependency:
+Current config dependency:
 
 - `cfg_exchange_rates`
 
@@ -529,13 +552,13 @@ Current severity contract:
 
 Status:
 
-- agreed, implementation pending
+- implemented for ad-level daily performance
 
-Planned backing mart:
+Current backing mart:
 
 - `mart_ads_ad_performance_daily`
 
-Planned supporting staging:
+Current supporting staging:
 
 - `stg_ad_dimension_latest`
 - `stg_ad_stats_daily`
@@ -638,13 +661,38 @@ Grain:
 
 - one row per `transfer_source`, `account_id`, `campaign_id`, `ad_group_id`, `keyword_id`, `search_term`, `report_date`
 
+Note:
+
+- multiple raw rows can still exist for the same daily search-term grain when Google Ads emits different `segments_search_term_match_type` values
+- that variance is collapsed in `mart_ads_search_terms`
+
+### `stg_account_fx_rates_daily`
+
+Status:
+
+- implemented
+
+Grain:
+
+- one row per `account_id`, `report_date`
+
+### `stg_exchange_rates_latest`
+
+Status:
+
+- implemented
+
+Grain:
+
+- one row per `currency`
+
 ### `stg_ad_dimension_latest`
 
 Status:
 
-- planned, implementation pending
+- implemented
 
-Planned grain:
+Grain:
 
 - latest ad state per `transfer_source`, `account_id`, `campaign_id`, `ad_group_id`, `ad_id`
 
@@ -652,9 +700,9 @@ Planned grain:
 
 Status:
 
-- planned, implementation pending
+- implemented
 
-Planned grain:
+Grain:
 
 - one row per `transfer_source`, `account_id`, `campaign_id`, `ad_group_id`, `ad_id`, `report_date`
 
@@ -721,6 +769,10 @@ Grain:
 
 - one row per `client_id`, `account_id`, `campaign_id`, `ad_group_id`, `keyword_id`, `search_term`, `report_date`
 
+Rollup rule:
+
+- `search_term_status` and `search_term_match_type` are collapsed to `MULTIPLE` when more than one raw value exists within the published daily mart grain
+
 ### `mart_ads_alerts`
 
 Grain:
@@ -731,9 +783,9 @@ Grain:
 
 Status:
 
-- planned, implementation pending
+- implemented
 
-Planned grain:
+Grain:
 
 - one row per `client_id`, `account_id`, `campaign_id`, `ad_group_id`, `ad_id`, `report_date`
 
@@ -789,7 +841,7 @@ Future option:
 
 Status:
 
-- agreed in direction, implementation pending
+- implemented for current marts
 
 Non-breaking changes:
 
@@ -807,7 +859,7 @@ Breaking changes:
 Policy direction:
 
 - breaking changes require a deprecation period
-- marts should move toward explicit dbt-enforced contracts
+- marts are protected by explicit dbt-enforced contracts
 - the reporting app should depend only on contracted mart schemas
 
 ## Verification Status
@@ -818,7 +870,7 @@ Current verified build status:
 - `dbt seed --full-refresh`: passed
 - staging build: passed
 - mart build: passed
-- `dbt test`: `87/87` passed
+- `dbt test`: `151/151` passed
 
 Verification reference:
 
@@ -827,7 +879,7 @@ Verification reference:
 
 Contract note:
 
-- the verified build still reflects the first executable pass
+- the verified build now includes dual-currency marts, ad-level reporting, FX staging helpers, and enforced mart contracts
 - some pass-2 contract additions above are agreed but not yet implemented in SQL
 
 ## Review Questions For The Team
@@ -840,11 +892,10 @@ Contract note:
 - Should alerts remain simple rule-based logic in V1?
 - Do we want data freshness shown on every report page?
 - Is application-level isolation sufficient for the first release?
-- Should ad-level reporting be added immediately after the overview, campaign, and keyword pages?
 - Do we want `cfg_segments` wired into campaign reporting in the next implementation pass?
 - Which additional client-specific exports must be modeled in staging next?
 - Do we want auction insights as a required source or optional manual upload?
-- Should mart contracts be enforced before the HTML layer is built?
+- Do we ratify the implemented dual-currency and ad-level contracts as the phase-1 baseline?
 
 ## Team Review Checklist
 

@@ -33,13 +33,25 @@ seeds:
       - name: threshold_value
         tests: [not_null]
 
+  - name: cfg_exchange_rates
+    description: Configurable EUR exchange rates used to convert native account currency into reporting EUR metrics.
+    columns:
+      - name: currency
+        tests: [not_null]
+      - name: valid_from
+        tests: [not_null]
+      - name: eur_exchange_rate
+        tests: [not_null]
+
 models:
   - name: mart_ads_overview_daily
     description: Daily account overview mart for the HTML overview page.
     columns:
       - name: client_id
+        data_type: string
         tests: [not_null]
       - name: account_id
+        data_type: string
         tests:
           - not_null
           - relationships:
@@ -47,38 +59,224 @@ models:
                 to: ref('cfg_accounts')
                 field: account_id
       - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: timezone
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
         tests: [not_null]
       - name: report_date
+        data_type: date
         tests: [not_null]
+      - name: cost_original
+        data_type: float64
+      - name: cost_eur
+        data_type: float64
+      - name: clicks
+        data_type: int64
+      - name: impressions
+        data_type: int64
+      - name: conversions
+        data_type: float64
+      - name: conversion_value_original
+        data_type: float64
+      - name: conversion_value_eur
+        data_type: float64
+      - name: ctr
+        data_type: float64
+      - name: cpc_original
+        data_type: float64
+      - name: cpc_eur
+        data_type: float64
+      - name: cpa_original
+        data_type: float64
+      - name: cpa_eur
+        data_type: float64
+      - name: roas
+        data_type: float64
 
   - name: mart_ads_overview_monthly
     description: Monthly rollup for high-level audit summaries.
     columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
       - name: account_id
+        data_type: string
+        tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
         tests: [not_null]
       - name: report_month
+        data_type: date
         tests: [not_null]
+      - name: cost_original
+        data_type: float64
+      - name: cost_eur
+        data_type: float64
+      - name: clicks
+        data_type: int64
+      - name: impressions
+        data_type: int64
+      - name: conversions
+        data_type: float64
+      - name: conversion_value_original
+        data_type: float64
+      - name: conversion_value_eur
+        data_type: float64
+      - name: ctr
+        data_type: float64
+      - name: cpc_original
+        data_type: float64
+      - name: cpc_eur
+        data_type: float64
+      - name: cpa_original
+        data_type: float64
+      - name: cpa_eur
+        data_type: float64
+      - name: roas
+        data_type: float64
 
   - name: mart_ads_campaign_daily
     description: Daily campaign performance mart for explorer and drilldown pages.
     columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
       - name: account_id
+        data_type: string
+        tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
         tests: [not_null]
       - name: campaign_id
+        data_type: string
         tests: [not_null]
       - name: campaign_name
+        data_type: string
         tests: [not_null]
+      - name: campaign_status
+        data_type: string
+      - name: campaign_serving_status
+        data_type: string
+      - name: campaign_channel_type
+        data_type: string
+      - name: campaign_channel_sub_type
+        data_type: string
+      - name: bidding_strategy_type
+        data_type: string
+      - name: campaign_budget_original
+        data_type: float64
+      - name: campaign_budget_eur
+        data_type: float64
       - name: report_date
+        data_type: date
         tests: [not_null]
+      - name: cost_original
+        data_type: float64
+      - name: cost_eur
+        data_type: float64
+      - name: clicks
+        data_type: int64
+      - name: impressions
+        data_type: int64
+      - name: conversions
+        data_type: float64
+      - name: conversion_value_original
+        data_type: float64
+      - name: conversion_value_eur
+        data_type: float64
+      - name: ctr
+        data_type: float64
+      - name: cpc_original
+        data_type: float64
+      - name: cpc_eur
+        data_type: float64
+      - name: cpa_original
+        data_type: float64
+      - name: cpa_eur
+        data_type: float64
+      - name: roas
+        data_type: float64
 
   - name: mart_ads_keyword_audit_detail
     description: Rollup of keyword performance with audit classification.
     columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
       - name: account_id
+        data_type: string
         tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
+        tests: [not_null]
+      - name: campaign_id
+        data_type: string
+        tests: [not_null]
+      - name: campaign_name
+        data_type: string
+      - name: ad_group_id
+        data_type: string
+        tests: [not_null]
+      - name: ad_group_name
+        data_type: string
       - name: keyword_id
+        data_type: string
         tests: [not_null]
+      - name: report_date_start
+        data_type: date
+        tests: [not_null]
+      - name: report_date_end
+        data_type: date
+        tests: [not_null]
+      - name: keyword_text
+        data_type: string
+      - name: match_type
+        data_type: string
+      - name: keyword_status
+        data_type: string
+      - name: quality_score
+        data_type: int64
+      - name: first_page_cpc_original
+        data_type: float64
+      - name: first_page_cpc_eur
+        data_type: float64
+      - name: top_of_page_cpc_original
+        data_type: float64
+      - name: top_of_page_cpc_eur
+        data_type: float64
+      - name: cost_original
+        data_type: float64
+      - name: cost_eur
+        data_type: float64
+      - name: clicks
+        data_type: int64
+      - name: impressions
+        data_type: int64
+      - name: conversions
+        data_type: float64
+      - name: conversion_value_original
+        data_type: float64
+      - name: conversion_value_eur
+        data_type: float64
+      - name: cpa_original
+        data_type: float64
+      - name: cpa_eur
+        data_type: float64
       - name: audit_reason
+        data_type: string
         tests:
           - not_null
           - accepted_values:
@@ -88,58 +286,281 @@ models:
   - name: mart_ads_budget_exhaustion
     description: Flags campaigns that likely exhausted budget early in the day.
     columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
       - name: account_id
+        data_type: string
+        tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
         tests: [not_null]
       - name: campaign_id
+        data_type: string
         tests: [not_null]
+      - name: campaign_name
+        data_type: string
       - name: report_date
+        data_type: date
         tests: [not_null]
+      - name: total_cost_original
+        data_type: float64
+      - name: total_cost_eur
+        data_type: float64
+      - name: first_active_hour
+        data_type: int64
+      - name: last_active_hour
+        data_type: int64
       - name: budget_exhausted_flag
+        data_type: bool
         tests: [not_null]
 
   - name: mart_ads_adgroup_daypart
     description: Day vs night rollup for ad groups.
     columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
       - name: account_id
+        data_type: string
+        tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
+        tests: [not_null]
+      - name: campaign_id
+        data_type: string
         tests: [not_null]
       - name: ad_group_id
+        data_type: string
         tests: [not_null]
+      - name: ad_group_name
+        data_type: string
       - name: daypart
+        data_type: string
         tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['day', 'night']
+      - name: cost_original
+        data_type: float64
+      - name: cost_eur
+        data_type: float64
+      - name: clicks
+        data_type: int64
+      - name: impressions
+        data_type: int64
+      - name: conversions
+        data_type: float64
+      - name: conversion_value_original
+        data_type: float64
+      - name: conversion_value_eur
+        data_type: float64
+      - name: cpa_original
+        data_type: float64
+      - name: cpa_eur
+        data_type: float64
+      - name: roas
+        data_type: float64
 
   - name: mart_ads_search_terms
-    description: Search term rollup used for waste and opportunity review.
+    description: Search term daily mart used for waste and opportunity review.
     columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
       - name: account_id
+        data_type: string
         tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
+        tests: [not_null]
+      - name: campaign_id
+        data_type: string
+        tests: [not_null]
+      - name: campaign_name
+        data_type: string
+      - name: ad_group_id
+        data_type: string
+        tests: [not_null]
+      - name: ad_group_name
+        data_type: string
+      - name: keyword_id
+        data_type: string
       - name: search_term
+        data_type: string
         tests: [not_null]
+      - name: search_term_status
+        data_type: string
+      - name: search_term_match_type
+        data_type: string
+      - name: report_date
+        data_type: date
+        tests: [not_null]
+      - name: cost_original
+        data_type: float64
+      - name: cost_eur
+        data_type: float64
+      - name: clicks
+        data_type: int64
+      - name: impressions
+        data_type: int64
+      - name: conversions
+        data_type: float64
+      - name: conversion_value_original
+        data_type: float64
+      - name: conversion_value_eur
+        data_type: float64
+      - name: ctr
+        data_type: float64
+      - name: cpc_original
+        data_type: float64
+      - name: cpc_eur
+        data_type: float64
+      - name: cpa_original
+        data_type: float64
+      - name: cpa_eur
+        data_type: float64
+      - name: roas
+        data_type: float64
 
   - name: mart_ads_auction_insights_monthly
     description: Optional monthly auction insights mart backed by manual uploads.
     columns:
+      - name: client_id
+        data_type: string
       - name: account_id
+        data_type: string
       - name: report_month
+        data_type: date
       - name: competitor_domain
+        data_type: string
+      - name: impression_share
+        data_type: float64
+      - name: overlap_rate
+        data_type: float64
+      - name: position_above_rate
+        data_type: float64
+      - name: outranking_share
+        data_type: float64
 
   - name: mart_ads_alerts
     description: Consolidated alert feed for the overview page.
     columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
       - name: account_id
+        data_type: string
+        tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: report_date
+        data_type: date
         tests: [not_null]
       - name: alert_type
+        data_type: string
         tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['conversion_drop', 'budget_exhausted', 'keyword_issue']
       - name: severity
+        data_type: string
         tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['high', 'medium']
+      - name: alert_message
+        data_type: string
+        tests: [not_null]
+
+  - name: mart_ads_ad_performance_daily
+    description: Daily ad-level performance mart for ad explorer and creative review.
+    columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
+      - name: account_id
+        data_type: string
+        tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
+        tests: [not_null]
+      - name: campaign_id
+        data_type: string
+        tests: [not_null]
+      - name: campaign_name
+        data_type: string
+      - name: ad_group_id
+        data_type: string
+        tests: [not_null]
+      - name: ad_group_name
+        data_type: string
+      - name: ad_id
+        data_type: string
+        tests: [not_null]
+      - name: ad_type
+        data_type: string
+      - name: ad_status
+        data_type: string
+      - name: approval_status
+        data_type: string
+      - name: ad_strength
+        data_type: string
+      - name: ad_name
+        data_type: string
+      - name: ad_label
+        data_type: string
+        tests: [not_null]
+      - name: headline_primary
+        data_type: string
+      - name: description_primary
+        data_type: string
+      - name: landing_page_url
+        data_type: string
+      - name: final_urls
+        data_type: string
+      - name: report_date
+        data_type: date
+        tests: [not_null]
+      - name: cost_original
+        data_type: float64
+      - name: cost_eur
+        data_type: float64
+      - name: clicks
+        data_type: int64
+      - name: impressions
+        data_type: int64
+      - name: conversions
+        data_type: float64
+      - name: conversion_value_original
+        data_type: float64
+      - name: conversion_value_eur
+        data_type: float64
+      - name: ctr
+        data_type: float64
+      - name: cpc_original
+        data_type: float64
+      - name: cpc_eur
+        data_type: float64
+      - name: cpa_original
+        data_type: float64
+      - name: cpa_eur
+        data_type: float64
+      - name: roas
+        data_type: float64
