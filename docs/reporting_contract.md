@@ -30,13 +30,128 @@ Agreed direction, implementation pending:
 - ad-level reporting should be added as the next ads-only extension
 - mart schemas should move toward enforced dbt contracts
 
-Still open:
+Still open, with recommended resolution:
 
 - exchange-rate cadence and source
+  Recommended resolution: use a monthly exchange-rate seed in phase 1, plus fixed mappings for pegged currencies where appropriate; move to a daily external feed before scaling volatile non-EUR accounts
 - UI default currency
+  Recommended resolution: use native currency by default on single-account views and EUR by default on cross-account or client-rollup views
 - whether RSA asset-level reporting belongs in the first ad-level release
+  Recommended resolution: defer RSA asset-level reporting from the first ad-level release
 - whether row-level security is needed beyond the application layer
+  Recommended resolution: defer until direct BigQuery or BI-tool access is introduced
 - final environment and dataset naming strategy for dev, staging, and prod
+  Recommended resolution: handle this in a separate infrastructure design and use explicit per-environment dataset names rather than hidden suffix concatenation
+
+## Proposal Disposition
+
+This section records the current Codex recommendation on the review proposals.
+
+### 1. `client_id` On Every Mart Grain
+
+Recommendation:
+
+- accept
+
+Comment:
+
+- This should be treated as part of the formal mart grain and the required downstream filter key.
+
+### 2. Date Ranges On Search Terms And Keyword Audit
+
+Recommendation:
+
+- accept with modification
+
+Comment:
+
+- `mart_ads_search_terms` should remain daily-grain.
+- keyword reporting should split into a daily fact mart plus an audit rollup mart.
+
+### 3. Currency Handling
+
+Recommendation:
+
+- accept
+
+Comment:
+
+- high priority
+- staging should preserve original-currency semantics
+- mart layer should expose both native-currency and EUR values
+
+### 4. Data Freshness
+
+Recommendation:
+
+- accept
+
+Comment:
+
+- implement a freshness metadata mart
+- do not rely only on standard dbt source freshness if wildcarded source shapes make that brittle
+
+### 5. Client Data Access And Isolation
+
+Recommendation:
+
+- accept for phase 1 at the application layer
+
+Comment:
+
+- defer row-level security unless direct warehouse or BI access is introduced
+
+### 6. Ad-Level Reporting
+
+Recommendation:
+
+- accept
+
+Comment:
+
+- add ad-level performance next
+- defer RSA asset-level detail from the first release
+
+### 7. `cfg_segments` Purpose And Status
+
+Recommendation:
+
+- accept and wire into campaign reporting
+
+Comment:
+
+- this is a useful agency-facing grouping mechanism and should not remain placeholder-only
+
+### 8. Alert Thresholds Linkage
+
+Recommendation:
+
+- defer
+
+Comment:
+
+- the current simple rule-based alerting is sufficient for the first release
+
+### 9. Change Management And Versioning
+
+Recommendation:
+
+- accept
+
+Comment:
+
+- move mart schemas toward enforced dbt contracts before the HTML layer depends on them
+
+### 10. Infrastructure Decisions
+
+Recommendation:
+
+- accept directionally, with a separate technical design pass
+
+Comment:
+
+- scheduling, environments, partitioning, monitoring, and backfill strategy all make sense
+- environment and dataset naming must be designed explicitly against the current schema-macro approach
 
 ## Purpose
 
