@@ -33,6 +33,7 @@ This repo is structured around a shared multi-account reporting model:
 - budget exhaustion
 - ad group daypart profile
 - alerts
+- first interactive report app
 
 ## Project Layout
 
@@ -85,6 +86,31 @@ Validate the operational runtime with:
 
 Validation details and the last verified results are tracked in `docs/verification.md`.
 
+## First Report App
+
+The first application layer lives in `app/` and reads directly from `gads_reporting_mart`.
+
+It currently includes:
+
+- shared client/account/date filters
+- KPI summary with previous-period deltas
+- daily spend vs conversion-value trend
+- campaign explorer
+- keyword audit table
+- search terms table
+- alerts table
+
+Run it locally with:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+./scripts/run_reporting_app.sh
+```
+
+Then open `http://127.0.0.1:8000`.
+
 ## Operational Runtime
 
 - `scripts/raw_freshness_check.py`
@@ -103,5 +129,6 @@ Validation details and the last verified results are tracked in `docs/verificati
 
 - `docs/reporting_contract.md`
 - `docs/contracts.md`
+- `docs/report_app.md`
 - `docs/infrastructure_design.md`
 - `docs/operations_design.md`

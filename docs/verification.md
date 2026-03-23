@@ -86,6 +86,30 @@ Operational note:
 - `gcloud run jobs execute ... --args` on the installed SDK version emitted an invalid `priorityTier` override payload for this job type.
 - Manual verification was executed successfully via the Cloud Run Jobs REST `:run` endpoint with container arg overrides instead.
 
+## Report App Verification
+
+Verified the first report application layer in this workspace on `2026-03-24`.
+
+- `python -m compileall app`: passed
+- `python -m pytest tests/unit/test_reporting_app.py tests/unit/test_raw_freshness.py tests/unit/test_schema_mapping.py tests/unit/test_release_orchestrator.py`: `14/14` passed
+- direct `BigQueryReportingService.get_filter_options()`: passed
+- direct `BigQueryReportingService.get_dashboard_data(...)`: passed
+- local `uvicorn` app startup: passed on `http://127.0.0.1:8000`
+- `GET /healthz`: passed
+- `GET /api/options`: passed
+- `GET /api/dashboard`: passed
+- `GET /`: passed
+
+Verified live preview payload against `gads-export-all`:
+
+- default preview range: `2026-02-21` through `2026-03-22`
+- trend points returned: `30`
+- campaign rows returned: `10`
+- keyword rows returned: `121`
+- search term rows returned: `250`
+- alert rows returned: `50`
+- summary spend: `6952.132867999999 EUR`
+
 ## Current Mart Row Counts
 
 - `mart_ads_overview_daily`: `201`
