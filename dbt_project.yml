@@ -1,0 +1,32 @@
+name: google_ads_extractor
+version: 0.1.0
+config-version: 2
+profile: google_ads_extractor
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  raw_project_id: "gads-export-all"
+  raw_dataset: "gads_raw"
+  report_timezone: "Europe/Sofia"
+
+models:
+  google_ads_extractor:
+    staging:
+      +schema: gads_reporting_stg
+      +materialized: view
+    marts:
+      +schema: gads_reporting_mart
+      +materialized: table
+
+seeds:
+  google_ads_extractor:
+    +schema: gads_reporting_cfg
+    +quote_columns: false
+
