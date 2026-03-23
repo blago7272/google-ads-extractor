@@ -29,4 +29,30 @@ seeds:
   google_ads_extractor:
     +schema: gads_reporting_cfg
     +quote_columns: false
-
+    cfg_accounts:
+      +column_types:
+        client_id: string
+        account_id: string
+        account_name: string
+        timezone: string
+        currency: string
+        is_active: boolean
+        notes: string
+    cfg_account_groups:
+      +column_types:
+        group_id: string
+        account_id: string
+        notes: string
+    cfg_thresholds:
+      +column_types:
+        client_id: string
+        threshold_key: string
+        threshold_value: float64
+        notes: string
+    cfg_segments:
+      +column_types:
+        client_id: string
+        entity_level: string
+        entity_id: string
+        segment_label: string
+        notes: string

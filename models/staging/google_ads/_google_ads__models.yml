@@ -1,0 +1,140 @@
+version: 2
+
+models:
+  - name: stg_account_stats_daily
+    description: Daily account-level metrics normalized from the Google Ads transfer.
+    columns:
+      - name: transfer_source
+        tests: [not_null]
+      - name: account_id
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+      - name: impressions
+        tests: [not_null]
+      - name: clicks
+        tests: [not_null]
+
+  - name: stg_campaign_stats_daily
+    description: Daily campaign-level metrics normalized from the Google Ads transfer.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+
+  - name: stg_campaign_stats_hourly
+    description: Hourly campaign-level metrics normalized from the Google Ads transfer.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+      - name: report_hour
+        tests:
+          - not_null
+
+  - name: stg_ad_group_stats_daily
+    description: Daily ad group-level metrics normalized from the Google Ads transfer.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: ad_group_id
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+
+  - name: stg_ad_group_stats_hourly
+    description: Hourly ad group-level metrics normalized from the Google Ads transfer.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: ad_group_id
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+      - name: report_hour
+        tests: [not_null]
+
+  - name: stg_budget_stats_daily
+    description: Daily campaign budget perspective from the Google Ads transfer.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: campaign_budget_id
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+
+  - name: stg_campaign_dimension_latest
+    description: Latest campaign dimension state per account and transfer source.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: campaign_name
+        tests: [not_null]
+
+  - name: stg_ad_group_dimension_latest
+    description: Latest ad group dimension state per account and transfer source.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: ad_group_id
+        tests: [not_null]
+      - name: ad_group_name
+        tests: [not_null]
+
+  - name: stg_keyword_dimension_latest
+    description: Latest keyword dimension state per account and transfer source.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: ad_group_id
+        tests: [not_null]
+      - name: keyword_id
+        tests: [not_null]
+
+  - name: stg_keyword_performance_daily
+    description: Daily keyword performance fact used by the keyword audit.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: ad_group_id
+        tests: [not_null]
+      - name: keyword_id
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+
+  - name: stg_search_query_stats_daily
+    description: Daily search term performance fact used by the search terms report.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: ad_group_id
+        tests: [not_null]
+      - name: search_term
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+

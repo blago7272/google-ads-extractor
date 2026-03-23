@@ -7,5 +7,5 @@ select
     cast(null as float64) as overlap_rate,
     cast(null as float64) as position_above_rate,
     cast(null as float64) as outranking_share
+from (select 1 as placeholder)
 where false
-

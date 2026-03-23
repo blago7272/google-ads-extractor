@@ -5,4 +5,3 @@ default,low_quality_score,5,Quality score threshold for low QS flags
 default,budget_exhausted_zero_spend_hours,3,Consecutive near-zero spend hours after active spend
 default,budget_exhausted_min_cost_eur,25,Ignore tiny daily spend values
 default,anomaly_drop_pct,0.25,Relative drop used by the first-pass alerts
-

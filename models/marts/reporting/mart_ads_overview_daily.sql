@@ -22,6 +22,6 @@ select
     s.cpa,
     s.roas
 from account_stats s
-left join accounts a
+join accounts a
     on s.account_id = cast(a.account_id as string)
-
+   and a.is_active = true

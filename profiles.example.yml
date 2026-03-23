@@ -1,0 +1,12 @@
+google_ads_extractor:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: gads-export-all
+      dataset: gads_reporting_scratch
+      threads: 4
+      location: EU
+      priority: interactive
+

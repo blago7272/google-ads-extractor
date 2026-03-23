@@ -35,6 +35,6 @@ left join campaigns c
     on s.transfer_source = c.transfer_source
    and s.account_id = c.account_id
    and s.campaign_id = c.campaign_id
-left join accounts a
+join accounts a
     on s.account_id = cast(a.account_id as string)
-
+   and a.is_active = true

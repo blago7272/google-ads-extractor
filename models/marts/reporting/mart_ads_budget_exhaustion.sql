@@ -63,7 +63,7 @@ left join campaigns c
     on d.transfer_source = c.transfer_source
    and d.account_id = c.account_id
    and d.campaign_id = c.campaign_id
-left join accounts a
+join accounts a
     on d.account_id = cast(a.account_id as string)
+   and a.is_active = true
 cross join thresholds t
-

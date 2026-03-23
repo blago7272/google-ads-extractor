@@ -47,6 +47,6 @@ left join ad_groups g
    and b.account_id = g.account_id
    and b.campaign_id = g.campaign_id
    and b.ad_group_id = g.ad_group_id
-left join accounts a
+join accounts a
     on b.account_id = cast(a.account_id as string)
-
+   and a.is_active = true

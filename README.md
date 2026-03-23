@@ -54,3 +54,23 @@ This repo is structured around a shared multi-account reporting model:
 - Client-specific differences belong in config tables or staging adapters, not duplicated datasets and not frontend logic.
 - The eventual HTML layer should read from `gads_reporting_mart`, not from raw transfer tables.
 
+## Local Setup
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp profiles.example.yml ~/.dbt/profiles.yml
+dbt debug
+```
+
+## Validation
+
+Run the repeatable validation flow with:
+
+```bash
+./scripts/dbt_validate.sh
+```
+
+Validation details and the last verified results are tracked in `docs/verification.md`.
+

@@ -18,8 +18,8 @@ with src as (
         sum(metrics_conversions) as conversions,
         sum(metrics_conversions_value) as conversion_value
     from `{{ raw_project }}.{{ raw_dataset }}.p_ads_SearchQueryStats_*`
+    where search_term_view_search_term is not null
     group by 1, 2, 3, 4, 5, 6, 7, 8, 9
 )
 
 select * from src
-

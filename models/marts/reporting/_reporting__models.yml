@@ -1,0 +1,145 @@
+version: 2
+
+seeds:
+  - name: cfg_accounts
+    description: Managed account registry for the reporting layer.
+    columns:
+      - name: client_id
+        tests: [not_null]
+      - name: account_id
+        tests: [not_null, unique]
+      - name: account_name
+        tests: [not_null]
+      - name: timezone
+        tests: [not_null]
+      - name: currency
+        tests: [not_null]
+
+  - name: cfg_account_groups
+    description: Named groups of accounts used for rollups.
+    columns:
+      - name: group_id
+        tests: [not_null]
+      - name: account_id
+        tests: [not_null]
+
+  - name: cfg_thresholds
+    description: Thresholds used by alerting and audit logic.
+    columns:
+      - name: client_id
+        tests: [not_null]
+      - name: threshold_key
+        tests: [not_null]
+      - name: threshold_value
+        tests: [not_null]
+
+models:
+  - name: mart_ads_overview_daily
+    description: Daily account overview mart for the HTML overview page.
+    columns:
+      - name: client_id
+        tests: [not_null]
+      - name: account_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('cfg_accounts')
+                field: account_id
+      - name: account_name
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+
+  - name: mart_ads_overview_monthly
+    description: Monthly rollup for high-level audit summaries.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: report_month
+        tests: [not_null]
+
+  - name: mart_ads_campaign_daily
+    description: Daily campaign performance mart for explorer and drilldown pages.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: campaign_name
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+
+  - name: mart_ads_keyword_audit_detail
+    description: Rollup of keyword performance with audit classification.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: keyword_id
+        tests: [not_null]
+      - name: audit_reason
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['low_qs', 'intent_or_offer', 'low_volume', 'scale_but_fix_qs', 'ok']
+
+  - name: mart_ads_budget_exhaustion
+    description: Flags campaigns that likely exhausted budget early in the day.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: campaign_id
+        tests: [not_null]
+      - name: report_date
+        tests: [not_null]
+      - name: budget_exhausted_flag
+        tests: [not_null]
+
+  - name: mart_ads_adgroup_daypart
+    description: Day vs night rollup for ad groups.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: ad_group_id
+        tests: [not_null]
+      - name: daypart
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['day', 'night']
+
+  - name: mart_ads_search_terms
+    description: Search term rollup used for waste and opportunity review.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: search_term
+        tests: [not_null]
+
+  - name: mart_ads_auction_insights_monthly
+    description: Optional monthly auction insights mart backed by manual uploads.
+    columns:
+      - name: account_id
+      - name: report_month
+      - name: competitor_domain
+
+  - name: mart_ads_alerts
+    description: Consolidated alert feed for the overview page.
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: alert_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['conversion_drop', 'budget_exhausted', 'keyword_issue']
+      - name: severity
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['high', 'medium']
