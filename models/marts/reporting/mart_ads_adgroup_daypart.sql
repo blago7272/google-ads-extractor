@@ -45,6 +45,7 @@ bucketed as (
         currency,
         campaign_id,
         ad_group_id,
+        report_date,
         case
             when report_hour between 0 and 6 then 'night'
             else 'day'
@@ -57,7 +58,7 @@ bucketed as (
         sum(conversion_value_original) as conversion_value_original,
         sum(conversion_value_eur) as conversion_value_eur
     from hourly_enriched
-    group by 1, 2, 3, 4, 5, 6, 7, 8
+    group by 1, 2, 3, 4, 5, 6, 7, 8, 9
 )
 
 select
@@ -68,6 +69,7 @@ select
     b.campaign_id,
     b.ad_group_id,
     g.ad_group_name,
+    b.report_date,
     b.daypart,
     b.cost_original,
     b.cost_eur,

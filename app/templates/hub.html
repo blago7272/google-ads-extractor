@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="section-kicker">Management view</p>
+        <h2>Conclusions and status</h2>
+      </div>
+    </div>
+    <div id="conclusions-grid" class="insight-grid"></div>
+    <div id="status-card-grid" class="status-card-grid"></div>
+  </section>
+
+  <section class="kpi-grid" id="kpi-grid"></section>
+
+  <section class="split-panels">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">High-level trend</p>
+          <h2>Recent performance curve</h2>
+        </div>
+      </div>
+      <div id="trend-chart" class="trend-chart"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Immediate actions</p>
+          <h2>Top alerts</h2>
+        </div>
+      </div>
+      <div id="hub-alerts-list" class="table-shell"></div>
+    </section>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="section-kicker">Detailed reports</p>
+        <h2>Drilldowns from the hub</h2>
+      </div>
+    </div>
+    <div id="report-card-grid" class="report-card-grid"></div>
+  </section>
+{% endblock %}

@@ -4,6 +4,9 @@ const state = {
   tableData: new Map(),
 };
 
+const PAGE_KIND = document.body.dataset.pageKind;
+const REPORT_KIND = document.body.dataset.reportKind;
+
 const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const moneyFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const decimalFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
@@ -36,6 +39,19 @@ const TABLE_CONFIG = {
       { key: "roas", label: "ROAS", format: formatRatio },
     ],
   },
+  competition: {
+    searchInputId: "competition-search",
+    containerId: "competition-table",
+    defaultSort: { key: "report_month", direction: "desc" },
+    columns: [
+      { key: "report_month", label: "Month", format: formatMonth },
+      { key: "competitor_domain", label: "Competitor" },
+      { key: "impression_share", label: "IS", format: formatPercent },
+      { key: "overlap_rate", label: "Overlap", format: formatPercent },
+      { key: "position_above_rate", label: "Above us", format: formatPercent },
+      { key: "outranking_share", label: "Outrank share", format: formatPercent },
+    ],
+  },
   keywords: {
     searchInputId: "keywords-search",
     containerId: "keywords-table",
@@ -49,17 +65,6 @@ const TABLE_CONFIG = {
       { key: "conversions", label: "Conv.", format: formatDecimal },
       { key: "cpa_eur", label: "CPA", format: formatMoney },
       { key: "report_date_end", label: "Coverage end", format: formatDate },
-    ],
-  },
-  alerts: {
-    searchInputId: "alerts-search",
-    containerId: "alerts-table",
-    defaultSort: { key: "report_date", direction: "desc" },
-    columns: [
-      { key: "report_date", label: "Date", format: formatDate },
-      { key: "severity", label: "Severity", format: formatPill },
-      { key: "alert_type", label: "Type" },
-      { key: "alert_message", label: "Message" },
     ],
   },
   searchTerms: {
@@ -76,6 +81,66 @@ const TABLE_CONFIG = {
       { key: "roas", label: "ROAS", format: formatRatio },
     ],
   },
+  alerts: {
+    searchInputId: "alerts-search",
+    containerId: "alerts-table",
+    defaultSort: { key: "report_date", direction: "desc" },
+    columns: [
+      { key: "report_date", label: "Date", format: formatDate },
+      { key: "severity", label: "Severity", format: formatPill },
+      { key: "alert_type", label: "Type" },
+      { key: "alert_message", label: "Message" },
+    ],
+  },
+  daypart: {
+    searchInputId: "daypart-search",
+    containerId: "daypart-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "daypart", label: "Daypart", format: formatPill },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+      { key: "conversion_value_eur", label: "Conv. value", format: formatMoney },
+      { key: "cpa_eur", label: "CPA", format: formatMoney },
+      { key: "roas", label: "ROAS", format: formatRatio },
+    ],
+  },
+  daypartGroups: {
+    searchInputId: "daypart-groups-search",
+    containerId: "daypart-groups-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "ad_group_name", label: "Ad group" },
+      { key: "daypart", label: "Daypart", format: formatPill },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+      { key: "conversion_value_eur", label: "Conv. value", format: formatMoney },
+      { key: "cpa_eur", label: "CPA", format: formatMoney },
+      { key: "roas", label: "ROAS", format: formatRatio },
+    ],
+  },
+  budgetFlags: {
+    searchInputId: "budget-search",
+    containerId: "budget-table",
+    defaultSort: { key: "report_date", direction: "desc" },
+    columns: [
+      { key: "report_date", label: "Date", format: formatDate },
+      { key: "campaign_name", label: "Campaign" },
+      { key: "budget_exhausted_flag", label: "Flag", format: formatBooleanPill },
+      { key: "last_active_hour", label: "Last active hour", format: formatHour },
+      { key: "total_cost_eur", label: "Spend", format: formatMoney },
+    ],
+  },
+  hubAlerts: {
+    searchInputId: null,
+    containerId: "hub-alerts-list",
+    defaultSort: { key: "report_date", direction: "desc" },
+    columns: [
+      { key: "report_date", label: "Date", format: formatDate },
+      { key: "severity", label: "Severity", format: formatPill },
+      { key: "alert_message", label: "Message" },
+    ],
+  },
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -85,7 +150,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const options = await fetchJson("/api/options");
     state.options = options;
     populateFilters(options);
-    await refreshDashboard();
+    await refreshCurrentPage();
   } catch (error) {
     renderGlobalError(error);
   }
@@ -94,7 +159,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 function bindFilterEvents() {
   document.getElementById("filters-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    await refreshDashboard();
+    await refreshCurrentPage();
   });
 
   document.getElementById("reset-button").addEventListener("click", async () => {
@@ -106,24 +171,49 @@ function bindFilterEvents() {
     if (state.options.defaults.account_id) {
       document.getElementById("account-select").value = state.options.defaults.account_id;
     }
-    await refreshDashboard();
+    await refreshCurrentPage();
   });
 
   document.getElementById("client-select").addEventListener("change", () => {
     syncAccountOptions();
+    updateReportLinks();
   });
+
+  document.getElementById("account-select").addEventListener("change", updateReportLinks);
+  document.getElementById("date-from-input").addEventListener("change", updateReportLinks);
+  document.getElementById("date-to-input").addEventListener("change", updateReportLinks);
 }
 
 function showLoadingState() {
-  document.getElementById("kpi-grid").innerHTML = '<div class="loading-state">Loading metrics</div>';
-  ["campaigns-table", "keywords-table", "alerts-table", "search-terms-table", "trend-chart"].forEach((id) => {
-    document.getElementById(id).innerHTML = '<div class="loading-state">Loading data</div>';
+  if (document.getElementById("kpi-grid")) {
+    document.getElementById("kpi-grid").innerHTML = '<div class="loading-state">Loading metrics</div>';
+  }
+  [
+    "trend-chart",
+    "campaigns-table",
+    "competition-table",
+    "keywords-table",
+    "search-terms-table",
+    "alerts-table",
+    "daypart-table",
+    "budget-table",
+    "hub-alerts-list",
+    "report-card-grid",
+    "conclusions-grid",
+    "status-card-grid",
+    "timing-highlights",
+    "hour-chart",
+    "weekday-chart",
+  ].forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.innerHTML = '<div class="loading-state">Loading data</div>';
+    }
   });
 }
 
 function populateFilters(options) {
   const clientSelect = document.getElementById("client-select");
-  const accountSelect = document.getElementById("account-select");
   const clientIds = options.clients.map((item) => item.client_id);
 
   clientSelect.innerHTML = [
@@ -131,18 +221,32 @@ function populateFilters(options) {
     ...clientIds.map((clientId) => `<option value="${escapeHtml(clientId)}">${escapeHtml(clientId)}</option>`),
   ].join("");
 
-  applyFilterDefaults(options.defaults);
+  const urlFilters = readFiltersFromUrl();
+  applyFilterDefaults({
+    ...options.defaults,
+    ...urlFilters,
+  });
   syncAccountOptions();
-
-  if (options.defaults.account_id) {
-    accountSelect.value = options.defaults.account_id;
+  if (urlFilters.account_id || options.defaults.account_id) {
+    document.getElementById("account-select").value = urlFilters.account_id || options.defaults.account_id;
   }
+  updateReportLinks();
+}
+
+function readFiltersFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    client_id: params.get("client_id") || undefined,
+    account_id: params.get("account_id") || undefined,
+    date_from: params.get("date_from") || undefined,
+    date_to: params.get("date_to") || undefined,
+  };
 }
 
 function applyFilterDefaults(defaults) {
   document.getElementById("client-select").value = defaults.client_id || "";
-  document.getElementById("date-from-input").value = defaults.date_from;
-  document.getElementById("date-to-input").value = defaults.date_to;
+  document.getElementById("date-from-input").value = defaults.date_from || "";
+  document.getElementById("date-to-input").value = defaults.date_to || "";
 }
 
 function syncAccountOptions() {
@@ -165,13 +269,12 @@ function syncAccountOptions() {
   }
 }
 
-async function refreshDashboard() {
+function currentFilterQuery() {
   const params = new URLSearchParams();
   const clientId = document.getElementById("client-select").value;
   const accountId = document.getElementById("account-select").value;
   const dateFrom = document.getElementById("date-from-input").value;
   const dateTo = document.getElementById("date-to-input").value;
-
   if (clientId) {
     params.set("client_id", clientId);
   }
@@ -184,10 +287,78 @@ async function refreshDashboard() {
   if (dateTo) {
     params.set("date_to", dateTo);
   }
+  return params;
+}
 
+function updateReportLinks() {
+  const query = currentFilterQuery().toString();
+  const hubLink = document.getElementById("hub-link");
+  if (hubLink) {
+    hubLink.href = query ? `/?${query}` : "/";
+  }
+  document.querySelectorAll("[data-report-link]").forEach((link) => {
+    const reportName = link.dataset.reportName;
+    link.href = query ? `/reports/${reportName}?${query}` : `/reports/${reportName}`;
+  });
+}
+
+async function refreshCurrentPage() {
+  updateReportLinks();
   showLoadingState();
-  const data = await fetchJson(`/api/dashboard?${params.toString()}`);
-  renderDashboard(data);
+  const params = currentFilterQuery();
+  const endpoint = PAGE_KIND === "hub"
+    ? `/api/hub?${params.toString()}`
+    : `/api/reports/${REPORT_KIND}?${params.toString()}`;
+  const payload = await fetchJson(endpoint);
+  renderScope(payload.scope, payload.summary);
+  renderKpis(payload.summary, payload.previous_summary);
+
+  if (PAGE_KIND === "hub") {
+    renderHub(payload);
+    return;
+  }
+
+  if (REPORT_KIND === "overview") {
+    renderStatusCards(payload.status_cards, "status-card-grid");
+    renderTrendChart(payload.trend, "trend-chart");
+    renderTable("campaigns", payload.campaigns);
+    renderTable("competition", payload.competition || []);
+    return;
+  }
+
+  if (REPORT_KIND === "keywords") {
+    renderTable("keywords", payload.keywords || []);
+    renderTable("searchTerms", payload.search_terms || []);
+    renderTable("alerts", payload.alerts || []);
+    return;
+  }
+
+  if (REPORT_KIND === "timing") {
+    renderInsights(payload.timing_highlights || [], "timing-highlights");
+    renderBarChart("hour-chart", payload.hour_of_day || [], {
+      labelKey: "report_hour",
+      valueKey: "conversion_value_eur",
+      valueLabel: "Conversion value",
+      tooltipKeys: ["cost_eur", "roas"],
+      labelFormatter: (value) => `${String(value).padStart(2, "0")}:00`,
+    });
+    renderBarChart("weekday-chart", payload.weekday_profile || [], {
+      labelKey: "weekday_name",
+      valueKey: "conversion_value_eur",
+      valueLabel: "Conversion value",
+      tooltipKeys: ["cost_eur", "roas"],
+      labelFormatter: shortWeekday,
+    });
+    renderTable("daypart", payload.daypart || []);
+    renderTable("daypartGroups", payload.daypart_ad_groups || []);
+    renderTable("budgetFlags", payload.budget_flags || []);
+    return;
+  }
+
+  if (REPORT_KIND === "alerts") {
+    renderTable("alerts", payload.alerts || []);
+    renderTable("budgetFlags", payload.budget_flags || []);
+  }
 }
 
 async function fetchJson(url) {
@@ -200,28 +371,29 @@ async function fetchJson(url) {
   return response.json();
 }
 
-function renderDashboard(payload) {
-  renderScope(payload.scope, payload.summary);
-  renderKpis(payload.summary, payload.previous_summary);
-  renderTrendChart(payload.trend);
-  renderTable("campaigns", payload.campaigns);
-  renderTable("keywords", payload.keywords);
-  renderTable("alerts", payload.alerts);
-  renderTable("searchTerms", payload.search_terms);
+function renderHub(payload) {
+  renderInsights(payload.management_conclusions || [], "conclusions-grid");
+  renderStatusCards(payload.status_cards || [], "status-card-grid");
+  renderTrendChart(payload.trend || [], "trend-chart");
+  renderTable("hubAlerts", payload.top_alerts || []);
+  renderReportCards(payload.report_cards || []);
 }
 
 function renderScope(scope, summary) {
   document.getElementById("selected-range-label").textContent = `${formatDate(scope.date_from)} to ${formatDate(scope.date_to)}`;
   document.getElementById("comparison-range-label").textContent = `${formatDate(scope.previous_date_from)} to ${formatDate(scope.previous_date_to)}`;
   document.getElementById("scope-label").textContent = scope.account_id || scope.client_id || "All active accounts";
-
   const start = summary.report_date_start ? formatDate(summary.report_date_start) : formatDate(scope.date_from);
   const end = summary.report_date_end ? formatDate(summary.report_date_end) : formatDate(scope.date_to);
   document.getElementById("coverage-badge").textContent = `${start} to ${end}`;
 }
 
 function renderKpis(summary, previousSummary) {
-  const html = KPI_DEFS.map((definition) => {
+  const container = document.getElementById("kpi-grid");
+  if (!container) {
+    return;
+  }
+  container.innerHTML = KPI_DEFS.map((definition) => {
     const currentValue = summary?.[definition.key];
     const previousValue = previousSummary?.[definition.key];
     const delta = buildDelta(currentValue, previousValue);
@@ -233,11 +405,58 @@ function renderKpis(summary, previousSummary) {
       </article>
     `;
   }).join("");
-  document.getElementById("kpi-grid").innerHTML = html;
 }
 
-function renderTrendChart(rows) {
-  const host = document.getElementById("trend-chart");
+function renderStatusCards(cards, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) {
+    return;
+  }
+  container.innerHTML = cards.length
+    ? cards.map((card) => `
+      <article class="status-card ${escapeHtml(card.tone || "neutral")}">
+        <h3>${escapeHtml(card.title)}</h3>
+        <p>${escapeHtml(card.detail)}</p>
+      </article>
+    `).join("")
+    : '<div class="empty-state">No status cards available.</div>';
+}
+
+function renderInsights(items, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) {
+    return;
+  }
+  container.innerHTML = items.length
+    ? items.map((item) => `
+      <article class="insight-card">
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.detail)}</p>
+      </article>
+    `).join("")
+    : '<div class="empty-state">No insights available.</div>';
+}
+
+function renderReportCards(cards) {
+  const container = document.getElementById("report-card-grid");
+  if (!container) {
+    return;
+  }
+  const query = currentFilterQuery().toString();
+  container.innerHTML = cards.map((card) => `
+    <a class="report-card" href="/reports/${escapeHtml(card.report_name)}${query ? `?${query}` : ""}">
+      <h3>${escapeHtml(card.title)}</h3>
+      <p>${escapeHtml(card.description)}</p>
+      <span class="report-card-meta">${escapeHtml(card.meta)}</span>
+    </a>
+  `).join("");
+}
+
+function renderTrendChart(rows, containerId) {
+  const host = document.getElementById(containerId);
+  if (!host) {
+    return;
+  }
   if (!rows.length) {
     host.innerHTML = '<div class="empty-state">No trend data in the selected range.</div>';
     return;
@@ -255,12 +474,6 @@ function renderTrendChart(rows) {
 
   host.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Trend chart">
-      <defs>
-        <linearGradient id="fill-a" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stop-color="rgba(191, 90, 54, 0.28)"></stop>
-          <stop offset="100%" stop-color="rgba(191, 90, 54, 0)"></stop>
-        </linearGradient>
-      </defs>
       ${buildGridLines(width, height, padding)}
       <polyline fill="none" stroke="#285e54" stroke-width="4" points="${pointsB}"></polyline>
       <polyline fill="none" stroke="#bf5a36" stroke-width="4" points="${pointsA}"></polyline>
@@ -271,19 +484,54 @@ function renderTrendChart(rows) {
   `;
 }
 
+function renderBarChart(containerId, rows, options) {
+  const host = document.getElementById(containerId);
+  if (!host) {
+    return;
+  }
+  if (!rows.length) {
+    host.innerHTML = '<div class="empty-state">No timing data in the selected range.</div>';
+    return;
+  }
+
+  const width = 1080;
+  const height = 320;
+  const padding = { top: 26, right: 16, bottom: 48, left: 28 };
+  const maxValue = Math.max(...rows.map((row) => Number(row[options.valueKey] || 0)), 1);
+  const barSpace = (width - padding.left - padding.right) / rows.length;
+  const barWidth = Math.max(Math.min(barSpace * 0.62, 42), 12);
+
+  const bars = rows.map((row, index) => {
+    const value = Number(row[options.valueKey] || 0);
+    const x = padding.left + index * barSpace + (barSpace - barWidth) / 2;
+    const y = pointY(value, height, padding, maxValue);
+    const barHeight = height - padding.bottom - y;
+    const label = options.labelFormatter ? options.labelFormatter(row[options.labelKey]) : row[options.labelKey];
+    return `
+      <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="8" fill="#bf5a36"></rect>
+      <text class="chart-label" x="${x + barWidth / 2}" y="${height - 20}" text-anchor="middle">${escapeHtml(String(label))}</text>
+    `;
+  }).join("");
+
+  host.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Bar chart">
+      ${buildGridLines(width, height, padding)}
+      <text x="${padding.left}" y="${padding.top - 6}" fill="#66766a" font-size="12">${escapeHtml(options.valueLabel)} by ${escapeHtml(options.labelKey)}</text>
+      ${bars}
+    </svg>
+  `;
+}
+
 function renderTable(name, rows) {
   const config = TABLE_CONFIG[name];
   const container = document.getElementById(config.containerId);
+  if (!container) {
+    return;
+  }
   state.tableData.set(name, rows);
-  const query = document.getElementById(config.searchInputId).value.toLowerCase();
-
+  const query = config.searchInputId ? document.getElementById(config.searchInputId).value.toLowerCase() : "";
   const tableState = state.tables.get(name) || { sortKey: config.defaultSort.key, direction: config.defaultSort.direction };
-  const filteredRows = rows.filter((row) => {
-    if (!query) {
-      return true;
-    }
-    return JSON.stringify(row).toLowerCase().includes(query);
-  });
+  const filteredRows = rows.filter((row) => !query || JSON.stringify(row).toLowerCase().includes(query));
   const sortedRows = [...filteredRows].sort((left, right) => compareRows(left, right, tableState.sortKey, tableState.direction));
 
   if (!sortedRows.length) {
@@ -315,10 +563,10 @@ function renderTable(name, rows) {
   `;
 
   state.tables.set(name, tableState);
-  bindTableInteractions(name, rows);
+  bindTableInteractions(name);
 }
 
-function bindTableInteractions(name, sourceRows) {
+function bindTableInteractions(name) {
   const config = TABLE_CONFIG[name];
   document.querySelectorAll(`button[data-table="${name}"]`).forEach((button) => {
     button.addEventListener("click", () => {
@@ -326,14 +574,16 @@ function bindTableInteractions(name, sourceRows) {
       const key = button.dataset.key;
       const direction = tableState.sortKey === key && tableState.direction === "desc" ? "asc" : "desc";
       state.tables.set(name, { sortKey: key, direction });
-      renderTable(name, state.tableData.get(name) || sourceRows);
+      renderTable(name, state.tableData.get(name) || []);
     });
   });
 
-  const searchInput = document.getElementById(config.searchInputId);
-  if (searchInput.dataset.bound !== "true") {
-    searchInput.addEventListener("input", () => renderTable(name, state.tableData.get(name) || []));
-    searchInput.dataset.bound = "true";
+  if (config.searchInputId) {
+    const searchInput = document.getElementById(config.searchInputId);
+    if (searchInput && searchInput.dataset.bound !== "true") {
+      searchInput.addEventListener("input", () => renderTable(name, state.tableData.get(name) || []));
+      searchInput.dataset.bound = "true";
+    }
   }
 }
 
@@ -341,7 +591,7 @@ function compareRows(left, right, key, direction) {
   const a = left?.[key];
   const b = right?.[key];
   let comparison = 0;
-  if (typeof a === "number" || typeof b === "number") {
+  if (typeof a === "number" || typeof b === "number" || (!Number.isNaN(Number(a)) && !Number.isNaN(Number(b)))) {
     comparison = Number(a || 0) - Number(b || 0);
   } else {
     comparison = String(a || "").localeCompare(String(b || ""), undefined, { numeric: true, sensitivity: "base" });
@@ -354,13 +604,6 @@ function renderSortMarker(tableState, key) {
     return "";
   }
   return tableState.direction === "desc" ? " ↓" : " ↑";
-}
-
-function formatCell(value, formatter) {
-  if (formatter) {
-    return formatter(value);
-  }
-  return escapeHtml(value ?? "—");
 }
 
 function buildDelta(currentValue, previousValue) {
@@ -402,6 +645,13 @@ function pointX(index, total, width, padding) {
 function pointY(value, height, padding, maxValue) {
   const drawableHeight = height - padding.top - padding.bottom;
   return padding.top + drawableHeight - (drawableHeight * value) / maxValue;
+}
+
+function formatCell(value, formatter) {
+  if (formatter) {
+    return formatter(value);
+  }
+  return escapeHtml(value ?? "—");
 }
 
 function formatMoney(value) {
@@ -453,14 +703,39 @@ function formatDate(value) {
   return dateFormat.format(new Date(`${value}T00:00:00`));
 }
 
+function formatMonth(value) {
+  if (!value) {
+    return "—";
+  }
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", { year: "numeric", month: "short" });
+}
+
+function formatHour(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return `${String(Number(value)).padStart(2, "0")}:00`;
+}
+
 function formatPill(value) {
   const safe = escapeHtml(String(value ?? "—"));
   const className = String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "_");
   return `<span class="pill ${className}">${safe}</span>`;
 }
 
+function formatBooleanPill(value) {
+  return value ? '<span class="pill medium">Flagged</span>' : '<span class="pill ok">OK</span>';
+}
+
+function shortWeekday(value) {
+  return String(value || "").slice(0, 3);
+}
+
 function renderGlobalError(error) {
-  document.getElementById("kpi-grid").innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  const target = document.getElementById("kpi-grid") || document.querySelector(".page-shell");
+  if (target) {
+    target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  }
 }
 
 function escapeHtml(value) {

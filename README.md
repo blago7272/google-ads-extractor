@@ -25,12 +25,15 @@ This repo is structured around a shared multi-account reporting model:
 
 ## First Ads-Only Modules
 
+- management hub
 - overview
 - daily trends
 - campaign explorer
 - keyword audit
 - search terms
 - budget exhaustion
+- hourly performance
+- weekday profile
 - ad group daypart profile
 - alerts
 - first interactive report app
@@ -93,12 +96,11 @@ The first application layer lives in `app/` and reads directly from `gads_report
 It currently includes:
 
 - shared client/account/date filters
-- KPI summary with previous-period deltas
-- daily spend vs conversion-value trend
-- campaign explorer
-- keyword audit table
-- search terms table
-- alerts table
+- management hub with conclusions and drilldown links
+- overview page with KPI summary, trend, campaigns, and competition
+- keyword and query audit page
+- timing page with time-of-day, day-of-week, ad-group daypart, and budget pacing
+- action queue page
 
 Run it locally with:
 

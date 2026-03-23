@@ -3,22 +3,19 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ app_title }}</title>
+    <title>{{ page_title }} | {{ app_title }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='/reporting.css') }}">
   </head>
-  <body>
+  <body data-page-kind="{{ page_kind }}" data-report-kind="{{ report_name or '' }}">
     <div class="page-shell">
       <header class="hero">
         <div class="hero-copy">
           <p class="eyebrow">Ads-only reporting</p>
-          <h1>{{ app_title }}</h1>
-          <p class="hero-text">
-            First application layer over the verified BigQuery marts. The page stays thin:
-            filters, rendering, sorting, and search happen here; metric logic stays in BigQuery.
-          </p>
+          <h1>{{ page_title }}</h1>
+          <p class="hero-text">{{ page_subtitle }}</p>
         </div>
         <div class="hero-meta">
           <div class="meta-card">
@@ -27,12 +24,26 @@
             <span id="coverage-badge" class="badge badge-muted">Loading coverage</span>
           </div>
           <div class="meta-card">
-            <span class="meta-label">Mode</span>
-            <strong>Interactive preview</strong>
-            <span class="meta-helper">Client-side sorting and search</span>
+            <span class="meta-label">Current page</span>
+            <strong>{{ active_label }}</strong>
+            <span class="meta-helper">Shared filters stay active across the whole report pack.</span>
           </div>
         </div>
       </header>
+
+      <nav class="top-nav panel-lite">
+        <a id="hub-link" class="nav-link{% if page_kind == 'hub' %} is-active{% endif %}" href="/">Hub</a>
+        {% for key, page in report_pages.items() %}
+          <a
+            class="nav-link{% if report_name == key %} is-active{% endif %}"
+            data-report-link
+            data-report-name="{{ key }}"
+            href="/reports/{{ key }}"
+          >
+            {{ page.title }}
+          </a>
+        {% endfor %}
+      </nav>
 
       <section class="filter-panel">
         <form id="filters-form" class="filters-grid">
@@ -74,63 +85,7 @@
         </div>
       </section>
 
-      <section class="kpi-grid" id="kpi-grid"></section>
-
-      <section class="panel chart-panel">
-        <div class="panel-head">
-          <div>
-            <p class="section-kicker">Daily trend</p>
-            <h2>Spend and conversion rhythm</h2>
-          </div>
-        </div>
-        <div id="trend-chart" class="trend-chart"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="section-kicker">Campaign explorer</p>
-            <h2>Campaigns by spend and return</h2>
-          </div>
-          <input id="campaigns-search" class="table-search" type="search" placeholder="Search campaigns">
-        </div>
-        <div id="campaigns-table" class="table-shell"></div>
-      </section>
-
-      <section class="split-panels">
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="section-kicker">Keyword audit</p>
-              <h2>Flagged keyword opportunities</h2>
-            </div>
-            <input id="keywords-search" class="table-search" type="search" placeholder="Search keywords">
-          </div>
-          <div id="keywords-table" class="table-shell"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="section-kicker">Alerts</p>
-              <h2>Action queue</h2>
-            </div>
-            <input id="alerts-search" class="table-search" type="search" placeholder="Search alerts">
-          </div>
-          <div id="alerts-table" class="table-shell"></div>
-        </section>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="section-kicker">Search terms</p>
-            <h2>Top spend terms in the selected range</h2>
-          </div>
-          <input id="search-terms-search" class="table-search" type="search" placeholder="Search terms">
-        </div>
-        <div id="search-terms-table" class="table-shell"></div>
-      </section>
+      {% block content %}{% endblock %}
     </div>
 
     <script src="{{ url_for('static', path='/reporting.js') }}"></script>

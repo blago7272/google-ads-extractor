@@ -97,6 +97,41 @@ body {
   border-radius: var(--radius-lg);
 }
 
+.panel-lite {
+  background: rgba(255, 250, 241, 0.72);
+  border: 1px solid rgba(216, 206, 183, 0.8);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-md);
+}
+
+.top-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 18px;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 10px 14px;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+  background: rgba(255, 253, 247, 0.65);
+}
+
+.nav-link.is-active {
+  background: var(--accent);
+  color: #fff8f3;
+  border-color: var(--accent);
+}
+
 .meta-card {
   display: grid;
   gap: 6px;
@@ -255,6 +290,75 @@ body {
   margin-bottom: 18px;
 }
 
+.status-card-grid,
+.insight-grid,
+.report-card-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.status-card-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.insight-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.report-card-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.status-card,
+.insight-card,
+.report-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  background: rgba(255, 253, 247, 0.82);
+}
+
+.status-card h3,
+.insight-card h3,
+.report-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.status-card p,
+.insight-card p,
+.report-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.status-card.positive {
+  background: rgba(220, 234, 229, 0.55);
+}
+
+.status-card.warning {
+  background: rgba(244, 231, 195, 0.7);
+}
+
+.status-card.negative {
+  background: rgba(245, 226, 226, 0.8);
+}
+
+.report-card {
+  display: grid;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.report-card-meta {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--support);
+}
+
 .panel-head {
   display: flex;
   align-items: end;
@@ -279,6 +383,16 @@ body {
   width: 100%;
   height: 320px;
   display: block;
+}
+
+.bar-chart svg text.chart-label {
+  font-size: 11px;
+  fill: var(--muted);
+}
+
+.bar-chart svg text.chart-value {
+  font-size: 11px;
+  fill: var(--ink);
 }
 
 .split-panels {
@@ -384,6 +498,11 @@ body {
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .status-card-grid,
+  .report-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -393,7 +512,10 @@ body {
 
   .filters-grid,
   .status-strip,
-  .kpi-grid {
+  .kpi-grid,
+  .insight-grid,
+  .status-card-grid,
+  .report-card-grid {
     grid-template-columns: 1fr;
   }
 

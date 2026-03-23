@@ -1,8 +1,8 @@
-# First Report App
+# Report App
 
 ## Scope
 
-The first application layer is a thin FastAPI service over the verified BigQuery marts.
+The application layer is a thin FastAPI service over the verified BigQuery marts.
 
 It intentionally does not recreate reporting logic in Python. BigQuery remains the source of truth for:
 
@@ -10,9 +10,11 @@ It intentionally does not recreate reporting logic in Python. BigQuery remains t
 - period aggregation
 - keyword audit classification
 - alert generation
+- timing analysis rollups
 
 The app is responsible for:
 
+- report routing
 - client, account, and date filters
 - interactive rendering
 - client-side sorting
@@ -21,33 +23,60 @@ The app is responsible for:
 
 ## Implemented Views
 
-Single dashboard page with:
+- `Hub`
+  Management-level conclusions, status blocks, recent trend, top alerts, and drilldown links.
+- `High-Level Overview`
+  KPI row, executive status blocks, trend curve, campaign explorer, and auction snapshot.
+- `Keyword and Query Audit`
+  Keyword issues, search terms, and related alerts.
+- `Timing Analysis`
+  Hour-of-day, day-of-week, daypart summary, ad-group timing profile, and budget pacing.
+- `Action Queue`
+  Consolidated alerts and budget flags.
 
-- KPI card row with previous-period deltas
-- daily trend chart
-- campaign explorer table
-- keyword audit table
-- alerts table
-- search terms table
+## Excel Alignment
+
+The current app structure intentionally pulls from the original workbook patterns:
+
+- `Обозр_акаунт`
+  Recast as the management hub plus the high-level overview page.
+- `Резюме_Одит`
+  Partly represented by the management conclusions and trend framing.
+- `Ключови_Думи` and `Keyword_Одит`
+  Recast as the keyword and query audit page.
+- `Бюджет_Лимит`, `Резюме_часови_анализ`, and `Профил_по_групи`
+  Recast as the timing page.
+
+Items still deferred from the workbook are the blended GA4 and ecommerce sheets.
 
 ## API Surface
 
 - `GET /`
-  HTML dashboard shell
+  HTML hub shell
+- `GET /reports/{report_name}`
+  HTML report shell for `overview`, `keywords`, `timing`, or `alerts`
 - `GET /healthz`
   lightweight app health check
 - `GET /api/options`
   active accounts and global date bounds
+- `GET /api/hub`
+  bundled management-hub payload for the selected scope
+- `GET /api/reports/{report_name}`
+  report-specific payload for the selected scope
 - `GET /api/dashboard`
-  bundled dashboard payload for the selected scope
+  compatibility alias that returns the overview payload
 
 ## Query Sources
 
 - `mart_ads_overview_daily`
 - `mart_ads_campaign_daily`
+- `mart_ads_hourly_performance_daily`
 - `mart_ads_keyword_audit_detail`
 - `mart_ads_search_terms`
+- `mart_ads_budget_exhaustion`
+- `mart_ads_adgroup_daypart`
 - `mart_ads_alerts`
+- `mart_ads_auction_insights_monthly`
 
 ## Local Run
 
@@ -60,8 +89,8 @@ Open `http://127.0.0.1:8000`.
 
 ## Next Additions
 
-- budget exhaustion panel
 - ad-level explorer
+- date-by-hour heatmap
+- weekday and hour benchmarks versus the previous window
 - CSV export endpoints
-- report routing by page instead of one dashboard
 - Cloud Run service packaging for the app layer

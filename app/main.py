@@ -14,20 +14,70 @@ from app.settings import ReportingAppSettings, get_settings
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+REPORT_PAGES = {
+    "overview": {
+        "title": "High-Level Overview",
+        "subtitle": "KPI trend, campaign mix, and competitive context.",
+    },
+    "keywords": {
+        "title": "Keyword and Query Audit",
+        "subtitle": "Keyword issues, search terms, and spend-without-return analysis.",
+    },
+    "timing": {
+        "title": "Timing Analysis",
+        "subtitle": "Hour-of-day, day-of-week, daypart, and budget pacing patterns.",
+    },
+    "alerts": {
+        "title": "Action Queue",
+        "subtitle": "Consolidated findings and budget flags that need review.",
+    },
+}
+
 app = FastAPI(title="Google Ads Signal Board")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(
+def hub(
     request: Request,
     settings: ReportingAppSettings = Depends(get_settings),
 ) -> HTMLResponse:
     return templates.TemplateResponse(
-        name="dashboard.html",
+        name="hub.html",
         request=request,
         context={
             "app_title": settings.app_title,
+            "page_kind": "hub",
+            "page_title": settings.app_title,
+            "page_subtitle": "Management hub with conclusions, high-level status, and links to deeper analysis modules.",
+            "active_label": "Main hub",
+            "report_name": None,
+            "report_pages": REPORT_PAGES,
+        },
+    )
+
+
+@app.get("/reports/{report_name}", response_class=HTMLResponse)
+def report_page(
+    report_name: str,
+    request: Request,
+    settings: ReportingAppSettings = Depends(get_settings),
+) -> HTMLResponse:
+    if report_name not in REPORT_PAGES:
+        raise HTTPException(status_code=404, detail="Unknown report page")
+    return templates.TemplateResponse(
+        name="report_page.html",
+        request=request,
+        context={
+            "app_title": settings.app_title,
+            "page_kind": "detail",
+            "page_title": REPORT_PAGES[report_name]["title"],
+            "page_subtitle": REPORT_PAGES[report_name]["subtitle"],
+            "active_label": REPORT_PAGES[report_name]["title"],
+            "report_name": report_name,
+            "report_title": REPORT_PAGES[report_name]["title"],
+            "report_subtitle": REPORT_PAGES[report_name]["subtitle"],
+            "report_pages": REPORT_PAGES,
         },
     )
 
@@ -47,8 +97,8 @@ def filter_options(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@app.get("/api/dashboard")
-def dashboard_data(
+@app.get("/api/hub")
+def hub_data(
     client_id: str | None = Query(default=None),
     account_id: str | None = Query(default=None),
     date_from: date | None = Query(default=None),
@@ -56,7 +106,47 @@ def dashboard_data(
     service: BigQueryReportingService = Depends(get_reporting_service),
 ) -> dict[str, object]:
     try:
-        return service.get_dashboard_data(
+        return service.get_hub_data(
+            client_id=client_id,
+            account_id=account_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/reports/{report_name}")
+def report_data(
+    report_name: str,
+    client_id: str | None = Query(default=None),
+    account_id: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    service: BigQueryReportingService = Depends(get_reporting_service),
+) -> dict[str, object]:
+    try:
+        return service.get_report_data(
+            report_name,
+            client_id=client_id,
+            account_id=account_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/dashboard")
+def dashboard_alias(
+    client_id: str | None = Query(default=None),
+    account_id: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    service: BigQueryReportingService = Depends(get_reporting_service),
+) -> dict[str, object]:
+    try:
+        return service.get_overview_data(
             client_id=client_id,
             account_id=account_id,
             date_from=date_from,

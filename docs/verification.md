@@ -88,25 +88,36 @@ Operational note:
 
 ## Report App Verification
 
-Verified the first report application layer in this workspace on `2026-03-24`.
+Verified the hub-and-drilldown report application layer in this workspace on `2026-03-24`.
 
 - `python -m compileall app`: passed
-- `python -m pytest tests/unit/test_reporting_app.py tests/unit/test_raw_freshness.py tests/unit/test_schema_mapping.py tests/unit/test_release_orchestrator.py`: `14/14` passed
+- `python -m pytest tests/unit/test_reporting_app.py tests/unit/test_raw_freshness.py tests/unit/test_schema_mapping.py tests/unit/test_release_orchestrator.py`: `17/17` passed
 - direct `BigQueryReportingService.get_filter_options()`: passed
-- direct `BigQueryReportingService.get_dashboard_data(...)`: passed
-- local `uvicorn` app startup: passed on `http://127.0.0.1:8000`
+- direct `BigQueryReportingService.get_hub_data(...)`: passed
+- direct `BigQueryReportingService.get_timing_data(...)`: passed
+- local `uvicorn` app startup: passed on `http://127.0.0.1:8001`
 - `GET /healthz`: passed
 - `GET /api/options`: passed
+- `GET /api/hub`: passed
+- `GET /api/reports/timing`: passed
 - `GET /api/dashboard`: passed
 - `GET /`: passed
+- `GET /reports/timing`: passed
 
 Verified live preview payload against `gads-export-all`:
 
 - default preview range: `2026-02-21` through `2026-03-22`
+- hub management conclusions returned: `5`
+- hub report cards returned: `4`
 - trend points returned: `30`
 - campaign rows returned: `10`
 - keyword rows returned: `121`
 - search term rows returned: `250`
+- hour-of-day rows returned: `24`
+- weekday rows returned: `7`
+- daypart rows returned: `2`
+- ad-group daypart rows returned: `68`
+- budget flag rows returned: `225`
 - alert rows returned: `50`
 - summary spend: `6952.132867999999 EUR`
 
@@ -118,7 +129,8 @@ Verified live preview payload against `gads-export-all`:
 - `mart_ads_keyword_audit_detail`: `149`
 - `mart_ads_search_terms`: `86292`
 - `mart_ads_budget_exhaustion`: `1086`
-- `mart_ads_adgroup_daypart`: `72`
+- `mart_ads_hourly_performance_daily`: `4713`
+- `mart_ads_adgroup_daypart`: `10632`
 - `mart_ads_alerts`: `115`
 - `mart_ads_ad_performance_daily`: `6574`
 
@@ -134,3 +146,5 @@ Verified live preview payload against `gads-export-all`:
 8. `mart_ads_search_terms` initially duplicated daily rows because Google Ads emitted multiple `search_term_match_type` values within the same search-term grain. Fixed by collapsing those rows and emitting `MULTIPLE` when the mart grain contains mixed status or match-type values.
 9. The original schema macro still routed `stage` targets into prod datasets. Fixed by making schema generation target-aware for `dev`, `stage`, and `prod`.
 10. A fresh `stage` environment initially failed because target-specific config seeds were missing. Fixed by adding automatic seed bootstrap in the release orchestrator when `cfg_*` tables are absent in the target dataset.
+11. The original app verification only covered a single dashboard page. Fixed by refactoring into a management hub plus detailed report routes and verifying both HTML and JSON report endpoints.
+12. The first timing pass lacked explicit time-of-day and day-of-week reporting even though the Excel workbook contained dedicated hourly-analysis sheets. Fixed by adding `mart_ads_hourly_performance_daily`, a timing page, and an ad-group daypart explorer.

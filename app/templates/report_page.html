@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="kpi-grid" id="kpi-grid"></section>
+
+  {% if report_name == "overview" %}
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Management status</p>
+          <h2>Executive status blocks</h2>
+        </div>
+      </div>
+      <div id="status-card-grid" class="status-card-grid"></div>
+    </section>
+
+    <section class="panel chart-panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Daily trend</p>
+          <h2>Spend and conversion rhythm</h2>
+        </div>
+      </div>
+      <div id="trend-chart" class="trend-chart"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Campaign explorer</p>
+          <h2>Campaigns by spend and return</h2>
+        </div>
+        <input id="campaigns-search" class="table-search" type="search" placeholder="Search campaigns">
+      </div>
+      <div id="campaigns-table" class="table-shell"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Competitive view</p>
+          <h2>Auction insights snapshot</h2>
+        </div>
+        <input id="competition-search" class="table-search" type="search" placeholder="Search competitors">
+      </div>
+      <div id="competition-table" class="table-shell"></div>
+    </section>
+  {% elif report_name == "keywords" %}
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Keyword audit</p>
+            <h2>Flagged keyword opportunities</h2>
+          </div>
+          <input id="keywords-search" class="table-search" type="search" placeholder="Search keywords">
+        </div>
+        <div id="keywords-table" class="table-shell"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Action queue</p>
+            <h2>Related alerts</h2>
+          </div>
+          <input id="alerts-search" class="table-search" type="search" placeholder="Search alerts">
+        </div>
+        <div id="alerts-table" class="table-shell"></div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Search terms</p>
+          <h2>Terms with the most spend in range</h2>
+        </div>
+        <input id="search-terms-search" class="table-search" type="search" placeholder="Search terms">
+      </div>
+      <div id="search-terms-table" class="table-shell"></div>
+    </section>
+  {% elif report_name == "timing" %}
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Timing highlights</p>
+          <h2>What the hour profile is saying</h2>
+        </div>
+      </div>
+      <div id="timing-highlights" class="insight-grid"></div>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel chart-panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Hour of day</p>
+            <h2>Conversion value by hour</h2>
+          </div>
+        </div>
+        <div id="hour-chart" class="trend-chart bar-chart"></div>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Day of week</p>
+            <h2>Conversion value by weekday</h2>
+          </div>
+        </div>
+        <div id="weekday-chart" class="trend-chart bar-chart"></div>
+      </section>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Daypart</p>
+            <h2>Night versus day summary</h2>
+          </div>
+          <input id="daypart-search" class="table-search" type="search" placeholder="Search dayparts">
+        </div>
+        <div id="daypart-table" class="table-shell"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Budget pacing</p>
+            <h2>Flagged exhausted days</h2>
+          </div>
+          <input id="budget-search" class="table-search" type="search" placeholder="Search campaigns">
+        </div>
+        <div id="budget-table" class="table-shell"></div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Ad group timing</p>
+          <h2>Which ad groups win by daypart</h2>
+        </div>
+        <input id="daypart-groups-search" class="table-search" type="search" placeholder="Search ad groups">
+      </div>
+      <div id="daypart-groups-table" class="table-shell"></div>
+    </section>
+  {% elif report_name == "alerts" %}
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Alert stream</p>
+            <h2>Consolidated issues</h2>
+          </div>
+          <input id="alerts-search" class="table-search" type="search" placeholder="Search alerts">
+        </div>
+        <div id="alerts-table" class="table-shell"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Budget flags</p>
+            <h2>Campaign-day pacing issues</h2>
+          </div>
+          <input id="budget-search" class="table-search" type="search" placeholder="Search campaigns">
+        </div>
+        <div id="budget-table" class="table-shell"></div>
+      </section>
+    </section>
+  {% endif %}
+{% endblock %}
