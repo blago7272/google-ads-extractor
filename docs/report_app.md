@@ -16,6 +16,7 @@ The app is responsible for:
 
 - report routing
 - client, account, and date filters
+- short-lived response caching
 - interactive rendering
 - client-side sorting
 - client-side text search
@@ -77,6 +78,24 @@ Items still deferred from the workbook are the blended GA4 and ecommerce sheets.
 - `mart_ads_adgroup_daypart`
 - `mart_ads_alerts`
 - `mart_ads_auction_insights_monthly`
+
+## Performance
+
+The app now uses an in-process TTL cache for:
+
+- filter options
+- scope-level BigQuery query results shared across hub and detail pages
+
+Relevant environment knobs:
+
+- `REPORTING_OPTIONS_CACHE_TTL_SECONDS`
+  default `3600`
+- `REPORTING_QUERY_CACHE_TTL_SECONDS`
+  default `900`
+- `REPORTING_QUERY_CACHE_MAX_ENTRIES`
+  default `256`
+
+This keeps the first request BigQuery-backed, while repeated loads and drilldowns within the same filter scope stay fast.
 
 ## Local Run
 

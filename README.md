@@ -101,6 +101,7 @@ It currently includes:
 - keyword and query audit page
 - timing page with time-of-day, day-of-week, ad-group daypart, and budget pacing
 - action queue page
+- in-process TTL caching for repeated report loads
 
 Run it locally with:
 

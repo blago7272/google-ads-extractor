@@ -8,6 +8,7 @@ from typing import Any
 
 from google.cloud import bigquery
 
+from app.cache import TtlCache
 from app.settings import ReportingAppSettings, get_settings
 
 
@@ -90,6 +91,14 @@ class BigQueryReportingService:
     def __init__(self, settings: ReportingAppSettings):
         self.settings = settings
         self.client = bigquery.Client(project=settings.project_id)
+        self.options_cache = TtlCache(
+            ttl_seconds=settings.options_cache_ttl_seconds,
+            max_entries=4,
+        )
+        self.query_cache = TtlCache(
+            ttl_seconds=settings.query_cache_ttl_seconds,
+            max_entries=settings.query_cache_max_entries,
+        )
 
     def mart_table(self, table_name: str) -> str:
         return f"`{self.settings.project_id}.{self.settings.mart_dataset}.{table_name}`"
@@ -107,8 +116,25 @@ class BigQueryReportingService:
         rows = list(self.client.query(sql, job_config=job_config).result())
         return _serialize_rows(rows)
 
+    def _scope_cache_key(self, scope: ScopeFilters) -> tuple[str | None, str | None, str, str]:
+        return (
+            scope.client_id,
+            scope.account_id,
+            scope.date_from.isoformat(),
+            scope.date_to.isoformat(),
+        )
+
+    def _cached_query_result(
+        self,
+        cache_name: str,
+        key_parts: tuple[Any, ...],
+        loader: callable,
+    ) -> list[dict[str, Any]]:
+        return self.query_cache.get_or_set((cache_name, *key_parts), loader)
+
     def get_filter_options(self) -> dict[str, Any]:
-        sql = f"""
+        def load_options() -> dict[str, Any]:
+            sql = f"""
 with active_accounts as (
   select
     client_id,
@@ -139,48 +165,50 @@ from active_accounts a
 left join account_windows w using (account_id)
 order by a.client_id, a.account_name
 """
-        accounts = self._run_query(sql)
-        if not accounts:
-            raise ValueError("No active accounts are configured for the reporting app")
+            accounts = self._run_query(sql)
+            if not accounts:
+                raise ValueError("No active accounts are configured for the reporting app")
 
-        valid_accounts = [row for row in accounts if row["min_report_date"] and row["max_report_date"]]
-        if not valid_accounts:
-            raise ValueError("Configured accounts do not have reporting data in mart_ads_overview_daily")
+            valid_accounts = [row for row in accounts if row["min_report_date"] and row["max_report_date"]]
+            if not valid_accounts:
+                raise ValueError("Configured accounts do not have reporting data in mart_ads_overview_daily")
 
-        min_date = min(date.fromisoformat(row["min_report_date"]) for row in valid_accounts)
-        max_date = max(date.fromisoformat(row["max_report_date"]) for row in valid_accounts)
-        default_client_id = valid_accounts[0]["client_id"]
-        default_account_id = valid_accounts[0]["account_id"]
-        default_from, default_to = resolve_date_window(
-            min_date=min_date,
-            max_date=max_date,
-            requested_from=None,
-            requested_to=None,
-            default_window_days=self.settings.default_window_days,
-        )
+            min_date = min(date.fromisoformat(row["min_report_date"]) for row in valid_accounts)
+            max_date = max(date.fromisoformat(row["max_report_date"]) for row in valid_accounts)
+            default_client_id = valid_accounts[0]["client_id"]
+            default_account_id = valid_accounts[0]["account_id"]
+            default_from, default_to = resolve_date_window(
+                min_date=min_date,
+                max_date=max_date,
+                requested_from=None,
+                requested_to=None,
+                default_window_days=self.settings.default_window_days,
+            )
 
-        clients: list[dict[str, str]] = []
-        seen_clients: set[str] = set()
-        for row in valid_accounts:
-            if row["client_id"] in seen_clients:
-                continue
-            seen_clients.add(row["client_id"])
-            clients.append({"client_id": row["client_id"]})
+            clients: list[dict[str, str]] = []
+            seen_clients: set[str] = set()
+            for row in valid_accounts:
+                if row["client_id"] in seen_clients:
+                    continue
+                seen_clients.add(row["client_id"])
+                clients.append({"client_id": row["client_id"]})
 
-        return {
-            "clients": clients,
-            "accounts": valid_accounts,
-            "date_bounds": {
-                "min_report_date": min_date.isoformat(),
-                "max_report_date": max_date.isoformat(),
-            },
-            "defaults": {
-                "client_id": default_client_id,
-                "account_id": default_account_id,
-                "date_from": default_from.isoformat(),
-                "date_to": default_to.isoformat(),
-            },
-        }
+            return {
+                "clients": clients,
+                "accounts": valid_accounts,
+                "date_bounds": {
+                    "min_report_date": min_date.isoformat(),
+                    "max_report_date": max_date.isoformat(),
+                },
+                "defaults": {
+                    "client_id": default_client_id,
+                    "account_id": default_account_id,
+                    "date_from": default_from.isoformat(),
+                    "date_to": default_to.isoformat(),
+                },
+            }
+
+        return self.options_cache.get_or_set(("filter_options",), load_options)
 
     def resolve_scope(
         self,
@@ -222,7 +250,8 @@ order by a.client_id, a.account_name
         ]
 
     def _summary_query(self, scope: ScopeFilters, *, previous: bool = False) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_summary() -> list[dict[str, Any]]:
+            sql = f"""
 select
   min(report_date) as report_date_start,
   max(report_date) as report_date_end,
@@ -247,10 +276,13 @@ where report_date between @date_from and @date_to
   and (@client_id is null or client_id = @client_id)
   and (@account_id is null or account_id = @account_id)
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope, previous=previous))
+            return self._run_query(sql, parameters=self._scope_parameters(scope, previous=previous))
+
+        return self._cached_query_result("summary", (*self._scope_cache_key(scope), previous), load_summary)
 
     def _trend_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_trend() -> list[dict[str, Any]]:
+            sql = f"""
 select
   report_date,
   sum(cost_eur) as cost_eur,
@@ -266,10 +298,13 @@ where report_date between @date_from and @date_to
 group by report_date
 order by report_date
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("trend", self._scope_cache_key(scope), load_trend)
 
     def _campaigns_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_campaigns() -> list[dict[str, Any]]:
+            sql = f"""
 select
   client_id,
   account_id,
@@ -305,10 +340,13 @@ group by client_id, account_id, account_name, currency, campaign_id, campaign_na
 order by cost_eur desc, conversions desc
 limit 250
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("campaigns", self._scope_cache_key(scope), load_campaigns)
 
     def _keywords_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_keywords() -> list[dict[str, Any]]:
+            sql = f"""
 select
   client_id,
   account_id,
@@ -345,10 +383,13 @@ order by
   cost_eur desc
 limit 250
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("keywords", self._scope_cache_key(scope), load_keywords)
 
     def _search_terms_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_search_terms() -> list[dict[str, Any]]:
+            sql = f"""
 select
   client_id,
   account_id,
@@ -374,10 +415,13 @@ group by client_id, account_id, account_name, currency, campaign_name, ad_group_
 order by cost_eur desc, conversions asc
 limit 250
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("search_terms", self._scope_cache_key(scope), load_search_terms)
 
     def _alerts_query(self, scope: ScopeFilters, *, limit: int = 250) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_alerts() -> list[dict[str, Any]]:
+            sql = f"""
 select
   client_id,
   account_id,
@@ -396,10 +440,13 @@ order by
   alert_type
 limit {limit}
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("alerts", (*self._scope_cache_key(scope), limit), load_alerts)
 
     def _competition_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_competition() -> list[dict[str, Any]]:
+            sql = f"""
 select
   report_month,
   competitor_domain,
@@ -414,10 +461,13 @@ where report_month between date_trunc(@date_from, month) and date_trunc(@date_to
 order by report_month desc, impression_share desc
 limit 60
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("competition", self._scope_cache_key(scope), load_competition)
 
     def _hour_of_day_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_hour_of_day() -> list[dict[str, Any]]:
+            sql = f"""
 select
   report_hour,
   sum(cost_eur) as cost_eur,
@@ -435,10 +485,13 @@ where report_date between @date_from and @date_to
 group by report_hour
 order by report_hour
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("hour_of_day", self._scope_cache_key(scope), load_hour_of_day)
 
     def _weekday_profile_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_weekday_profile() -> list[dict[str, Any]]:
+            sql = f"""
 select
   weekday_number,
   weekday_name,
@@ -457,10 +510,13 @@ where report_date between @date_from and @date_to
 group by weekday_number, weekday_name
 order by weekday_number
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("weekday_profile", self._scope_cache_key(scope), load_weekday_profile)
 
     def _daypart_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_daypart() -> list[dict[str, Any]]:
+            sql = f"""
 select
   daypart,
   sum(cost_eur) as cost_eur,
@@ -475,10 +531,13 @@ where report_date between @date_from and @date_to
 group by daypart
 order by daypart
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("daypart", self._scope_cache_key(scope), load_daypart)
 
     def _daypart_ad_groups_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_daypart_ad_groups() -> list[dict[str, Any]]:
+            sql = f"""
 select
   ad_group_name,
   daypart,
@@ -497,10 +556,13 @@ group by ad_group_name, daypart
 order by cost_eur desc, conversions desc
 limit 250
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("daypart_ad_groups", self._scope_cache_key(scope), load_daypart_ad_groups)
 
     def _budget_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
-        sql = f"""
+        def load_budget() -> list[dict[str, Any]]:
+            sql = f"""
 select
   client_id,
   account_id,
@@ -519,7 +581,9 @@ where report_date between @date_from and @date_to
 order by budget_exhausted_flag desc, report_date desc, total_cost_eur desc
 limit 250
 """
-        return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("budget", self._scope_cache_key(scope), load_budget)
 
     def _build_status_cards(
         self,
