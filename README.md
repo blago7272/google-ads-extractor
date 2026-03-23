@@ -8,6 +8,7 @@ This repo is structured around a shared multi-account reporting model:
 - config and thresholds live in seeds
 - staging models standardize transfer tables
 - mart models drive the HTML reporting layer
+- a small Python runtime orchestrates release gating and dbt promotion
 
 ## Proposed BigQuery Datasets
 
@@ -37,6 +38,7 @@ This repo is structured around a shared multi-account reporting model:
 
 ```text
 .
+├── deploy
 ├── docs
 ├── macros
 ├── models
@@ -45,6 +47,9 @@ This repo is structured around a shared multi-account reporting model:
 │   └── staging
 │       ├── google_ads
 │       └── manual
+├── orchestration
+├── profiles
+├── scripts
 └── seeds
 ```
 
@@ -72,7 +77,27 @@ Run the repeatable validation flow with:
 ./scripts/dbt_validate.sh
 ```
 
+Validate the operational runtime with:
+
+```bash
+./scripts/runtime_validate.sh
+```
+
 Validation details and the last verified results are tracked in `docs/verification.md`.
+
+## Operational Runtime
+
+- `scripts/raw_freshness_check.py`
+  Manual raw-import gate against active accounts in `cfg_accounts`.
+- `scripts/release_orchestrator.py`
+  Runs raw freshness, stage build, stage tests, prod build, and prod tests in order.
+  It also bootstraps missing config seeds in the target environment on first run.
+- `profiles/profiles.yml`
+  dbt profile template for `dev`, `stage`, and `prod` targets.
+- `deploy/cloud_run/deploy_release_orchestrator.sh`
+  Deploys the orchestrator as a `Cloud Run Job`.
+- `deploy/cloud_run/create_release_scheduler.sh`
+  Creates the daily `Cloud Scheduler` trigger against the Cloud Run Jobs API.
 
 ## Design Docs
 
