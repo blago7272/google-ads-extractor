@@ -49,6 +49,43 @@ Stage orchestrator run result:
 - stage test: `151/151` tests passed
 - prod build: intentionally skipped
 
+## GCP Deployment Verification
+
+Verified deployment in project `gads-export-all` on `2026-03-24`.
+
+- enabled APIs: `run.googleapis.com`, `artifactregistry.googleapis.com`, `cloudbuild.googleapis.com`, `cloudscheduler.googleapis.com`, `iam.googleapis.com`
+- Artifact Registry repository: `europe-west1-docker.pkg.dev/gads-export-all/reporting`
+- deployed image: `europe-west1-docker.pkg.dev/gads-export-all/reporting/release-orchestrator:b8c9592`
+- Cloud Run Job: `reporting-release-orchestrator`
+- region: `europe-west1`
+- runtime service account: `dbt-runner@gads-export-all.iam.gserviceaccount.com`
+- scheduler service account: `scheduler-invoker@gads-export-all.iam.gserviceaccount.com`
+- Cloud Scheduler job: `reporting-release-orchestrator-daily`
+- schedule: `30 6 * * *`
+- time zone: `Europe/Sofia`
+
+Verified Cloud Run execution:
+
+- execution id: `reporting-release-orchestrator-q6b5z`
+- args: `scripts/release_orchestrator.py --execution-ts=2026-03-23T12:00:00Z --skip-prod`
+- start time: `2026-03-23T23:02:18.192438Z`
+- completion time: `2026-03-23T23:04:56.720087Z`
+- Cloud Run execution result: completed successfully in `2m38.52s`
+
+Verified deployed runtime behavior:
+
+- raw freshness gate: passed
+- stage build: passed
+- stage test: passed
+- release completed: passed
+- prod release: intentionally skipped for deployment verification
+
+Operational note:
+
+- A default run at verification time would have failed the raw freshness gate because the latest raw import was still `2026-03-22` while a real-time execution expected `2026-03-23`.
+- `gcloud run jobs execute ... --args` on the installed SDK version emitted an invalid `priorityTier` override payload for this job type.
+- Manual verification was executed successfully via the Cloud Run Jobs REST `:run` endpoint with container arg overrides instead.
+
 ## Current Mart Row Counts
 
 - `mart_ads_overview_daily`: `201`
