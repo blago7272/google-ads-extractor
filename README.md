@@ -74,3 +74,9 @@ Run the repeatable validation flow with:
 
 Validation details and the last verified results are tracked in `docs/verification.md`.
 
+## Design Docs
+
+- `docs/reporting_contract.md`
+- `docs/contracts.md`
+- `docs/infrastructure_design.md`
+- `docs/operations_design.md`

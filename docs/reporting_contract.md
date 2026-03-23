@@ -43,6 +43,11 @@ Still open, with recommended resolution:
 - final environment and dataset naming strategy for dev, staging, and prod
   Recommended resolution: handle this in a separate infrastructure design and use explicit per-environment dataset names rather than hidden suffix concatenation
 
+Current design documents:
+
+- `docs/infrastructure_design.md`
+- `docs/operations_design.md`
+
 ## Proposal Disposition
 
 This section records the current Codex recommendation on the review proposals.

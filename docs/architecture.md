@@ -36,6 +36,7 @@ Configuration tables:
 - `cfg_accounts`
 - `cfg_account_groups`
 - `cfg_thresholds`
+- `cfg_exchange_rates`
 - `cfg_segments`
 
 ### `gads_reporting_stg`
@@ -53,6 +54,10 @@ Standardized staging views:
 - `stg_keyword_dimension_latest`
 - `stg_keyword_performance_daily`
 - `stg_search_query_stats_daily`
+- `stg_account_fx_rates_daily`
+- `stg_exchange_rates_latest`
+- `stg_ad_dimension_latest`
+- `stg_ad_stats_daily`
 
 ### `gads_reporting_mart`
 
@@ -66,6 +71,7 @@ Report-facing marts:
 - `mart_ads_adgroup_daypart`
 - `mart_ads_search_terms`
 - `mart_ads_alerts`
+- `mart_ads_ad_performance_daily`
 
 ### `gads_manual`
 
@@ -96,3 +102,8 @@ Dimension marts should include:
 - marts own reporting logic
 - app code only filters, renders, and exports
 
+## Related Design Docs
+
+- `docs/reporting_contract.md`
+- `docs/infrastructure_design.md`
+- `docs/operations_design.md`
