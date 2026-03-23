@@ -1,0 +1,12 @@
+.gcloudignore
+.git
+.gitignore
+.claude/
+.venv/
+.dbt/
+dbt_packages/
+logs/
+target/
+__pycache__/
+*.pyc
+docs/contract_review_infra_and_ops.md
