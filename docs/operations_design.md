@@ -13,42 +13,38 @@ This document defines the recommended scheduling, monitoring, backfill, and oper
 
 - reporting is primarily T-1, not real-time
 - raw Google Ads imports land in `gads_raw`
-- the reporting stack rebuilds after the raw import window
+- `gads_raw.p_ads_AccountStats_*` is the canonical daily raw-presence source for release gating
+- Google Ads raw transfer is expected to complete by `05:00-06:00` `Europe/Sofia` for the current pilot
+- the scheduled reporting release starts at `06:30`, leaving a `30-90` minute buffer after the expected raw import window
+- if the raw transfer completion window shifts later for `3` consecutive operating days, move the release window rather than weakening the freshness gate
 - the current pilot account runs in `Europe/Sofia`
 
-## Daily Schedule
+## Daily Release Window
 
-Recommended default schedule in `Europe/Sofia` time:
+Recommended default release window in `Europe/Sofia` time:
 
-### 1. Raw Freshness Check
+### 1. Scheduler Start
 
 - `06:30`
-- validate that raw data exists through the expected last date
+- trigger one `reporting-release-orchestrator` job
 
-### 2. Stage Build
+### 2. Orchestrated Release Sequence
 
-- `07:00`
-- run dbt staging models in `stage`
+The orchestrator runs these steps in order:
 
-### 3. Stage Tests
+1. raw freshness gate
+2. stage build
+3. stage tests
+4. prod build
+5. prod tests
+6. post-release freshness snapshot refresh
 
-- `07:10`
-- run dbt tests in `stage`
+Rules:
 
-### 4. Prod Build
-
-- `07:30`
-- run dbt marts in `prod` only if stage succeeded
-
-### 5. Prod Tests
-
-- `07:40`
-- run full dbt tests in `prod`
-
-### 6. Freshness Snapshot
-
-- `07:50`
-- persist or refresh `mart_data_freshness` once implemented
+- each step starts only after the previous step succeeds
+- prod never starts from a fixed clock gap after stage
+- the same container or image revision must be used from stage validation through prod release
+- the release stops on the first failing gate and alerts immediately
 
 Why one daily cycle first:
 
@@ -56,17 +52,27 @@ Why one daily cycle first:
 - daily full builds are operationally simpler
 - extra intraday runs can be added later if the HTML app needs them
 
+Why one orchestrator first:
+
+- it removes the race between stage and prod
+- it keeps `Cloud Scheduler` simple
+- it creates one release log stream per operating day
+- it is enough for phase 1 without introducing workflow tooling yet
+
 ## Jobs To Schedule
 
-Recommended job set:
+Required scheduled job set:
 
-- `reporting-raw-freshness-check`
+- `reporting-release-orchestrator`
+
+Recommended manual or on-demand jobs:
+
 - `reporting-dbt-stage-build`
 - `reporting-dbt-stage-test`
 - `reporting-dbt-prod-build`
 - `reporting-dbt-prod-test`
-
-Optional later:
+- `reporting-raw-freshness-check`
+- `reporting-data-freshness-refresh`
 
 - `reporting-dbt-prod-intraday-refresh`
 - `reporting-backfill-run`
@@ -75,19 +81,104 @@ Optional later:
 
 Stage policy:
 
-- run on every merged change or on the daily release window
+- run inside the daily orchestrated release window
+- can also run manually on merged changes or hotfix validation
 - must pass before prod promotion
 
 Prod policy:
 
+- run only if raw freshness and stage validation succeeded
 - run only from a known stage-validated revision
 - prefer a single promoted artifact, not separate ad hoc builds
 
 Failure policy:
 
+- if raw freshness fails, stop before stage and alert immediately
 - if stage fails, skip prod
 - if prod build fails, alert immediately
 - if prod tests fail after build, mark the release unhealthy and alert immediately
+
+## Raw Freshness Gate
+
+Phase-1 implementation uses a custom BigQuery probe, not `dbt source freshness`.
+
+Rationale:
+
+- the raw Google Ads tables are wildcarded by transfer suffix
+- release gating is account-specific, not only table-specific
+- the gate must answer "do all active accounts have T-1 raw data yet?" before `dbt` starts
+
+Canonical source:
+
+- `gads_raw.p_ads_AccountStats_*`
+
+Current phase-1 rule:
+
+- every active account in `cfg_accounts` must have raw data through its expected `T-1` date
+- expected `T-1` is computed in the account timezone from `cfg_accounts.timezone`
+- inactive or intentionally paused accounts are excluded by `cfg_accounts.is_active = false`
+
+Recommended probe outputs by account:
+
+- `client_id`
+- `account_id`
+- `account_timezone`
+- `expected_last_date`
+- `last_raw_date`
+- `days_lag`
+- `freshness_status`
+- `checked_at`
+
+Gate behavior:
+
+- pass when every active account has `last_raw_date >= expected_last_date`
+- fail when any active account is behind its expected `T-1` date
+- emit the failing account list in the alert payload
+
+Recommended query shape:
+
+```sql
+with active_accounts as (
+  select
+    client_id,
+    cast(account_id as string) as account_id,
+    timezone as account_timezone
+  from `gads-export-all.gads_reporting_cfg.cfg_accounts`
+  where is_active = true
+),
+raw_max_dates as (
+  select
+    cast(customer_id as string) as account_id,
+    max(segments_date) as last_raw_date
+  from `gads-export-all.gads_raw.p_ads_AccountStats_*`
+  group by 1
+)
+select
+  a.client_id,
+  a.account_id,
+  a.account_timezone,
+  date_sub(current_date(a.account_timezone), interval 1 day) as expected_last_date,
+  r.last_raw_date,
+  date_diff(
+    date_sub(current_date(a.account_timezone), interval 1 day),
+    r.last_raw_date,
+    day
+  ) as days_lag,
+  case
+    when r.last_raw_date >= date_sub(current_date(a.account_timezone), interval 1 day) then 'healthy'
+    when r.last_raw_date is null then 'error'
+    else 'error'
+  end as freshness_status,
+  current_timestamp() as checked_at
+from active_accounts a
+left join raw_max_dates r using (account_id);
+```
+
+Persistence and visibility:
+
+- the pre-build gate writes structured results to `Cloud Logging`
+- the post-build reporting surface remains `mart_data_freshness` once that mart is implemented
+- if historical raw-freshness diagnostics become necessary, persist the same probe output to BigQuery without changing the gate contract
 
 ## Freshness Monitoring
 
@@ -117,6 +208,11 @@ Recommended checks:
 - mart freshness by account
 - missing-date gaps inside active account ranges
 
+Recommended ownership split:
+
+- the raw freshness gate blocks the daily release before `dbt`
+- `mart_data_freshness` is the user-facing diagnostic surface after the release
+
 ## Monitoring And Alerts
 
 Recommended alert channels:
@@ -139,6 +235,7 @@ Minimum alert payload:
 - failing step
 - commit or image revision
 - affected accounts if known
+- expected last date and observed last raw date for freshness failures
 - link to logs
 
 ## Logging
@@ -207,6 +304,7 @@ When freshness fails:
 1. verify the raw import gap
 2. confirm whether the account was intentionally paused or newly onboarded
 3. decide whether to wait, rerun ingestion, or backfill
+4. if the release window itself is too early for `3` consecutive days, update the scheduled start time and document the new raw import completion window
 
 ## Phase-1 Non-Goals
 
@@ -217,8 +315,10 @@ When freshness fails:
 
 ## Decision Summary
 
-- one daily operating cycle in `Europe/Sofia`
-- stage before prod
+- one daily orchestrated release cycle in `Europe/Sofia`
+- one scheduled `reporting-release-orchestrator` job instead of fixed independent stage and prod clocks
+- raw freshness is a custom BigQuery gate against `gads_raw.p_ads_AccountStats_*`
+- stage must pass before prod promotion
 - explicit freshness and test gates
 - separate backfill path
 - alert on failures and freshness drift immediately
