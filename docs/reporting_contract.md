@@ -708,6 +708,7 @@ Current verified build status:
 Verification reference:
 
 - `docs/verification.md`
+- `docs/team_review_checklist.md`
 
 Contract note:
 
@@ -729,3 +730,9 @@ Contract note:
 - Which additional client-specific exports must be modeled in staging next?
 - Do we want auction insights as a required source or optional manual upload?
 - Should mart contracts be enforced before the HTML layer is built?
+
+## Team Review Checklist
+
+For a shorter meeting-oriented version of the open decisions, use:
+
+- `docs/team_review_checklist.md`
