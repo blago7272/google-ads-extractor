@@ -67,6 +67,40 @@ def resolve_date_window(
     return max(requested_from, min_date), min(requested_to, max_date)
 
 
+def resolve_date_window_with_latest_fallback(
+    min_date: date,
+    max_date: date,
+    requested_from: date | None,
+    requested_to: date | None,
+    default_window_days: int,
+) -> tuple[date, date]:
+    if requested_from and requested_to and requested_from > requested_to:
+        raise ValueError("date_from must be on or before date_to")
+
+    if requested_from is None and requested_to is None:
+        return resolve_date_window(
+            min_date=min_date,
+            max_date=max_date,
+            requested_from=None,
+            requested_to=None,
+            default_window_days=default_window_days,
+        )
+
+    effective_to = requested_to or max_date
+    effective_from = requested_from or max(min_date, effective_to - timedelta(days=max(default_window_days - 1, 0)))
+
+    if effective_to < min_date or effective_from > max_date:
+        return resolve_date_window(
+            min_date=min_date,
+            max_date=max_date,
+            requested_from=None,
+            requested_to=None,
+            default_window_days=default_window_days,
+        )
+
+    return max(effective_from, min_date), min(effective_to, max_date)
+
+
 @dataclass(frozen=True)
 class ScopeFilters:
     client_id: str | None
@@ -105,6 +139,9 @@ class BigQueryReportingService:
 
     def cfg_table(self, table_name: str) -> str:
         return f"`{self.settings.project_id}.{self.settings.cfg_dataset}.{table_name}`"
+
+    def auction_table(self, grain: str) -> str:
+        return f"`experimental-clients.sexwell_analyses.gads--impression_share--{grain}`"
 
     def _run_query(
         self,
@@ -230,6 +267,55 @@ order by a.client_id, a.account_name
         return ScopeFilters(
             client_id=client_id or None,
             account_id=account_id or None,
+            date_from=resolved_from,
+            date_to=resolved_to,
+        )
+
+    def _get_auction_date_bounds(self) -> dict[str, str]:
+        def load_bounds() -> dict[str, str]:
+            sql = f"""
+with bounds as (
+  select min(date) as min_bucket, max(date) as max_bucket from {self.auction_table('daily')}
+  union all
+  select min(date) as min_bucket, max(date) as max_bucket from {self.auction_table('weekly')}
+  union all
+  select min(month) as min_bucket, max(month) as max_bucket from {self.auction_table('monthly')}
+)
+select
+  min(min_bucket) as min_report_date,
+  max(max_bucket) as max_report_date
+from bounds
+"""
+            rows = self._run_query(sql)
+            if not rows or not rows[0]["min_report_date"] or not rows[0]["max_report_date"]:
+                raise ValueError("Auction Insights source tables do not have any rows")
+            return {
+                "min_report_date": rows[0]["min_report_date"],
+                "max_report_date": rows[0]["max_report_date"],
+            }
+
+        return self.options_cache.get_or_set(("auction_date_bounds",), load_bounds)
+
+    def resolve_auction_scope(
+        self,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> ScopeFilters:
+        bounds = self._get_auction_date_bounds()
+        min_date = date.fromisoformat(bounds["min_report_date"])
+        max_date = date.fromisoformat(bounds["max_report_date"])
+        full_window_days = (max_date - min_date).days + 1
+        resolved_from, resolved_to = resolve_date_window_with_latest_fallback(
+            min_date=min_date,
+            max_date=max_date,
+            requested_from=date_from,
+            requested_to=date_to,
+            default_window_days=full_window_days,
+        )
+        return ScopeFilters(
+            client_id=None,
+            account_id=None,
             date_from=resolved_from,
             date_to=resolved_to,
         )
@@ -1044,6 +1130,32 @@ order by cost_eur desc, clicks desc
 
         return self._cached_query_result("negative_candidates", self._scope_cache_key(scope), load_negative_candidates)
 
+    def _auction_rows_query(self, grain: str, scope: ScopeFilters) -> list[dict[str, Any]]:
+        bucket_field = "month" if grain == "monthly" else "date"
+
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  account_name,
+  customer_id,
+  {bucket_field} as bucket_date,
+  campaign_name,
+  display_url_domain,
+  cast(search_impr_share as float64) as search_impr_share,
+  cast(search_overlap_rate as float64) as search_overlap_rate,
+  cast(search_outranking_share as float64) as search_outranking_share
+from {self.auction_table(grain)}
+where {bucket_field} between @date_from and @date_to
+order by bucket_date desc, account_name, campaign_name, display_url_domain
+"""
+            parameters = [
+                bigquery.ScalarQueryParameter("date_from", "DATE", scope.date_from),
+                bigquery.ScalarQueryParameter("date_to", "DATE", scope.date_to),
+            ]
+            return self._run_query(sql, parameters=parameters)
+
+        return self._cached_query_result(f"auction_rows_{grain}", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
+
     def _ad_delta_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
         def load_ad_delta() -> list[dict[str, Any]]:
             sql = f"""
@@ -1516,6 +1628,57 @@ limit 160
             "negative_candidates": self._negative_candidate_query(scope),
         }
 
+    def get_auction_data(
+        self,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, Any]:
+        scope = self.resolve_auction_scope(
+            date_from=date_from,
+            date_to=date_to,
+        )
+        daily_rows = self._auction_rows_query("daily", scope)
+        weekly_rows = self._auction_rows_query("weekly", scope)
+        monthly_rows = self._auction_rows_query("monthly", scope)
+        all_rows = [*daily_rows, *weekly_rows, *monthly_rows]
+        distinct_accounts = sorted({row["account_name"] for row in all_rows if row.get("account_name")})
+        distinct_campaigns = sorted({row["campaign_name"] for row in all_rows if row.get("campaign_name")})
+        distinct_domains = sorted({row["display_url_domain"] for row in all_rows if row.get("display_url_domain")})
+        bounds = self._get_auction_date_bounds()
+
+        return {
+            "scope": {
+                **self._scope_payload(scope),
+                "scope_label": (
+                    distinct_accounts[0]
+                    if len(distinct_accounts) == 1
+                    else f"{len(distinct_accounts)} auction source accounts"
+                ),
+            },
+            "summary": {
+                "report_date_start": scope.date_from.isoformat(),
+                "report_date_end": scope.date_to.isoformat(),
+            },
+            "previous_summary": {},
+            "source_cards": [
+                {"title": "Accounts", "value": f"{len(distinct_accounts):,}", "helper": "Distinct account_name values in scope"},
+                {"title": "Campaigns", "value": f"{len(distinct_campaigns):,}", "helper": "Distinct campaigns in the selected window"},
+                {"title": "Domains", "value": f"{len(distinct_domains):,}", "helper": "Distinct display_url_domain values in scope"},
+                {"title": "Daily rows", "value": f"{len(daily_rows):,}", "helper": "Rows from the daily source table"},
+                {"title": "Weekly rows", "value": f"{len(weekly_rows):,}", "helper": "Rows from the weekly source table"},
+                {"title": "Monthly rows", "value": f"{len(monthly_rows):,}", "helper": "Rows from the monthly source table"},
+            ],
+            "source_note": (
+                "This report is siloed to the Auction Insights source tables. Daily, weekly, and monthly grains stay separate "
+                "because those source aggregations do not roll up safely into each other. "
+                f"Source coverage is {bounds['min_report_date']} through {bounds['max_report_date']}."
+            ),
+            "auction_daily": daily_rows,
+            "auction_weekly": weekly_rows,
+            "auction_monthly": monthly_rows,
+        }
+
     def get_creative_data(
         self,
         *,
@@ -1581,6 +1744,11 @@ limit 160
                 date_from=date_from,
                 date_to=date_to,
                 campaign_regex=campaign_regex,
+            )
+        if report_name == "auction":
+            return self.get_auction_data(
+                date_from=date_from,
+                date_to=date_to,
             )
         if report_name == "keywords":
             return self.get_keywords_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)

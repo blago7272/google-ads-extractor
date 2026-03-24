@@ -412,6 +412,39 @@ body {
   background: rgba(245, 226, 226, 0.8);
 }
 
+.auction-insight-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 100%;
+}
+
+.auction-insight-layout {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.auction-insight-group {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.auction-insight-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.auction-insight-card h3 {
+  line-height: 1.2;
+}
+
+.auction-insight-card p:last-child {
+  line-height: 1.55;
+}
+
 .report-card {
   display: grid;
   gap: 10px;
@@ -487,6 +520,10 @@ body {
   margin-bottom: 12px;
 }
 
+.auction-filter-options {
+  max-height: 220px;
+}
+
 .campaign-filter-option {
   display: flex;
   align-items: start;
@@ -521,6 +558,33 @@ body {
 
 .panel-subfilter-row {
   margin: -4px 0 14px;
+}
+
+.auction-panel-filter-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 220px;
+  justify-content: stretch;
+  align-items: start;
+}
+
+.auction-panel-filter-row .campaign-filter-control {
+  min-width: 0;
+}
+
+.auction-panel-filter-row .campaign-filter-toggle {
+  width: 100%;
+  min-width: 0;
+}
+
+.auction-inline-metric-control {
+  min-width: 0;
+  align-self: start;
+  justify-self: end;
+  gap: 0;
+}
+
+.auction-inline-metric-control select {
+  width: 100%;
 }
 
 .panel h2 {
@@ -592,6 +656,14 @@ body {
   margin-bottom: 12px;
 }
 
+.auction-trend-chart {
+  min-height: 240px;
+}
+
+.auction-trend-chart svg {
+  height: 240px;
+}
+
 .trend-tooltip {
   position: absolute;
   top: 0;
@@ -636,6 +708,12 @@ body {
   display: grid;
   grid-template-columns: 1.06fr 0.94fr;
   gap: 18px;
+}
+
+.auction-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .table-host {
@@ -835,6 +913,61 @@ body {
   white-space: nowrap;
 }
 
+[data-table-shell="auctionDaily"] .data-table,
+[data-table-shell="auctionWeekly"] .data-table,
+[data-table-shell="auctionMonthly"] .data-table {
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 0.9rem;
+}
+
+[data-table-shell="auctionDaily"] .data-table th,
+[data-table-shell="auctionDaily"] .data-table td,
+[data-table-shell="auctionWeekly"] .data-table th,
+[data-table-shell="auctionWeekly"] .data-table td,
+[data-table-shell="auctionMonthly"] .data-table th,
+[data-table-shell="auctionMonthly"] .data-table td {
+  padding: 10px 11px;
+}
+
+[data-table-shell="auctionDaily"] .data-table th:nth-child(1),
+[data-table-shell="auctionDaily"] .data-table td:nth-child(1),
+[data-table-shell="auctionWeekly"] .data-table th:nth-child(1),
+[data-table-shell="auctionWeekly"] .data-table td:nth-child(1),
+[data-table-shell="auctionMonthly"] .data-table th:nth-child(1),
+[data-table-shell="auctionMonthly"] .data-table td:nth-child(1) {
+  width: 120px;
+  white-space: nowrap;
+}
+
+[data-table-shell="auctionDaily"] .data-table th:nth-child(2),
+[data-table-shell="auctionDaily"] .data-table td:nth-child(2),
+[data-table-shell="auctionWeekly"] .data-table th:nth-child(2),
+[data-table-shell="auctionWeekly"] .data-table td:nth-child(2),
+[data-table-shell="auctionMonthly"] .data-table th:nth-child(2),
+[data-table-shell="auctionMonthly"] .data-table td:nth-child(2) {
+  width: 29%;
+}
+
+[data-table-shell="auctionDaily"] .data-table th:nth-child(3),
+[data-table-shell="auctionDaily"] .data-table td:nth-child(3),
+[data-table-shell="auctionWeekly"] .data-table th:nth-child(3),
+[data-table-shell="auctionWeekly"] .data-table td:nth-child(3),
+[data-table-shell="auctionMonthly"] .data-table th:nth-child(3),
+[data-table-shell="auctionMonthly"] .data-table td:nth-child(3) {
+  width: 23%;
+}
+
+[data-table-shell="auctionDaily"] .data-table th:nth-child(n+4),
+[data-table-shell="auctionDaily"] .data-table td:nth-child(n+4),
+[data-table-shell="auctionWeekly"] .data-table th:nth-child(n+4),
+[data-table-shell="auctionWeekly"] .data-table td:nth-child(n+4),
+[data-table-shell="auctionMonthly"] .data-table th:nth-child(n+4),
+[data-table-shell="auctionMonthly"] .data-table td:nth-child(n+4) {
+  width: 110px;
+  white-space: nowrap;
+}
+
 .data-table th button {
   padding: 0;
   border: none;
@@ -927,6 +1060,18 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .auction-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auction-panel-filter-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auction-insight-layout {
+    grid-template-columns: 1fr;
+  }
+
   .campaign-filter-control {
     min-width: 100%;
   }
@@ -971,6 +1116,14 @@ body {
   .status-card-grid,
   .report-card-grid,
   .trend-selector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auction-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auction-panel-filter-row {
     grid-template-columns: 1fr;
   }
 

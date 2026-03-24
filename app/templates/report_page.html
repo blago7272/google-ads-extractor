@@ -144,6 +144,191 @@
       <p id="competition-note" class="panel-note"></p>
       <div id="competition-table" class="table-host"></div>
     </section>
+  {% elif report_name == "auction" %}
+    <p id="auction-source-note" class="panel-note"></p>
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Monthly source grain</p>
+          <h2>Monthly auction insights</h2>
+        </div>
+      </div>
+      <div class="panel-filter-row panel-subfilter-row auction-panel-filter-row">
+        <div class="campaign-filter-control">
+          <button id="auction-monthly-account-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All accounts</button>
+          <div id="auction-monthly-account-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="auction-monthly-account-filter-search" class="table-search" type="search" placeholder="Filter accounts">
+            </label>
+            <div id="auction-monthly-account-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="auction-monthly-account-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="auction-monthly-account-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="campaign-filter-control">
+          <button id="auction-monthly-campaign-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All campaigns</button>
+          <div id="auction-monthly-campaign-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="auction-monthly-campaign-filter-search" class="table-search" type="search" placeholder="Filter campaigns">
+            </label>
+            <div id="auction-monthly-campaign-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="auction-monthly-campaign-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="auction-monthly-campaign-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="campaign-filter-control">
+          <button id="auction-monthly-domain-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All domains</button>
+          <div id="auction-monthly-domain-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="auction-monthly-domain-filter-search" class="table-search" type="search" placeholder="Filter domains">
+            </label>
+            <div id="auction-monthly-domain-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="auction-monthly-domain-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="auction-monthly-domain-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+        <label class="chart-control auction-inline-metric-control">
+          <select id="auction-monthly-metric-select" aria-label="Monthly auction metric">
+            <option value="search_impr_share" selected>Search IS</option>
+            <option value="search_overlap_rate">Overlap</option>
+            <option value="search_outranking_share">Outranking</option>
+          </select>
+        </label>
+      </div>
+      <div id="auction-monthly-chart" class="trend-chart auction-trend-chart"></div>
+      <div id="auction-monthly-table" class="table-host"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Weekly source grain</p>
+          <h2>Weekly auction insights</h2>
+        </div>
+      </div>
+      <div class="panel-filter-row panel-subfilter-row auction-panel-filter-row">
+        <div class="campaign-filter-control">
+          <button id="auction-weekly-account-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All accounts</button>
+          <div id="auction-weekly-account-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="auction-weekly-account-filter-search" class="table-search" type="search" placeholder="Filter accounts">
+            </label>
+            <div id="auction-weekly-account-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="auction-weekly-account-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="auction-weekly-account-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="campaign-filter-control">
+          <button id="auction-weekly-campaign-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All campaigns</button>
+          <div id="auction-weekly-campaign-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="auction-weekly-campaign-filter-search" class="table-search" type="search" placeholder="Filter campaigns">
+            </label>
+            <div id="auction-weekly-campaign-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="auction-weekly-campaign-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="auction-weekly-campaign-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="campaign-filter-control">
+          <button id="auction-weekly-domain-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All domains</button>
+          <div id="auction-weekly-domain-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="auction-weekly-domain-filter-search" class="table-search" type="search" placeholder="Filter domains">
+            </label>
+            <div id="auction-weekly-domain-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="auction-weekly-domain-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="auction-weekly-domain-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+        <label class="chart-control auction-inline-metric-control">
+          <select id="auction-weekly-metric-select" aria-label="Weekly auction metric">
+            <option value="search_impr_share" selected>Search IS</option>
+            <option value="search_overlap_rate">Overlap</option>
+            <option value="search_outranking_share">Outranking</option>
+          </select>
+        </label>
+      </div>
+      <div id="auction-weekly-chart" class="trend-chart auction-trend-chart"></div>
+      <div id="auction-weekly-table" class="table-host"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Daily source grain</p>
+          <h2>Daily auction insights</h2>
+        </div>
+      </div>
+      <div class="panel-filter-row panel-subfilter-row">
+        <div class="campaign-filter-control">
+          <button id="auction-daily-account-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All accounts</button>
+          <div id="auction-daily-account-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="auction-daily-account-filter-search" class="table-search" type="search" placeholder="Filter accounts">
+            </label>
+            <div id="auction-daily-account-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="auction-daily-account-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="auction-daily-account-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="campaign-filter-control">
+          <button id="auction-daily-campaign-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All campaigns</button>
+          <div id="auction-daily-campaign-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="auction-daily-campaign-filter-search" class="table-search" type="search" placeholder="Filter campaigns">
+            </label>
+            <div id="auction-daily-campaign-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="auction-daily-campaign-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="auction-daily-campaign-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="campaign-filter-control">
+          <button id="auction-daily-domain-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All domains</button>
+          <div id="auction-daily-domain-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="auction-daily-domain-filter-search" class="table-search" type="search" placeholder="Filter domains">
+            </label>
+            <div id="auction-daily-domain-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="auction-daily-domain-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="auction-daily-domain-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="auction-daily-table" class="table-host"></div>
+    </section>
   {% elif report_name == "keywords" %}
     <section class="split-panels">
       <section class="panel">

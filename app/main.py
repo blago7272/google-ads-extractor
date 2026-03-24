@@ -19,6 +19,10 @@ REPORT_PAGES = {
         "title": "High-Level Overview",
         "subtitle": "KPI trend, campaign mix, and competitive context.",
     },
+    "auction": {
+        "title": "Auction Insights",
+        "subtitle": "Daily, weekly, and monthly auction-share tables from the source export.",
+    },
     "keywords": {
         "title": "Keyword and Query Audit",
         "subtitle": "Keyword issues, search terms, and spend-without-return analysis.",

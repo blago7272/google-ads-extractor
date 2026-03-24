@@ -20,13 +20,19 @@
         <div class="hero-meta">
           <div class="meta-card">
             <span class="meta-label">Data source</span>
-            <strong>BigQuery marts</strong>
+            <strong>{% if report_name == "auction" %}BigQuery source tables{% else %}BigQuery marts{% endif %}</strong>
             <span id="coverage-badge" class="badge badge-muted">Loading coverage</span>
           </div>
           <div class="meta-card">
             <span class="meta-label">Current page</span>
             <strong>{{ active_label }}</strong>
-            <span class="meta-helper">Shared filters stay active across the whole report pack.</span>
+            <span class="meta-helper">
+              {% if report_name == "auction" %}
+                This page uses its own source-local auction filters below.
+              {% else %}
+                Shared filters stay active across the whole report pack.
+              {% endif %}
+            </span>
           </div>
         </div>
       </header>
@@ -49,11 +55,11 @@
         <form id="filters-form" class="filters-grid">
           <label>
             <span>Client</span>
-            <select id="client-select" name="client_id"></select>
+            <select id="client-select" name="client_id"{% if report_name == "auction" %} disabled{% endif %}></select>
           </label>
           <label>
             <span>Account</span>
-            <select id="account-select" name="account_id"></select>
+            <select id="account-select" name="account_id"{% if report_name == "auction" %} disabled{% endif %}></select>
           </label>
           <label>
             <span>Date from</span>

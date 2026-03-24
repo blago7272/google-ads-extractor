@@ -71,6 +71,17 @@ class FakeReportingService:
             "cpa_eur": 22.5,
         }
 
+    def _auction_scope(self) -> dict[str, str | None]:
+        return {
+            "client_id": None,
+            "account_id": None,
+            "date_from": "2025-01-01",
+            "date_to": "2025-03-23",
+            "previous_date_from": "2024-10-09",
+            "previous_date_to": "2024-12-31",
+            "scope_label": "Sexwell.bg (BGN)",
+        }
+
     def _overview_payload(self) -> dict[str, object]:
         return {
             "scope": self._scope(),
@@ -191,6 +202,54 @@ class FakeReportingService:
             "negative_candidates": [{"search_term": "free toy", "campaign_name": "Generic", "ad_group_name": "Generic Core", "search_term_status": "NONE", "cost_eur": 18.0, "clicks": 12, "impressions": 200, "ctr": 0.06, "conversions": 0.0}],
         }
 
+    def get_auction_data(self, **_: object) -> dict[str, object]:
+        return {
+            "scope": self._auction_scope(),
+            "summary": {
+                "report_date_start": "2025-01-01",
+                "report_date_end": "2025-03-23",
+            },
+            "previous_summary": {},
+            "source_cards": [
+                {"title": "Accounts", "value": "1", "helper": "Distinct account_name values in scope"},
+                {"title": "Campaigns", "value": "7", "helper": "Distinct campaigns in the selected window"},
+            ],
+            "source_note": "This report is siloed to the Auction Insights source tables.",
+            "auction_daily": [
+                {
+                    "bucket_date": "2025-03-23",
+                    "account_name": "Sexwell.bg (BGN)",
+                    "campaign_name": "ROI - Search - Categories",
+                    "display_url_domain": "You",
+                    "search_impr_share": 35.22,
+                    "search_overlap_rate": None,
+                    "search_outranking_share": None,
+                }
+            ],
+            "auction_weekly": [
+                {
+                    "bucket_date": "2025-03-17",
+                    "account_name": "Sexwell.bg (BGN)",
+                    "campaign_name": "ROI - Search - Categories",
+                    "display_url_domain": "competitor.bg",
+                    "search_impr_share": 40.11,
+                    "search_overlap_rate": 28.42,
+                    "search_outranking_share": 11.05,
+                }
+            ],
+            "auction_monthly": [
+                {
+                    "bucket_date": "2025-03-01",
+                    "account_name": "Sexwell.bg (BGN)",
+                    "campaign_name": "ROI - Search - Categories",
+                    "display_url_domain": "competitor.bg",
+                    "search_impr_share": 44.98,
+                    "search_overlap_rate": 31.12,
+                    "search_outranking_share": 12.77,
+                }
+            ],
+        }
+
     def get_creative_data(self, **_: object) -> dict[str, object]:
         return {
             "scope": self._scope(),
@@ -222,6 +281,8 @@ class FakeReportingService:
             return self.get_efficiency_data()
         if report_name == "coverage":
             return self.get_coverage_data()
+        if report_name == "auction":
+            return self.get_auction_data()
         if report_name == "creative":
             return self.get_creative_data()
         raise ValueError("Unknown report")
@@ -295,6 +356,15 @@ def test_new_report_pages_render() -> None:
     assert response.status_code == 200
     assert "Converting terms not yet covered" in response.text
 
+    response = client.get("/reports/auction")
+    assert response.status_code == 200
+    assert "Monthly auction insights" in response.text
+    assert "Daily auction insights" in response.text
+    assert "Weekly auction insights" in response.text
+    assert 'id="auction-monthly-account-filter-toggle"' in response.text
+    assert 'id="auction-monthly-metric-select"' in response.text
+    assert 'id="auction-daily-account-filter-toggle"' in response.text
+
     response = client.get("/reports/creative")
     assert response.status_code == 200
     assert "Winning ads" in response.text
@@ -349,6 +419,10 @@ def test_new_report_endpoints_work() -> None:
     response = client.get("/api/reports/coverage")
     assert response.status_code == 200
     assert response.json()["coverage_opportunities"][0]["search_term"] == "sexwell promo"
+
+    response = client.get("/api/reports/auction")
+    assert response.status_code == 200
+    assert response.json()["auction_weekly"][0]["display_url_domain"] == "competitor.bg"
 
     response = client.get("/api/reports/creative")
     assert response.status_code == 200
