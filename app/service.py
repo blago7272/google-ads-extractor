@@ -995,7 +995,6 @@ from rolled
 where conversions > 0
   and search_term_status not in ('ADDED', 'ADDED_EXCLUDED')
 order by conversion_value_eur desc, conversions desc
-limit 100
 """
             return self._run_query(sql, parameters=self._scope_parameters(scope))
 
@@ -1040,7 +1039,6 @@ where conversions = 0
   and clicks >= 10
   and search_term_status != 'ADDED_EXCLUDED'
 order by cost_eur desc, clicks desc
-limit 100
 """
             return self._run_query(sql, parameters=self._scope_parameters(scope))
 

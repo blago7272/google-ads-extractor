@@ -413,6 +413,7 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name", "ad_group_name", "search_term", "search_term_status"],
     containerId: "coverage-opportunities-table",
     defaultSort: { key: "conversion_value_eur", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     columns: [
       { key: "search_term", label: "Search term" },
       { key: "campaign_name", label: "Campaign" },
@@ -431,6 +432,7 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name", "ad_group_name", "search_term", "search_term_status"],
     containerId: "negative-candidates-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     columns: [
       { key: "search_term", label: "Search term" },
       { key: "campaign_name", label: "Campaign" },
@@ -1348,6 +1350,10 @@ async function refreshCurrentPage() {
   }
 
   if (REPORT_KIND === "coverage") {
+    resetTableStates([
+      "coverageOpportunities",
+      "negativeCandidates",
+    ]);
     renderTable("coverageOpportunities", payload.coverage_opportunities || []);
     renderTable("negativeCandidates", payload.negative_candidates || []);
     return;
