@@ -419,8 +419,22 @@ limit 250
 
         return self._cached_query_result("search_terms", self._scope_cache_key(scope), load_search_terms)
 
-    def _alerts_query(self, scope: ScopeFilters, *, limit: int = 250) -> list[dict[str, Any]]:
+    def _alerts_query(
+        self,
+        scope: ScopeFilters,
+        *,
+        limit: int = 250,
+        alert_types: tuple[str, ...] | None = None,
+    ) -> list[dict[str, Any]]:
         def load_alerts() -> list[dict[str, Any]]:
+            alert_type_filter = ""
+            parameters = self._scope_parameters(scope)
+            if alert_types:
+                alert_type_filter = "  and alert_type in unnest(@alert_types)\n"
+                parameters = [
+                    *parameters,
+                    bigquery.ArrayQueryParameter("alert_types", "STRING", list(alert_types)),
+                ]
             sql = f"""
 select
   client_id,
@@ -434,15 +448,16 @@ from {self.mart_table('mart_ads_alerts')}
 where report_date between @date_from and @date_to
   and (@client_id is null or client_id = @client_id)
   and (@account_id is null or account_id = @account_id)
+{alert_type_filter}
 order by
   report_date desc,
   case severity when 'high' then 1 when 'medium' then 2 else 3 end,
   alert_type
 limit {limit}
 """
-            return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=parameters)
 
-        return self._cached_query_result("alerts", (*self._scope_cache_key(scope), limit), load_alerts)
+        return self._cached_query_result("alerts", (*self._scope_cache_key(scope), limit, *(alert_types or ())), load_alerts)
 
     def _competition_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
         def load_competition() -> list[dict[str, Any]]:
@@ -869,7 +884,8 @@ limit 250
             "previous_summary": self._summary_query(scope, previous=True)[0],
             "keywords": self._keywords_query(scope),
             "search_terms": self._search_terms_query(scope),
-            "alerts": self._alerts_query(scope, limit=100),
+            "alerts": self._alerts_query(scope, limit=100, alert_types=("keyword_issue",)),
+            "alerts_definition": "This table only includes keyword_issue alerts generated from the same filtered account and date range.",
         }
 
     def get_timing_data(
@@ -898,6 +914,11 @@ limit 250
             "daypart": self._daypart_query(scope),
             "daypart_ad_groups": self._daypart_ad_groups_query(scope),
             "budget_flags": budget_rows,
+            "budget_flags_definition": (
+                "A flagged row means the campaign had meaningful spend, started serving after 07:00, "
+                "and then stopped spending several hours before the day ended. It is a pacing heuristic, "
+                "not proof of a hard campaign-budget cap."
+            ),
             "timing_highlights": self._build_timing_highlights(hour_of_day, weekday_profile, budget_rows),
         }
 

@@ -2,6 +2,7 @@ const state = {
   options: null,
   tables: new Map(),
   tableData: new Map(),
+  currentPayload: null,
 };
 
 const PAGE_KIND = document.body.dataset.pageKind;
@@ -22,6 +23,13 @@ const KPI_DEFS = [
   { key: "ctr", label: "CTR", formatter: formatPercent },
   { key: "cpa_eur", label: "CPA (EUR)", formatter: formatMoney },
 ];
+
+const CHART_METRICS = {
+  conversion_value_eur: { key: "conversion_value_eur", label: "Conversion value", formatter: formatMoney },
+  cost_eur: { key: "cost_eur", label: "Spend", formatter: formatMoney },
+  roas: { key: "roas", label: "ROAS", formatter: formatRatio },
+  conversions: { key: "conversions", label: "Conversions", formatter: formatDecimal },
+};
 
 const TABLE_CONFIG = {
   campaigns: {
@@ -54,6 +62,7 @@ const TABLE_CONFIG = {
   },
   keywords: {
     searchInputId: "keywords-search",
+    searchMode: "regex",
     containerId: "keywords-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
     columns: [
@@ -69,6 +78,19 @@ const TABLE_CONFIG = {
   },
   searchTerms: {
     searchInputId: "search-terms-search",
+    extraFilterInputIds: [
+      "search-terms-conversions-operator",
+      "search-terms-conversions-value",
+      "search-terms-spend-operator",
+      "search-terms-spend-value",
+      "search-terms-roas-operator",
+      "search-terms-roas-value",
+    ],
+    metricFilters: [
+      { key: "conversions", operatorId: "search-terms-conversions-operator", valueId: "search-terms-conversions-value" },
+      { key: "cost_eur", operatorId: "search-terms-spend-operator", valueId: "search-terms-spend-value" },
+      { key: "roas", operatorId: "search-terms-roas-operator", valueId: "search-terms-roas-value" },
+    ],
     containerId: "search-terms-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
     columns: [
@@ -145,6 +167,7 @@ const TABLE_CONFIG = {
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindFilterEvents();
+  bindPageSpecificEvents();
   showLoadingState();
   try {
     const options = await fetchJson("/api/options");
@@ -184,6 +207,20 @@ function bindFilterEvents() {
   document.getElementById("date-to-input").addEventListener("change", updateReportLinks);
 }
 
+function bindPageSpecificEvents() {
+  ["hour-metric-select", "weekday-metric-select"].forEach((id) => {
+    const input = document.getElementById(id);
+    if (input && input.dataset.bound !== "true") {
+      input.addEventListener("change", () => {
+        if (REPORT_KIND === "timing" && state.currentPayload) {
+          renderTimingCharts(state.currentPayload);
+        }
+      });
+      input.dataset.bound = "true";
+    }
+  });
+}
+
 function showLoadingState() {
   if (document.getElementById("kpi-grid")) {
     document.getElementById("kpi-grid").innerHTML = '<div class="loading-state">Loading metrics</div>';
@@ -196,6 +233,7 @@ function showLoadingState() {
     "search-terms-table",
     "alerts-table",
     "daypart-table",
+    "daypart-groups-table",
     "budget-table",
     "hub-alerts-list",
     "report-card-grid",
@@ -310,6 +348,7 @@ async function refreshCurrentPage() {
     ? `/api/hub?${params.toString()}`
     : `/api/reports/${REPORT_KIND}?${params.toString()}`;
   const payload = await fetchJson(endpoint);
+  state.currentPayload = payload;
   renderScope(payload.scope, payload.summary);
   renderKpis(payload.summary, payload.previous_summary);
 
@@ -327,6 +366,7 @@ async function refreshCurrentPage() {
   }
 
   if (REPORT_KIND === "keywords") {
+    renderNote("keyword-alerts-note", payload.alerts_definition);
     renderTable("keywords", payload.keywords || []);
     renderTable("searchTerms", payload.search_terms || []);
     renderTable("alerts", payload.alerts || []);
@@ -335,20 +375,8 @@ async function refreshCurrentPage() {
 
   if (REPORT_KIND === "timing") {
     renderInsights(payload.timing_highlights || [], "timing-highlights");
-    renderBarChart("hour-chart", payload.hour_of_day || [], {
-      labelKey: "report_hour",
-      valueKey: "conversion_value_eur",
-      valueLabel: "Conversion value",
-      tooltipKeys: ["cost_eur", "roas"],
-      labelFormatter: (value) => `${String(value).padStart(2, "0")}:00`,
-    });
-    renderBarChart("weekday-chart", payload.weekday_profile || [], {
-      labelKey: "weekday_name",
-      valueKey: "conversion_value_eur",
-      valueLabel: "Conversion value",
-      tooltipKeys: ["cost_eur", "roas"],
-      labelFormatter: shortWeekday,
-    });
+    renderNote("budget-definition-note", payload.budget_flags_definition);
+    renderTimingCharts(payload);
     renderTable("daypart", payload.daypart || []);
     renderTable("daypartGroups", payload.daypart_ad_groups || []);
     renderTable("budgetFlags", payload.budget_flags || []);
@@ -484,6 +512,28 @@ function renderTrendChart(rows, containerId) {
   `;
 }
 
+function renderTimingCharts(payload) {
+  const hourMetric = getChartMetric(document.getElementById("hour-metric-select")?.value);
+  const weekdayMetric = getChartMetric(document.getElementById("weekday-metric-select")?.value);
+
+  renderBarChart("hour-chart", payload.hour_of_day || [], {
+    labelKey: "report_hour",
+    valueKey: hourMetric.key,
+    valueLabel: hourMetric.label,
+    valueFormatter: hourMetric.formatter,
+    tooltipKeys: ["conversion_value_eur", "cost_eur", "roas", "conversions"],
+    labelFormatter: (value) => `${String(value).padStart(2, "0")}:00`,
+  });
+  renderBarChart("weekday-chart", payload.weekday_profile || [], {
+    labelKey: "weekday_name",
+    valueKey: weekdayMetric.key,
+    valueLabel: weekdayMetric.label,
+    valueFormatter: weekdayMetric.formatter,
+    tooltipKeys: ["conversion_value_eur", "cost_eur", "roas", "conversions"],
+    labelFormatter: shortWeekday,
+  });
+}
+
 function renderBarChart(containerId, rows, options) {
   const host = document.getElementById(containerId);
   if (!host) {
@@ -507,8 +557,11 @@ function renderBarChart(containerId, rows, options) {
     const y = pointY(value, height, padding, maxValue);
     const barHeight = height - padding.bottom - y;
     const label = options.labelFormatter ? options.labelFormatter(row[options.labelKey]) : row[options.labelKey];
+    const title = buildChartTooltip(label, row, options);
     return `
-      <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="8" fill="#bf5a36"></rect>
+      <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="8" fill="#bf5a36">
+        <title>${escapeHtml(title)}</title>
+      </rect>
       <text class="chart-label" x="${x + barWidth / 2}" y="${height - 20}" text-anchor="middle">${escapeHtml(String(label))}</text>
     `;
   }).join("");
@@ -522,6 +575,19 @@ function renderBarChart(containerId, rows, options) {
   `;
 }
 
+function buildChartTooltip(label, row, options) {
+  const parts = [
+    `${label}: ${options.valueLabel} ${stripHtml((options.valueFormatter || formatDecimal)(row[options.valueKey]))}`,
+  ];
+  (options.tooltipKeys || []).forEach((key) => {
+    if (key === options.valueKey) {
+      return;
+    }
+    parts.push(`${metricLabel(key)} ${stripHtml(formatMetricValue(key, row[key]))}`);
+  });
+  return parts.join(" | ");
+}
+
 function renderTable(name, rows) {
   const config = TABLE_CONFIG[name];
   const container = document.getElementById(config.containerId);
@@ -529,9 +595,14 @@ function renderTable(name, rows) {
     return;
   }
   state.tableData.set(name, rows);
-  const query = config.searchInputId ? document.getElementById(config.searchInputId).value.toLowerCase() : "";
   const tableState = state.tables.get(name) || { sortKey: config.defaultSort.key, direction: config.defaultSort.direction };
-  const filteredRows = rows.filter((row) => !query || JSON.stringify(row).toLowerCase().includes(query));
+  const { filteredRows, filterError } = filterRowsForTable(name, rows);
+
+  if (filterError) {
+    container.innerHTML = `<div class="empty-state">${escapeHtml(filterError)}</div>`;
+    return;
+  }
+
   const sortedRows = [...filteredRows].sort((left, right) => compareRows(left, right, tableState.sortKey, tableState.direction));
 
   if (!sortedRows.length) {
@@ -553,6 +624,7 @@ function renderTable(name, rows) {
         </tr>
       </thead>
       <tbody>
+        ${buildSummaryRow(name, filteredRows, config)}
         ${sortedRows.map((row) => `
           <tr>
             ${config.columns.map((column) => `<td>${formatCell(row[column.key], column.format)}</td>`).join("")}
@@ -585,6 +657,106 @@ function bindTableInteractions(name) {
       searchInput.dataset.bound = "true";
     }
   }
+
+  (config.extraFilterInputIds || []).forEach((inputId) => {
+    const filterInput = document.getElementById(inputId);
+    if (filterInput && filterInput.dataset.bound !== "true") {
+      const rerender = () => renderTable(name, state.tableData.get(name) || []);
+      filterInput.addEventListener("input", rerender);
+      filterInput.addEventListener("change", rerender);
+      filterInput.dataset.bound = "true";
+    }
+  });
+}
+
+function filterRowsForTable(name, rows) {
+  const config = TABLE_CONFIG[name];
+  let filteredRows = [...rows];
+  const query = config.searchInputId ? document.getElementById(config.searchInputId).value : "";
+
+  if (query) {
+    if (config.searchMode === "regex") {
+      const pattern = compileRegex(query, config.searchInputId);
+      if (!pattern) {
+        return { filteredRows: [], filterError: "The keyword filter is not a valid regular expression." };
+      }
+      filteredRows = filteredRows.filter((row) => pattern.test(JSON.stringify(row)));
+    } else {
+      clearInputError(config.searchInputId);
+      const normalizedQuery = query.toLowerCase();
+      filteredRows = filteredRows.filter((row) => JSON.stringify(row).toLowerCase().includes(normalizedQuery));
+    }
+  } else {
+    clearInputError(config.searchInputId);
+  }
+
+  (config.metricFilters || []).forEach((filter) => {
+    const operator = document.getElementById(filter.operatorId)?.value;
+    const rawValue = document.getElementById(filter.valueId)?.value;
+    if (!operator || rawValue === "" || rawValue === null || rawValue === undefined) {
+      return;
+    }
+    const threshold = Number(rawValue);
+    if (Number.isNaN(threshold)) {
+      return;
+    }
+    filteredRows = filteredRows.filter((row) => compareMetric(Number(row[filter.key] || 0), operator, threshold));
+  });
+
+  return { filteredRows, filterError: null };
+}
+
+function buildSummaryRow(name, rows, config) {
+  const cells = config.columns.map((column, index) => `<td>${buildSummaryCell(name, column.key, rows, index)}</td>`).join("");
+  return `<tr class="summary-row">${cells}</tr>`;
+}
+
+function buildSummaryCell(name, key, rows, index) {
+  if (index === 0) {
+    return `<div class="summary-label">Filtered total</div><div class="summary-meta">${formatInteger(rows.length)} rows</div>`;
+  }
+
+  if (key === "budget_exhausted_flag") {
+    return formatInteger(rows.filter((row) => row.budget_exhausted_flag).length);
+  }
+
+  if (["cost_eur", "cost_original", "conversion_value_eur", "conversion_value_original", "total_cost_eur"].includes(key)) {
+    return formatMoney(sumRows(rows, key));
+  }
+
+  if (["clicks", "impressions"].includes(key)) {
+    return formatInteger(sumRows(rows, key));
+  }
+
+  if (["conversions"].includes(key)) {
+    return formatDecimal(sumRows(rows, key));
+  }
+
+  if (key === "cpa_eur") {
+    const totalCost = sumRows(rows, "cost_eur") || sumRows(rows, "total_cost_eur");
+    const totalConversions = sumRows(rows, "conversions");
+    return totalConversions ? formatMoney(totalCost / totalConversions) : "—";
+  }
+
+  if (key === "cpc_eur") {
+    const totalCost = sumRows(rows, "cost_eur");
+    const totalClicks = sumRows(rows, "clicks");
+    return totalClicks ? formatMoney(totalCost / totalClicks) : "—";
+  }
+
+  if (key === "ctr") {
+    const totalClicks = sumRows(rows, "clicks");
+    const totalImpressions = sumRows(rows, "impressions");
+    return totalImpressions ? formatPercent(totalClicks / totalImpressions) : "—";
+  }
+
+  if (key === "roas") {
+    const totalValue = sumRows(rows, "conversion_value_eur");
+    const totalCost = sumRows(rows, "cost_eur") || sumRows(rows, "total_cost_eur");
+    return totalCost ? formatRatio(totalValue / totalCost) : "—";
+  }
+
+  return "—";
 }
 
 function compareRows(left, right, key, direction) {
@@ -597,6 +769,44 @@ function compareRows(left, right, key, direction) {
     comparison = String(a || "").localeCompare(String(b || ""), undefined, { numeric: true, sensitivity: "base" });
   }
   return direction === "asc" ? comparison : -comparison;
+}
+
+function sumRows(rows, key) {
+  return rows.reduce((total, row) => total + Number(row[key] || 0), 0);
+}
+
+function compareMetric(value, operator, threshold) {
+  if (operator === "gte") {
+    return value >= threshold;
+  }
+  if (operator === "lte") {
+    return value <= threshold;
+  }
+  return true;
+}
+
+function compileRegex(query, inputId) {
+  try {
+    const pattern = new RegExp(query, "i");
+    clearInputError(inputId);
+    return pattern;
+  } catch {
+    const input = inputId ? document.getElementById(inputId) : null;
+    if (input) {
+      input.classList.add("is-invalid");
+    }
+    return null;
+  }
+}
+
+function clearInputError(inputId) {
+  if (!inputId) {
+    return;
+  }
+  const input = document.getElementById(inputId);
+  if (input) {
+    input.classList.remove("is-invalid");
+  }
 }
 
 function renderSortMarker(tableState, key) {
@@ -618,6 +828,18 @@ function buildDelta(currentValue, previousValue) {
     label: `${sign}${decimalFormat.format(deltaPct)}% vs previous`,
     className: deltaPct > 0 ? "positive" : deltaPct < 0 ? "negative" : "neutral",
   };
+}
+
+function getChartMetric(metricKey) {
+  return CHART_METRICS[metricKey] || CHART_METRICS.conversion_value_eur;
+}
+
+function renderNote(containerId, text) {
+  const container = document.getElementById(containerId);
+  if (!container) {
+    return;
+  }
+  container.textContent = text || "";
 }
 
 function buildGridLines(width, height, padding) {
@@ -652,6 +874,39 @@ function formatCell(value, formatter) {
     return formatter(value);
   }
   return escapeHtml(value ?? "—");
+}
+
+function formatMetricValue(key, value) {
+  if (["cost_eur", "total_cost_eur", "conversion_value_eur", "cpa_eur", "cpc_eur"].includes(key)) {
+    return formatMoney(value);
+  }
+  if (["conversions"].includes(key)) {
+    return formatDecimal(value);
+  }
+  if (["clicks", "impressions"].includes(key)) {
+    return formatInteger(value);
+  }
+  if (key === "roas") {
+    return formatRatio(value);
+  }
+  if (key === "ctr") {
+    return formatPercent(value);
+  }
+  return String(value ?? "—");
+}
+
+function metricLabel(key) {
+  const labels = {
+    conversion_value_eur: "Conv. value",
+    cost_eur: "Spend",
+    roas: "ROAS",
+    conversions: "Conversions",
+    clicks: "Clicks",
+    impressions: "Impressions",
+    ctr: "CTR",
+    cpa_eur: "CPA",
+  };
+  return labels[key] || key;
 }
 
 function formatMoney(value) {
@@ -736,6 +991,10 @@ function renderGlobalError(error) {
   if (target) {
     target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   }
+}
+
+function stripHtml(value) {
+  return String(value).replace(/<[^>]*>/g, "");
 }
 
 function escapeHtml(value) {

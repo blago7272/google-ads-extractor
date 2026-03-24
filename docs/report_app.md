@@ -29,9 +29,9 @@ The app is responsible for:
 - `High-Level Overview`
   KPI row, executive status blocks, trend curve, campaign explorer, and auction snapshot.
 - `Keyword and Query Audit`
-  Keyword issues, search terms, and related alerts.
+  Keyword issues, search terms, keyword-specific alerts, regex filtering, and numeric search-term filters.
 - `Timing Analysis`
-  Hour-of-day, day-of-week, daypart summary, ad-group timing profile, and budget pacing.
+  Hour-of-day, day-of-week, daypart summary, ad-group timing profile, budget pacing, and switchable timing metrics.
 - `Action Queue`
   Consolidated alerts and budget flags.
 
@@ -49,6 +49,17 @@ The current app structure intentionally pulls from the original workbook pattern
   Recast as the timing page.
 
 Items still deferred from the workbook are the blended GA4 and ecommerce sheets.
+
+## Usability Refinements
+
+The current app layer also includes:
+
+- filtered summary rows above all table bodies
+- regex search on the keyword-audit table
+- search-term threshold filters for conversions, spend, and ROAS
+- keyword-page alerts narrowed to `keyword_issue` items
+- timing-chart metric switches for conversion value, spend, ROAS, and conversions
+- explicit explanation text for budget-exhaustion flags
 
 ## API Surface
 

@@ -96,6 +96,7 @@ class FakeReportingService:
             "keywords": [{"keyword_text": "sexwell", "audit_reason": "ok", "cost_eur": 50.0}],
             "search_terms": [{"search_term": "sexwell", "cost_eur": 12.0, "conversions": 0.0}],
             "alerts": [{"report_date": "2026-03-22", "severity": "medium", "alert_message": "Check budget"}],
+            "alerts_definition": "Only keyword alerts are shown.",
         }
 
     def get_timing_data(self, **_: object) -> dict[str, object]:
@@ -108,6 +109,7 @@ class FakeReportingService:
             "daypart": [{"daypart": "night", "cost_eur": 100.0, "conversions": 5.0}],
             "daypart_ad_groups": [{"ad_group_name": "Brand Core", "daypart": "day", "cost_eur": 150.0, "roas": 4.1}],
             "budget_flags": [{"campaign_name": "Brand", "budget_exhausted_flag": False, "report_date": "2026-03-22"}],
+            "budget_flags_definition": "This is only a pacing heuristic.",
             "timing_highlights": [{"title": "Best hour", "detail": "22:00 performs best."}],
         }
 
@@ -159,6 +161,15 @@ def test_timing_page_renders() -> None:
     assert "Timing Analysis" in response.text
     assert "Day of week" in response.text
     assert "Ad group timing" in response.text
+    assert "Potential budget exhaustion days" in response.text
+
+
+def test_keywords_page_renders_advanced_filters() -> None:
+    response = client.get("/reports/keywords")
+    assert response.status_code == 200
+    assert "Regex search keywords" in response.text
+    assert "Keyword-related alerts" in response.text
+    assert "Higher than or equal" in response.text
 
 
 def test_filter_options_endpoint_works() -> None:
@@ -197,6 +208,7 @@ def test_timing_endpoint_works() -> None:
     payload = response.json()
     assert payload["hour_of_day"][0]["report_hour"] == 22
     assert payload["daypart_ad_groups"][0]["ad_group_name"] == "Brand Core"
+    assert payload["budget_flags_definition"] == "This is only a pacing heuristic."
 
 
 def test_resolve_date_window_uses_default_range() -> None:

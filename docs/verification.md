@@ -91,7 +91,7 @@ Operational note:
 Verified the hub-and-drilldown report application layer in this workspace on `2026-03-24`.
 
 - `python -m compileall app`: passed
-- `python -m pytest tests/unit/test_reporting_app.py tests/unit/test_reporting_cache.py tests/unit/test_raw_freshness.py tests/unit/test_schema_mapping.py tests/unit/test_release_orchestrator.py`: `20/20` passed
+- `python -m pytest tests/unit/test_reporting_app.py tests/unit/test_reporting_cache.py tests/unit/test_raw_freshness.py tests/unit/test_schema_mapping.py tests/unit/test_release_orchestrator.py`: `21/21` passed
 - direct `BigQueryReportingService.get_filter_options()`: passed
 - direct `BigQueryReportingService.get_hub_data(...)`: passed
 - direct `BigQueryReportingService.get_timing_data(...)`: passed
@@ -103,6 +103,7 @@ Verified the hub-and-drilldown report application layer in this workspace on `20
 - `GET /api/dashboard`: passed
 - `GET /`: passed
 - `GET /reports/timing`: passed
+- `GET /reports/keywords`: passed
 - repeated cached `GET /api/hub`: passed
 - repeated cached `GET /api/reports/timing`: passed
 
@@ -124,6 +125,8 @@ Verified live preview payload against `gads-export-all`:
 - summary spend: `6952.132867999999 EUR`
 - cached `/api/hub` repeat request: about `0.006s`
 - cached `/api/reports/timing` repeat request: about `0.007s`
+- keyword alerts are filtered to `keyword_issue` only in the keyword report payload
+- timing payload includes a budget-flag definition string
 
 ## Current Mart Row Counts
 
@@ -153,3 +156,4 @@ Verified live preview payload against `gads-export-all`:
 11. The original app verification only covered a single dashboard page. Fixed by refactoring into a management hub plus detailed report routes and verifying both HTML and JSON report endpoints.
 12. The first timing pass lacked explicit time-of-day and day-of-week reporting even though the Excel workbook contained dedicated hourly-analysis sheets. Fixed by adding `mart_ads_hourly_performance_daily`, a timing page, and an ad-group daypart explorer.
 13. Repeated report loads re-ran the same BigQuery queries on every navigation. Fixed by adding short-lived in-process caching for filter options and scope-level query results.
+14. The keyword page originally mixed generic alerts into the audit context and lacked practical filtering controls. Fixed by narrowing alerts to keyword issues and adding regex and numeric threshold filters in the report app.

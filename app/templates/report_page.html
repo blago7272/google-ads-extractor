@@ -53,8 +53,9 @@
             <p class="section-kicker">Keyword audit</p>
             <h2>Flagged keyword opportunities</h2>
           </div>
-          <input id="keywords-search" class="table-search" type="search" placeholder="Search keywords">
+          <input id="keywords-search" class="table-search" type="search" placeholder="Regex search keywords">
         </div>
+        <p class="panel-note">The keyword filter uses a case-insensitive regular expression across the visible row text.</p>
         <div id="keywords-table" class="table-shell"></div>
       </section>
 
@@ -62,10 +63,11 @@
         <div class="panel-head">
           <div>
             <p class="section-kicker">Action queue</p>
-            <h2>Related alerts</h2>
+            <h2>Keyword-related alerts</h2>
           </div>
           <input id="alerts-search" class="table-search" type="search" placeholder="Search alerts">
         </div>
+        <p id="keyword-alerts-note" class="panel-note"></p>
         <div id="alerts-table" class="table-shell"></div>
       </section>
     </section>
@@ -77,6 +79,35 @@
           <h2>Terms with the most spend in range</h2>
         </div>
         <input id="search-terms-search" class="table-search" type="search" placeholder="Search terms">
+      </div>
+      <div class="metric-filter-grid">
+        <label class="metric-filter">
+          <span>Conversions</span>
+          <select id="search-terms-conversions-operator">
+            <option value="">Any</option>
+            <option value="gte">Higher than or equal</option>
+            <option value="lte">Lower than or equal</option>
+          </select>
+          <input id="search-terms-conversions-value" type="number" step="0.01" placeholder="Value">
+        </label>
+        <label class="metric-filter">
+          <span>Spend</span>
+          <select id="search-terms-spend-operator">
+            <option value="">Any</option>
+            <option value="gte">Higher than or equal</option>
+            <option value="lte">Lower than or equal</option>
+          </select>
+          <input id="search-terms-spend-value" type="number" step="0.01" placeholder="EUR">
+        </label>
+        <label class="metric-filter">
+          <span>ROAS</span>
+          <select id="search-terms-roas-operator">
+            <option value="">Any</option>
+            <option value="gte">Higher than or equal</option>
+            <option value="lte">Lower than or equal</option>
+          </select>
+          <input id="search-terms-roas-value" type="number" step="0.01" placeholder="x">
+        </label>
       </div>
       <div id="search-terms-table" class="table-shell"></div>
     </section>
@@ -98,6 +129,15 @@
             <p class="section-kicker">Hour of day</p>
             <h2>Conversion value by hour</h2>
           </div>
+          <label class="chart-control">
+            <span>Metric</span>
+            <select id="hour-metric-select">
+              <option value="conversion_value_eur">Conversion value</option>
+              <option value="cost_eur">Spend</option>
+              <option value="roas">ROAS</option>
+              <option value="conversions">Conversions</option>
+            </select>
+          </label>
         </div>
         <div id="hour-chart" class="trend-chart bar-chart"></div>
       </section>
@@ -108,6 +148,15 @@
             <p class="section-kicker">Day of week</p>
             <h2>Conversion value by weekday</h2>
           </div>
+          <label class="chart-control">
+            <span>Metric</span>
+            <select id="weekday-metric-select">
+              <option value="conversion_value_eur">Conversion value</option>
+              <option value="cost_eur">Spend</option>
+              <option value="roas">ROAS</option>
+              <option value="conversions">Conversions</option>
+            </select>
+          </label>
         </div>
         <div id="weekday-chart" class="trend-chart bar-chart"></div>
       </section>
@@ -129,10 +178,11 @@
         <div class="panel-head">
           <div>
             <p class="section-kicker">Budget pacing</p>
-            <h2>Flagged exhausted days</h2>
+            <h2>Potential budget exhaustion days</h2>
           </div>
           <input id="budget-search" class="table-search" type="search" placeholder="Search campaigns">
         </div>
+        <p id="budget-definition-note" class="panel-note"></p>
         <div id="budget-table" class="table-shell"></div>
       </section>
     </section>
