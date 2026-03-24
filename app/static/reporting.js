@@ -12,7 +12,9 @@ const REPORT_KIND = document.body.dataset.reportKind;
 
 const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const moneyFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+const moneyPreciseFormat = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const decimalFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const decimalFixedFormat = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateFormat = new Intl.DateTimeFormat("en-GB", { year: "numeric", month: "short", day: "numeric" });
 
 const KPI_DEFS = [
@@ -29,12 +31,15 @@ const KPI_DEFS = [
 const CHART_METRICS = {
   conversion_value_eur: { key: "conversion_value_eur", label: "Conversion value", formatter: formatMoney },
   cost_eur: { key: "cost_eur", label: "Spend", formatter: formatMoney },
+  cpc_eur: { key: "cpc_eur", label: "CPC", formatter: formatMoneyPrecise },
   roas: { key: "roas", label: "ROAS", formatter: formatRatio },
   conversions: { key: "conversions", label: "Conversions", formatter: formatDecimal },
   conversion_rate: { key: "conversion_rate", label: "Conversion rate", formatter: formatPercent },
+  clicks: { key: "clicks", label: "Clicks", formatter: formatInteger },
+  impressions: { key: "impressions", label: "Impressions", formatter: formatInteger },
 };
 
-const CHART_TOOLTIP_KEYS = ["conversion_value_eur", "cost_eur", "roas", "conversions", "conversion_rate"];
+const CHART_TOOLTIP_KEYS = ["conversion_value_eur", "cost_eur", "cpc_eur", "roas", "conversions", "conversion_rate", "clicks", "impressions"];
 
 const MONEY_KEYS = new Set([
   "campaign_budget_eur",
@@ -383,10 +388,24 @@ const TABLE_CONFIG = {
     searchFields: ["report_date", "severity", "alert_message"],
     containerId: "hub-alerts-list",
     defaultSort: { key: "report_date", direction: "desc" },
+    showSummaryRow: false,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    topbarFilter: {
+      inputId: "hub-alert-severity-filter",
+      key: "severity",
+      options: [
+        { value: "", label: "All severities" },
+        { value: "high", label: "High only" },
+        { value: "medium", label: "Medium only" },
+        { value: "low", label: "Low only" },
+      ],
+    },
     columns: [
       { key: "report_date", label: "Date", format: formatDate },
       { key: "severity", label: "Severity", format: formatPill },
-      { key: "alert_message", label: "Message" },
+      { key: "alert_message", label: "Message", format: formatAlertMessage },
     ],
   },
 };
@@ -467,6 +486,26 @@ function bindPageSpecificEvents() {
     }
   });
 
+  [
+    "hub-trend-grain",
+    "hub-top-primary-metric",
+    "hub-top-secondary-metric",
+    "hub-top-compare-metric",
+    "hub-bottom-primary-metric",
+    "hub-bottom-secondary-metric",
+    "hub-bottom-compare-metric",
+  ].forEach((id) => {
+    const input = document.getElementById(id);
+    if (input && input.dataset.bound !== "true") {
+      input.addEventListener("change", () => {
+        if (PAGE_KIND === "hub" && state.currentPayload) {
+          renderHubTrendCharts(state.currentPayload);
+        }
+      });
+      input.dataset.bound = "true";
+    }
+  });
+
   const campaignRegexInput = document.getElementById("campaign-regex-input");
   if (campaignRegexInput && campaignRegexInput.dataset.bound !== "true") {
     campaignRegexInput.addEventListener("input", () => {
@@ -490,6 +529,7 @@ function showLoadingState() {
   }
   [
     "trend-chart",
+    "trend-secondary-chart",
     "campaigns-table",
     "competition-table",
     "keywords-table",
@@ -743,7 +783,7 @@ async function fetchJson(url) {
 function renderHub(payload) {
   renderInsights(payload.management_conclusions || [], "conclusions-grid");
   renderStatusCards(payload.status_cards || [], "status-card-grid");
-  renderTrendChart(payload.trend || [], "trend-chart");
+  renderHubTrendCharts(payload);
   renderTable("hubAlerts", payload.top_alerts || []);
   renderReportCards(payload.report_cards || []);
 }
@@ -821,36 +861,199 @@ function renderReportCards(cards) {
   `).join("");
 }
 
+function renderHubTrendCharts(payload) {
+  const grain = document.getElementById("hub-trend-grain")?.value || "day";
+  const currentRows = aggregateTrendRows(payload?.trend || [], grain);
+  const previousRows = aggregateTrendRows(payload?.previous_trend || [], grain);
+  renderMetricTrendChart(
+    "trend-chart",
+    currentRows,
+    getTrendMetricKeys("hub-top-primary-metric", "hub-top-secondary-metric"),
+    {
+      compareMetricKey: getTrendCompareMetric("hub-top-primary-metric", "hub-top-secondary-metric", "hub-top-compare-metric"),
+      previousRows,
+    },
+  );
+  renderMetricTrendChart(
+    "trend-secondary-chart",
+    currentRows,
+    getTrendMetricKeys("hub-bottom-primary-metric", "hub-bottom-secondary-metric"),
+    {
+      compareMetricKey: getTrendCompareMetric("hub-bottom-primary-metric", "hub-bottom-secondary-metric", "hub-bottom-compare-metric"),
+      previousRows,
+    },
+  );
+}
+
+function getTrendMetricKeys(primaryId, secondaryId) {
+  const selected = [];
+  [primaryId, secondaryId].forEach((id) => {
+    const value = document.getElementById(id)?.value;
+    if (value && !selected.includes(value)) {
+      selected.push(value);
+    }
+  });
+  return selected.slice(0, 2);
+}
+
+function getTrendCompareMetric(primaryId, secondaryId, compareId) {
+  const mode = document.getElementById(compareId)?.value || "";
+  if (mode === "primary") {
+    return document.getElementById(primaryId)?.value || null;
+  }
+  if (mode === "secondary") {
+    return document.getElementById(secondaryId)?.value || null;
+  }
+  return null;
+}
+
 function renderTrendChart(rows, containerId) {
+  renderMetricTrendChart(containerId, rows, ["cost_eur", "conversion_value_eur"]);
+}
+
+function renderMetricTrendChart(containerId, rows, metricKeys, options = {}) {
   const host = document.getElementById(containerId);
   if (!host) {
     return;
   }
-  if (!rows.length) {
+  const metrics = metricKeys.map((key) => CHART_METRICS[key]).filter(Boolean);
+  if (!rows.length || !metrics.length) {
     host.innerHTML = '<div class="empty-state">No trend data in the selected range.</div>';
     return;
   }
 
   const width = 1080;
-  const height = 320;
-  const padding = { top: 24, right: 24, bottom: 36, left: 48 };
-  const valuesA = rows.map((row) => Number(row.cost_eur || 0));
-  const valuesB = rows.map((row) => Number(row.conversion_value_eur || 0));
-  const maxValue = Math.max(...valuesA, ...valuesB, 1);
-  const pointsA = buildLinePoints(valuesA, width, height, padding, maxValue);
-  const pointsB = buildLinePoints(valuesB, width, height, padding, maxValue);
-  const lastRow = rows[rows.length - 1];
+  const height = 280;
+  const padding = { top: 28, right: metrics[1] ? 78 : 24, bottom: 38, left: 78 };
+  const primaryMetric = metrics[0];
+  const secondaryMetric = metrics[1] || null;
+  const compareMetric = options.compareMetricKey ? CHART_METRICS[options.compareMetricKey] || null : null;
+  const previousRows = Array.isArray(options.previousRows) ? options.previousRows : [];
+  const compareSide = compareMetric && secondaryMetric && compareMetric.key === secondaryMetric.key ? "right" : "left";
+  const compareSeriesLabel = compareMetric ? `Previous period (${compareMetric.label})` : null;
+  const primaryValues = rows.map((row) => Number(row[primaryMetric.key] || 0));
+  const compareValues = compareMetric ? previousRows.map((row) => Number(row[compareMetric.key] || 0)) : [];
+  const primaryDomain = buildTrendDomain(
+    primaryValues,
+    compareMetric && compareSide === "left" ? compareValues : [],
+  );
+  const primaryPoints = buildTrendLinePoints(primaryValues, width, height, padding, primaryDomain);
+  const primaryLast = rows[rows.length - 1];
+
+  let secondaryPoints = "";
+  let secondaryLastCircle = "";
+  let secondaryAxis = "";
+  let secondaryDomain = buildTrendDomain([]);
+  if (secondaryMetric) {
+    const secondaryValues = rows.map((row) => Number(row[secondaryMetric.key] || 0));
+    secondaryDomain = buildTrendDomain(
+      secondaryValues,
+      compareMetric && compareSide === "right" ? compareValues : [],
+    );
+    secondaryPoints = buildTrendLinePoints(secondaryValues, width, height, padding, secondaryDomain);
+    secondaryLastCircle = `
+      <circle
+        cx="${pointX(secondaryValues.length - 1, secondaryValues.length, width, padding)}"
+        cy="${pointYForDomain(Number(primaryLast[secondaryMetric.key] || 0), height, padding, secondaryDomain)}"
+        r="5"
+        fill="#285e54"
+      ></circle>
+    `;
+    secondaryAxis = buildTrendAxis({
+      domain: secondaryDomain,
+      formatter: secondaryMetric.formatter,
+      side: "right",
+      width,
+      height,
+      padding,
+    });
+  }
+
+  let comparePoints = "";
+  let compareLastCircle = "";
+  let compareLegend = "";
+  let hoverTargets = "";
+  if (compareMetric && compareValues.length) {
+    const compareDomain = compareSide === "right" ? secondaryDomain : primaryDomain;
+    const compareColor = compareSide === "right" ? "#285e54" : "#bf5a36";
+    comparePoints = buildTrendLinePoints(compareValues, width, height, padding, compareDomain);
+    compareLastCircle = `
+      <circle
+        cx="${pointX(compareValues.length - 1, compareValues.length, width, padding)}"
+        cy="${pointYForDomain(compareValues[compareValues.length - 1] || 0, height, padding, compareDomain)}"
+        r="4"
+        fill="${compareColor}"
+        opacity="0.55"
+      ></circle>
+    `;
+    compareLegend = `
+      <text x="${width - padding.right}" y="${padding.top - 8}" fill="#66766a" font-size="12" text-anchor="end">
+        ${escapeHtml(`Previous period (dashed): ${compareMetric.label}`)}
+      </text>
+    `;
+  }
+  hoverTargets = buildTrendHoverTargets({
+    rows,
+    previousRows,
+    primaryMetric,
+    secondaryMetric,
+    compareMetric,
+    compareSeriesLabel,
+    width,
+    height,
+    padding,
+  });
 
   host.innerHTML = `
+    <div class="trend-tooltip" data-trend-tooltip></div>
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Trend chart">
       ${buildGridLines(width, height, padding)}
-      <polyline fill="none" stroke="#285e54" stroke-width="4" points="${pointsB}"></polyline>
-      <polyline fill="none" stroke="#bf5a36" stroke-width="4" points="${pointsA}"></polyline>
-      <text x="${padding.left}" y="${padding.top - 4}" fill="#66766a" font-size="12">Spend vs conversion value (EUR)</text>
-      <circle cx="${pointX(valuesA.length - 1, valuesA.length, width, padding)}" cy="${pointY(Number(lastRow.cost_eur || 0), height, padding, maxValue)}" r="5" fill="#bf5a36"></circle>
-      <circle cx="${pointX(valuesB.length - 1, valuesB.length, width, padding)}" cy="${pointY(Number(lastRow.conversion_value_eur || 0), height, padding, maxValue)}" r="5" fill="#285e54"></circle>
+      ${buildTrendAxis({
+        domain: primaryDomain,
+        formatter: primaryMetric.formatter,
+        side: "left",
+        width,
+        height,
+        padding,
+      })}
+      ${secondaryAxis}
+      ${comparePoints ? `<polyline fill="none" stroke="${compareSide === "right" ? "#285e54" : "#bf5a36"}" stroke-width="3" stroke-dasharray="8 8" opacity="0.55" points="${comparePoints}"></polyline>` : ""}
+      <polyline fill="none" stroke="#bf5a36" stroke-width="4" points="${primaryPoints}"></polyline>
+      ${secondaryMetric ? `<polyline fill="none" stroke="#285e54" stroke-width="4" points="${secondaryPoints}"></polyline>` : ""}
+      <text x="${padding.left}" y="${padding.top - 8}" fill="#66766a" font-size="12">
+        ${escapeHtml(secondaryMetric ? `${primaryMetric.label} (left axis) vs ${secondaryMetric.label} (right axis)` : primaryMetric.label)}
+      </text>
+      ${compareLegend}
+      ${buildTrendXAxisLabels(rows, width, height, padding)}
+      <circle
+        cx="${pointX(primaryValues.length - 1, primaryValues.length, width, padding)}"
+        cy="${pointYForDomain(Number(primaryLast[primaryMetric.key] || 0), height, padding, primaryDomain)}"
+        r="5"
+        fill="#bf5a36"
+      ></circle>
+      ${secondaryLastCircle}
+      ${compareLastCircle}
+      ${hoverTargets}
     </svg>
   `;
+  bindTrendTooltip(host);
+}
+
+function buildTrendAxis({ domain, formatter, side, width, height, padding }) {
+  const anchor = side === "left" ? "end" : "start";
+  const x = side === "left" ? padding.left - 14 : width - padding.right + 14;
+  const values = [domain.max, (domain.max + domain.min) / 2, domain.min];
+  const yPositions = [
+    padding.top + 4,
+    padding.top + ((height - padding.top - padding.bottom) / 2) + 4,
+    height - padding.bottom,
+  ];
+
+  return values.map((value, index) => `
+    <text x="${x}" y="${yPositions[index]}" fill="#66766a" font-size="11" text-anchor="${anchor}">
+      ${escapeHtml(stripHtml(formatter(value)))}
+    </text>
+  `).join("");
 }
 
 function renderTimingCharts(payload) {
@@ -943,6 +1146,17 @@ function renderTable(name, rows) {
     expanded: false,
   };
   const { filteredRows, filterError } = filterRowsForTable(name, rows);
+  const topbarFilterValue = config.topbarFilter ? document.getElementById(config.topbarFilter.inputId)?.value || "" : "";
+  const topbarFilterHtml = config.topbarFilter
+    ? `
+      <select class="table-filter-select" id="${config.topbarFilter.inputId}" data-table-filter="${name}" aria-label="Filter table rows">
+        ${config.topbarFilter.options.map((option) => `
+          <option value="${escapeHtml(option.value)}"${option.value === topbarFilterValue ? " selected" : ""}>${escapeHtml(option.label)}</option>
+        `).join("")}
+      </select>
+    `
+    : "";
+  const scrollButtonHtml = config.hideScrollButton ? "" : `<button type="button" class="table-toggle-button" data-table-scroll="${name}">Scroll rows</button>`;
 
   if (filterError) {
     container.innerHTML = `<div class="empty-state">${escapeHtml(filterError)}</div>`;
@@ -951,27 +1165,44 @@ function renderTable(name, rows) {
 
   const sortedRows = [...filteredRows].sort((left, right) => compareRows(left, right, tableState.sortKey, tableState.direction));
   if (!sortedRows.length) {
-    container.innerHTML = '<div class="empty-state">No rows for the selected range.</div>';
+    container.innerHTML = `
+      <div class="table-topbar">
+        ${config.showTopMeta === false ? "" : '<div class="table-meta">0 filtered rows</div>'}
+        <div class="table-actions">
+          ${topbarFilterHtml}
+          ${scrollButtonHtml}
+        </div>
+      </div>
+      <div class="empty-state">No rows for the selected range.</div>
+    `;
+    bindTableInteractions(name);
     return;
   }
 
   const collapseThreshold = config.collapseThreshold || DEFAULT_VISIBLE_ROWS;
   const isCollapsible = sortedRows.length > collapseThreshold;
   const expanded = isCollapsible ? tableState.expanded : true;
-  const visibleRows = expanded ? sortedRows : sortedRows.slice(0, collapseThreshold);
   const metaLabel = expanded || !isCollapsible
     ? `${formatInteger(sortedRows.length)} filtered rows`
-    : `Showing first ${formatInteger(visibleRows.length)} of ${formatInteger(sortedRows.length)} filtered rows`;
+    : `Showing first ${formatInteger(collapseThreshold)} of ${formatInteger(sortedRows.length)} filtered rows`;
+  const tableShellClass = expanded || !isCollapsible ? "table-shell is-expanded" : "table-shell is-collapsed";
+  const visibleRowsStyle = `--visible-rows:${collapseThreshold};`;
+  const topMetaHtml = config.showTopMeta === false ? "" : `<div class="table-meta">${metaLabel}</div>`;
+  const footerHtml = config.showFooterCount
+    ? `<div class="table-footer-meta">${formatInteger(sortedRows.length)} filtered rows</div>`
+    : "";
+  const summaryRowHtml = config.showSummaryRow === false ? "" : buildSummaryRow(name, filteredRows, config);
 
   container.innerHTML = `
     <div class="table-topbar">
-      <div class="table-meta">${metaLabel}</div>
+      ${topMetaHtml}
       <div class="table-actions">
-        <button type="button" class="table-toggle-button" data-table-scroll="${name}">Scroll rows</button>
+        ${topbarFilterHtml}
+        ${scrollButtonHtml}
         ${isCollapsible ? `<button type="button" class="table-toggle-button" data-table-toggle="${name}">${expanded ? "Show first 10" : "Expand all"}</button>` : ""}
       </div>
     </div>
-    <div class="table-shell" data-table-shell="${name}" tabindex="0" aria-label="Scrollable table">
+    <div class="${tableShellClass}" data-table-shell="${name}" style="${visibleRowsStyle}" tabindex="0" aria-label="Scrollable table">
       <table class="data-table">
         <thead>
           <tr>
@@ -985,8 +1216,8 @@ function renderTable(name, rows) {
           </tr>
         </thead>
         <tbody>
-          ${buildSummaryRow(name, filteredRows, config)}
-          ${visibleRows.map((row) => `
+          ${summaryRowHtml}
+          ${sortedRows.map((row) => `
             <tr>
               ${config.columns.map((column) => `<td>${formatCell(row[column.key], column.format)}</td>`).join("")}
             </tr>
@@ -994,6 +1225,7 @@ function renderTable(name, rows) {
         </tbody>
       </table>
     </div>
+    ${footerHtml}
   `;
 
   state.tables.set(name, { ...tableState, expanded });
@@ -1051,6 +1283,14 @@ function bindTableInteractions(name) {
     button.dataset.bound = "true";
   });
 
+  document.querySelectorAll(`select[data-table-filter="${name}"]`).forEach((select) => {
+    if (select.dataset.bound === "true") {
+      return;
+    }
+    select.addEventListener("change", () => renderTable(name, state.tableData.get(name) || []));
+    select.dataset.bound = "true";
+  });
+
   if (config.searchInputId) {
     const searchInput = document.getElementById(config.searchInputId);
     if (searchInput && searchInput.dataset.bound !== "true") {
@@ -1089,6 +1329,13 @@ function filterRowsForTable(name, rows) {
     }
   } else {
     clearInputError(config.searchInputId);
+  }
+
+  if (config.topbarFilter) {
+    const selectedValue = document.getElementById(config.topbarFilter.inputId)?.value || "";
+    if (selectedValue) {
+      filteredRows = filteredRows.filter((row) => String(row[config.topbarFilter.key] || "").toLowerCase() === selectedValue.toLowerCase());
+    }
   }
 
   (config.metricFilters || []).forEach((filter) => {
@@ -1313,6 +1560,243 @@ function buildGridLines(width, height, padding) {
   return lines.join("");
 }
 
+function buildTrendDomain(primaryValues, secondaryValues = []) {
+  const values = [...primaryValues, ...secondaryValues]
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (!values.length) {
+    return { min: 0, max: 1 };
+  }
+
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if (min === max) {
+    if (max === 0) {
+      return { min: 0, max: 1 };
+    }
+    const pad = Math.abs(max) * 0.12 || 1;
+    const lowerBound = min >= 0 ? Math.max(0, min - pad) : min - pad;
+    return { min: lowerBound, max: max + pad };
+  }
+
+  const span = max - min;
+  const pad = span * 0.12;
+  min = min >= 0 ? Math.max(0, min - pad) : min - pad;
+  max += pad;
+  return { min, max };
+}
+
+function buildTrendLinePoints(values, width, height, padding, domain) {
+  return values
+    .map((value, index) => `${pointX(index, values.length, width, padding)},${pointYForDomain(value, height, padding, domain)}`)
+    .join(" ");
+}
+
+function buildTrendHoverTargets({ rows, previousRows, primaryMetric, secondaryMetric, compareMetric, compareSeriesLabel, width, height, padding }) {
+  if (!rows.length) {
+    return "";
+  }
+  const plotHeight = height - padding.top - padding.bottom;
+  return rows.map((row, index) => {
+    const currentX = pointX(index, rows.length, width, padding);
+    const leftX = index === 0
+      ? padding.left
+      : (pointX(index - 1, rows.length, width, padding) + currentX) / 2;
+    const rightX = index === rows.length - 1
+      ? width - padding.right
+      : (currentX + pointX(index + 1, rows.length, width, padding)) / 2;
+    const tooltipLines = [
+      `__TITLE__${row.hover_label || formatDate(row.report_date)}`,
+      `${primaryMetric.label}: ${formatTrendMetric(primaryMetric, row[primaryMetric.key])}`,
+    ];
+    if (secondaryMetric) {
+      tooltipLines.push(`${secondaryMetric.label}: ${formatTrendMetric(secondaryMetric, row[secondaryMetric.key])}`);
+    }
+    if (compareMetric && previousRows[index]) {
+      tooltipLines.push(
+        `${compareSeriesLabel || compareMetric.label}: ${formatTrendMetric(compareMetric, previousRows[index][compareMetric.key])} (${previousRows[index].hover_label || formatDate(previousRows[index].report_date)})`,
+      );
+    }
+    return `
+      <rect
+        class="trend-hover-target"
+        x="${leftX}"
+        y="${padding.top}"
+        width="${Math.max(rightX - leftX, 6)}"
+        height="${plotHeight}"
+        fill="rgba(255,255,255,0.001)"
+        pointer-events="all"
+        data-tooltip="${encodeTooltipLines(tooltipLines)}"
+      >
+      </rect>
+    `;
+  }).join("");
+}
+
+function buildTrendXAxisLabels(rows, width, height, padding) {
+  if (!rows.length) {
+    return "";
+  }
+  const indexes = buildAxisLabelIndexes(rows.length);
+  return indexes.map((index) => {
+    const row = rows[index];
+    const x = pointX(index, rows.length, width, padding);
+    const anchor = index === 0 ? "start" : index === rows.length - 1 ? "end" : "middle";
+    return `
+      <text x="${x}" y="${height - 10}" fill="#66766a" font-size="11" text-anchor="${anchor}">
+        ${escapeHtml(row.x_axis_label || formatShortDate(row.report_date))}
+      </text>
+    `;
+  }).join("");
+}
+
+function buildAxisLabelIndexes(length) {
+  if (length <= 1) {
+    return [0];
+  }
+  const maxLabels = length <= 6 ? length : 5;
+  if (length <= maxLabels) {
+    return Array.from({ length }, (_, index) => index);
+  }
+  const lastIndex = length - 1;
+  const indexes = new Set([0, lastIndex]);
+  for (let step = 1; step < maxLabels - 1; step += 1) {
+    indexes.add(Math.round((lastIndex * step) / (maxLabels - 1)));
+  }
+  return [...indexes].sort((left, right) => left - right);
+}
+
+function aggregateTrendRows(rows, grain) {
+  if (!Array.isArray(rows) || !rows.length) {
+    return [];
+  }
+  if (grain === "day") {
+    return rows.map((row) => ({
+      ...row,
+      report_date_start: row.report_date,
+      report_date_end: row.report_date,
+      x_axis_label: formatShortDate(row.report_date),
+      hover_label: formatDate(row.report_date),
+    }));
+  }
+
+  const buckets = new Map();
+  rows.forEach((row) => {
+    const bucketKey = trendBucketKey(row.report_date, grain);
+    const current = buckets.get(bucketKey) || {
+      report_date: bucketKey,
+      report_date_start: row.report_date,
+      report_date_end: row.report_date,
+      cost_eur: 0,
+      clicks: 0,
+      impressions: 0,
+      conversions: 0,
+      conversion_value_eur: 0,
+    };
+    current.report_date_start = current.report_date_start < row.report_date ? current.report_date_start : row.report_date;
+    current.report_date_end = current.report_date_end > row.report_date ? current.report_date_end : row.report_date;
+    current.cost_eur += Number(row.cost_eur || 0);
+    current.clicks += Number(row.clicks || 0);
+    current.impressions += Number(row.impressions || 0);
+    current.conversions += Number(row.conversions || 0);
+    current.conversion_value_eur += Number(row.conversion_value_eur || 0);
+    buckets.set(bucketKey, current);
+  });
+
+  return [...buckets.values()]
+    .sort((left, right) => String(left.report_date).localeCompare(String(right.report_date)))
+    .map((bucket) => {
+      const isoWeekParts = grain === "week" ? getIsoWeekParts(bucket.report_date_start) : null;
+      const enrichedBucket = {
+        ...bucket,
+        iso_week: isoWeekParts?.isoWeek,
+        iso_week_year: isoWeekParts?.isoYear,
+        cpc_eur: bucket.clicks ? bucket.cost_eur / bucket.clicks : 0,
+        roas: bucket.cost_eur ? bucket.conversion_value_eur / bucket.cost_eur : 0,
+        conversion_rate: bucket.clicks ? bucket.conversions / bucket.clicks : 0,
+      };
+      return {
+        ...enrichedBucket,
+        x_axis_label: formatTrendBucketAxisLabel(enrichedBucket, grain),
+        hover_label: formatTrendBucketHoverLabel(enrichedBucket, grain),
+      };
+    });
+}
+
+function trendBucketKey(dateValue, grain) {
+  if (grain === "month") {
+    return dateValue.slice(0, 7);
+  }
+  return getWeekStartIso(dateValue);
+}
+
+function getWeekStartIso(dateValue) {
+  const date = parseIsoDate(dateValue);
+  const weekday = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - weekday);
+  return toIsoDate(date);
+}
+
+function getIsoWeekParts(dateValue) {
+  const date = parseIsoDate(dateValue);
+  const weekday = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - weekday + 3);
+  const isoYear = date.getUTCFullYear();
+  const firstThursday = new Date(Date.UTC(isoYear, 0, 4));
+  const firstWeekday = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - firstWeekday + 3);
+  const isoWeek = 1 + Math.round((date - firstThursday) / 604800000);
+  return { isoYear, isoWeek };
+}
+
+function parseIsoDate(dateValue) {
+  const [year, month, day] = String(dateValue).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function toIsoDate(dateValue) {
+  return dateValue.toISOString().slice(0, 10);
+}
+
+function formatShortDate(value) {
+  if (!value) {
+    return "—";
+  }
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+function formatTrendBucketAxisLabel(bucket, grain) {
+  if (grain === "month") {
+    return formatMonth(bucket.report_date_start);
+  }
+  return `W${String(bucket.iso_week || 0).padStart(2, "0")}`;
+}
+
+function formatTrendBucketHoverLabel(bucket, grain) {
+  if (grain === "month") {
+    return formatMonth(bucket.report_date_start);
+  }
+  return `${bucket.iso_week_year || ""} W${String(bucket.iso_week || 0).padStart(2, "0")} (${formatDateSpan(bucket.report_date_start, bucket.report_date_end, { includeYear: true })})`;
+}
+
+function formatDateSpan(startValue, endValue, options = {}) {
+  const start = parseIsoDate(startValue);
+  const end = parseIsoDate(endValue);
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
+  const startMonth = start.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
+  const endMonth = end.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
+  const includeYear = options.includeYear === true;
+
+  if (startValue === endValue) {
+    return formatDate(startValue);
+  }
+  if (sameMonth) {
+    return `${start.getUTCDate()}-${end.getUTCDate()} ${endMonth}${includeYear ? ` ${end.getUTCFullYear()}` : ""}`;
+  }
+  return `${start.getUTCDate()} ${startMonth}-${end.getUTCDate()} ${endMonth}${includeYear || !sameYear ? ` ${end.getUTCFullYear()}` : ""}`;
+}
+
 function buildLinePoints(values, width, height, padding, maxValue) {
   return values
     .map((value, index) => `${pointX(index, values.length, width, padding)},${pointY(value, height, padding, maxValue)}`)
@@ -1329,6 +1813,15 @@ function pointX(index, total, width, padding) {
 function pointY(value, height, padding, maxValue) {
   const drawableHeight = height - padding.top - padding.bottom;
   return padding.top + drawableHeight - (drawableHeight * value) / maxValue;
+}
+
+function pointYForDomain(value, height, padding, domain) {
+  const drawableHeight = height - padding.top - padding.bottom;
+  const span = domain.max - domain.min;
+  if (!span) {
+    return padding.top + drawableHeight / 2;
+  }
+  return padding.top + drawableHeight - (drawableHeight * (value - domain.min)) / span;
 }
 
 function formatCell(value, formatter) {
@@ -1409,6 +1902,15 @@ function formatMoney(value) {
   return `${sign}€${moneyFormat.format(Math.abs(number))}`;
 }
 
+function formatMoneyPrecise(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  const number = Number(value);
+  const sign = number < 0 ? "-" : "";
+  return `${sign}€${moneyPreciseFormat.format(Math.abs(number))}`;
+}
+
 function formatDecimal(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
@@ -1472,6 +1974,85 @@ function formatHour(value) {
     return "—";
   }
   return `${String(Number(value)).padStart(2, "0")}:00`;
+}
+
+function formatTrendMetric(metric, value) {
+  return stripHtml((metric?.formatter || formatDecimal)(value));
+}
+
+function encodeTooltipLines(lines) {
+  return encodeURIComponent(lines.join("\n"));
+}
+
+function decodeTooltipLines(value) {
+  return decodeURIComponent(String(value || ""))
+    .split("\n")
+    .filter(Boolean);
+}
+
+function bindTrendTooltip(host) {
+  const tooltip = host.querySelector("[data-trend-tooltip]");
+  if (!tooltip) {
+    return;
+  }
+
+  const hideTooltip = () => {
+    tooltip.classList.remove("is-visible");
+    tooltip.innerHTML = "";
+  };
+
+  const positionTooltip = (event) => {
+    const hostRect = host.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const offset = 14;
+    let left = event.clientX - hostRect.left + offset;
+    const top = 12;
+
+    if (left + tooltipRect.width > hostRect.width - 8) {
+      left = Math.max(8, hostRect.width - tooltipRect.width - 8);
+    }
+    tooltip.style.left = `${Math.max(8, left)}px`;
+    tooltip.style.top = `${top}px`;
+  };
+
+  host.querySelectorAll(".trend-hover-target").forEach((target) => {
+    const renderTooltip = (event) => {
+      const lines = decodeTooltipLines(target.dataset.tooltip);
+      if (!lines.length) {
+        hideTooltip();
+        return;
+      }
+      tooltip.innerHTML = lines.map((line, index) => {
+        const safeLine = escapeHtml(line.replace(/^__TITLE__/, ""));
+        return index === 0 && line.startsWith("__TITLE__") ? `<strong>${safeLine}</strong>` : `<div>${safeLine}</div>`;
+      }).join("");
+      tooltip.classList.add("is-visible");
+      positionTooltip(event);
+    };
+
+    target.addEventListener("mouseenter", renderTooltip);
+    target.addEventListener("mousemove", renderTooltip);
+    target.addEventListener("mouseleave", hideTooltip);
+  });
+
+  host.onmouseleave = hideTooltip;
+}
+
+function formatAlertMessage(value) {
+  const raw = String(value ?? "—");
+  const rounded = raw.replace(/-?\d+\.\d+/g, (match) => formatFixedTwo(roundHalfUp(Number(match), 2)));
+  return escapeHtml(rounded);
+}
+
+function roundHalfUp(value, digits = 2) {
+  const factor = 10 ** digits;
+  const absolute = Math.abs(Number(value));
+  const rounded = Math.round((absolute + Number.EPSILON) * factor) / factor;
+  return Math.sign(Number(value)) * rounded;
+}
+
+function formatFixedTwo(value) {
+  return decimalFixedFormat.format(Number(value));
 }
 
 function formatPill(value) {

@@ -292,7 +292,13 @@ where report_date between @date_from and @date_to
 
         return self._cached_query_result("summary", (*self._scope_cache_key(scope), previous), load_summary)
 
-    def _trend_query(self, scope: ScopeFilters, *, campaign_regex: str | None = None) -> list[dict[str, Any]]:
+    def _trend_query(
+        self,
+        scope: ScopeFilters,
+        *,
+        campaign_regex: str | None = None,
+        previous: bool = False,
+    ) -> list[dict[str, Any]]:
         def load_trend() -> list[dict[str, Any]]:
             sql = f"""
 select
@@ -302,6 +308,7 @@ select
   sum(impressions) as impressions,
   sum(conversions) as conversions,
   sum(conversion_value_eur) as conversion_value_eur,
+  safe_divide(sum(cost_eur), sum(clicks)) as cpc_eur,
   safe_divide(sum(conversion_value_eur), sum(cost_eur)) as roas,
   safe_divide(sum(conversions), sum(clicks)) as conversion_rate
 from {self.mart_table('mart_ads_campaign_daily')}
@@ -312,9 +319,12 @@ where report_date between @date_from and @date_to
 group by report_date
 order by report_date
 """
-            return self._run_query(sql, parameters=self._scope_parameters_with_campaign_regex(scope, campaign_regex=campaign_regex))
+            return self._run_query(
+                sql,
+                parameters=self._scope_parameters_with_campaign_regex(scope, campaign_regex=campaign_regex, previous=previous),
+            )
 
-        return self._cached_query_result("trend", (*self._scope_cache_key(scope), campaign_regex), load_trend)
+        return self._cached_query_result("trend", (*self._scope_cache_key(scope), campaign_regex, previous), load_trend)
 
     def _campaigns_query(self, scope: ScopeFilters, *, campaign_regex: str | None = None) -> list[dict[str, Any]]:
         def load_campaigns() -> list[dict[str, Any]]:
@@ -1309,6 +1319,7 @@ limit 160
         summary = self._summary_query(scope)[0]
         previous_summary = self._summary_query(scope, previous=True)[0]
         trend = self._trend_query(scope)
+        previous_trend = self._trend_query(scope, previous=True)
         campaigns = self._campaigns_query(scope)
         keywords = self._keywords_query(scope)
         alerts = self._alerts_query(scope, limit=50)
@@ -1324,8 +1335,9 @@ limit 160
             "status_cards": self._build_status_cards(summary, previous_summary, competition, alerts, hour_of_day, budget_rows),
             "management_conclusions": self._build_management_conclusions(summary, previous_summary, competition, keywords, budget_rows, hour_of_day),
             "report_cards": self._build_report_cards(campaigns, keywords, alerts, budget_rows, weekday_profile),
-            "trend": trend[-14:],
-            "top_alerts": alerts[:8],
+            "trend": trend,
+            "previous_trend": previous_trend,
+            "top_alerts": alerts,
         }
 
     def get_overview_data(

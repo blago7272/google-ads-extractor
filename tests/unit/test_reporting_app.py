@@ -77,8 +77,8 @@ class FakeReportingService:
             "summary": self._summary(),
             "previous_summary": self._previous_summary(),
             "trend": [
-                {"report_date": "2026-03-21", "cost_eur": 90.0, "conversion_value_eur": 180.0, "conversion_rate": 0.11},
-                {"report_date": "2026-03-22", "cost_eur": 100.0, "conversion_value_eur": 200.0, "conversion_rate": 0.12},
+                {"report_date": "2026-03-21", "cost_eur": 90.0, "conversion_value_eur": 180.0, "conversion_rate": 0.11, "conversions": 8.0, "cpc_eur": 0.85, "clicks": 106, "impressions": 1250},
+                {"report_date": "2026-03-22", "cost_eur": 100.0, "conversion_value_eur": 200.0, "conversion_rate": 0.12, "conversions": 9.0, "cpc_eur": 0.91, "clicks": 110, "impressions": 1310},
             ],
             "campaigns": [
                 {
@@ -115,7 +115,8 @@ class FakeReportingService:
             "management_conclusions": [{"title": "Efficiency trend", "detail": "ROAS is stable."}],
             "status_cards": [{"title": "Competition", "tone": "warning", "detail": "sexshop.bg is rising."}],
             "report_cards": [{"report_name": "overview", "title": "High-level overview", "description": "KPI trend", "meta": "10 campaigns"}],
-            "trend": [{"report_date": "2026-03-22", "cost_eur": 100.0, "conversion_value_eur": 200.0}],
+            "trend": [{"report_date": "2026-03-22", "cost_eur": 100.0, "conversion_value_eur": 200.0, "conversion_rate": 0.12, "conversions": 9.0, "cpc_eur": 0.91, "clicks": 110, "impressions": 1310}],
+            "previous_trend": [{"report_date": "2026-02-21", "cost_eur": 85.0, "conversion_value_eur": 170.0, "conversion_rate": 0.1, "conversions": 7.0, "cpc_eur": 0.82, "clicks": 104, "impressions": 1280}],
             "top_alerts": [{"report_date": "2026-03-22", "severity": "medium", "alert_message": "Check budget"}],
         }
 
@@ -239,6 +240,11 @@ def test_index_renders_hub_shell() -> None:
     assert response.status_code == 200
     assert "Google Ads Signal Board" in response.text
     assert "Detailed reports" in response.text
+    assert "Time grain" in response.text
+    assert "Top primary" in response.text
+    assert "Top compare" in response.text
+    assert "Bottom secondary" in response.text
+    assert "Bottom compare" in response.text
 
 
 def test_overview_page_renders_campaign_regex_filter() -> None:
@@ -308,6 +314,7 @@ def test_hub_endpoint_works() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["report_cards"][0]["report_name"] == "overview"
+    assert payload["previous_trend"][0]["cost_eur"] == 85.0
 
 
 def test_timing_endpoint_works() -> None:

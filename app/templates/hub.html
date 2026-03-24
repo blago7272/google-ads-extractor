@@ -22,7 +22,86 @@
           <h2>Recent performance curve</h2>
         </div>
       </div>
+      <div class="trend-selector-grid">
+        <label class="chart-control">
+          <span>Top primary</span>
+          <select id="hub-top-primary-metric">
+            <option value="cost_eur" selected>Spend</option>
+            <option value="conversion_value_eur">Conversion value</option>
+            <option value="conversion_rate">Conversion rate</option>
+            <option value="conversions">Conversions</option>
+            <option value="cpc_eur">CPC</option>
+            <option value="impressions">Impressions</option>
+            <option value="clicks">Clicks</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Top secondary</span>
+          <select id="hub-top-secondary-metric">
+            <option value="">None</option>
+            <option value="cost_eur">Spend</option>
+            <option value="conversion_value_eur" selected>Conversion value</option>
+            <option value="conversion_rate">Conversion rate</option>
+            <option value="conversions">Conversions</option>
+            <option value="cpc_eur">CPC</option>
+            <option value="impressions">Impressions</option>
+            <option value="clicks">Clicks</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Top compare</span>
+          <select id="hub-top-compare-metric">
+            <option value="" selected>None</option>
+            <option value="primary">Previous primary period</option>
+            <option value="secondary">Previous secondary period</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Bottom primary</span>
+          <select id="hub-bottom-primary-metric">
+            <option value="cost_eur">Spend</option>
+            <option value="conversion_value_eur">Conversion value</option>
+            <option value="conversion_rate">Conversion rate</option>
+            <option value="conversions" selected>Conversions</option>
+            <option value="cpc_eur">CPC</option>
+            <option value="impressions">Impressions</option>
+            <option value="clicks">Clicks</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Bottom secondary</span>
+          <select id="hub-bottom-secondary-metric">
+            <option value="">None</option>
+            <option value="cost_eur">Spend</option>
+            <option value="conversion_value_eur">Conversion value</option>
+            <option value="conversion_rate">Conversion rate</option>
+            <option value="conversions">Conversions</option>
+            <option value="cpc_eur" selected>CPC</option>
+            <option value="impressions">Impressions</option>
+            <option value="clicks">Clicks</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Bottom compare</span>
+          <select id="hub-bottom-compare-metric">
+            <option value="" selected>None</option>
+            <option value="primary">Previous primary period</option>
+            <option value="secondary">Previous secondary period</option>
+          </select>
+        </label>
+      </div>
+      <div class="trend-grain-row">
+        <label class="chart-control trend-grain-control">
+          <span>Time grain</span>
+          <select id="hub-trend-grain">
+            <option value="day" selected>Daily</option>
+            <option value="week">Weekly</option>
+            <option value="month">Monthly</option>
+          </select>
+        </label>
+      </div>
       <div id="trend-chart" class="trend-chart"></div>
+      <div id="trend-secondary-chart" class="trend-chart"></div>
     </section>
 
     <section class="panel">
@@ -33,6 +112,9 @@
         </div>
       </div>
       <div id="hub-alerts-list" class="table-host"></div>
+      <p class="panel-note is-bottom">
+        Top alerts are prioritized heuristics, not Google Ads system errors. For keyword alerts, <code>intent_or_offer</code> means the keyword likely mismatches user intent or the ad / landing-page offer, <code>low_qs</code> points to weak relevance or quality score, <code>low_volume</code> means the term is too small to matter yet, and <code>scale_but_fix_qs</code> means it converts but should be made more relevant before scaling.
+      </p>
     </section>
   </section>
 
