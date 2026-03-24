@@ -966,9 +966,12 @@ function renderTable(name, rows) {
   container.innerHTML = `
     <div class="table-topbar">
       <div class="table-meta">${metaLabel}</div>
-      ${isCollapsible ? `<button type="button" class="table-toggle-button" data-table-toggle="${name}">${expanded ? "Show first 10" : "Expand all"}</button>` : ""}
+      <div class="table-actions">
+        <button type="button" class="table-toggle-button" data-table-scroll="${name}">Scroll rows</button>
+        ${isCollapsible ? `<button type="button" class="table-toggle-button" data-table-toggle="${name}">${expanded ? "Show first 10" : "Expand all"}</button>` : ""}
+      </div>
     </div>
-    <div class="table-shell">
+    <div class="table-shell" data-table-shell="${name}" tabindex="0" aria-label="Scrollable table">
       <table class="data-table">
         <thead>
           <tr>
@@ -1029,6 +1032,21 @@ function bindTableInteractions(name) {
       };
       state.tables.set(name, { ...tableState, expanded: !tableState.expanded });
       renderTable(name, state.tableData.get(name) || []);
+    });
+    button.dataset.bound = "true";
+  });
+
+  document.querySelectorAll(`button[data-table-scroll="${name}"]`).forEach((button) => {
+    if (button.dataset.bound === "true") {
+      return;
+    }
+    button.addEventListener("click", () => {
+      const shell = document.querySelector(`[data-table-shell="${name}"]`);
+      if (!shell) {
+        return;
+      }
+      shell.focus({ preventScroll: true });
+      shell.scrollBy({ top: shell.clientHeight * 0.75, behavior: "smooth" });
     });
     button.dataset.bound = "true";
   });

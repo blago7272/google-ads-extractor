@@ -456,9 +456,18 @@ body {
 }
 
 .table-shell {
+  max-height: 36rem;
   overflow: auto;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable both-edges;
+  overscroll-behavior: contain;
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
+}
+
+.table-shell:focus {
+  outline: 2px solid rgba(191, 90, 54, 0.25);
+  outline-offset: 2px;
 }
 
 .table-topbar {
@@ -476,6 +485,12 @@ body {
 .table-meta {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .table-toggle-button {
@@ -658,5 +673,9 @@ body {
   .table-topbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .table-actions {
+    width: 100%;
   }
 }
