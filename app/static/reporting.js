@@ -314,6 +314,7 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name"],
     containerId: "zero-conv-campaigns-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     columns: [
       { key: "campaign_name", label: "Campaign" },
       { key: "cost_eur", label: "Spend", format: formatMoney },
@@ -328,6 +329,7 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name", "ad_group_name"],
     containerId: "zero-conv-adgroups-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     columns: [
       { key: "campaign_name", label: "Campaign" },
       { key: "ad_group_name", label: "Ad group" },
@@ -343,6 +345,7 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name", "ad_group_name", "keyword_text", "match_type"],
     containerId: "zero-conv-keywords-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     columns: [
       { key: "campaign_name", label: "Campaign" },
       { key: "ad_group_name", label: "Ad group" },
@@ -360,6 +363,7 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name", "ad_group_name", "search_term", "search_term_status"],
     containerId: "zero-conv-searchterms-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     columns: [
       { key: "search_term", label: "Search term" },
       { key: "campaign_name", label: "Campaign" },
@@ -377,6 +381,7 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name"],
     containerId: "campaign-winners-table",
     defaultSort: { key: "value_delta_eur", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     columns: buildDeltaColumns("Campaign"),
   },
   campaignLosers: {
@@ -384,6 +389,7 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name"],
     containerId: "campaign-losers-table",
     defaultSort: { key: "value_delta_eur", direction: "asc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     columns: buildDeltaColumns("Campaign"),
   },
   campaignConcentration: {
@@ -391,11 +397,13 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name"],
     containerId: "campaign-concentration-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     columns: [
       { key: "campaign_name", label: "Campaign" },
       { key: "cost_eur", label: "Spend", format: formatMoney },
       { key: "conversion_value_eur", label: "Conv. value", format: formatMoney },
       { key: "conversions", label: "Conv.", format: formatDecimal },
+      { key: "roas", label: "ROAS", format: formatRatio },
       { key: "spend_share", label: "Spend share", format: formatPercent },
       { key: "value_share", label: "Value share", format: formatPercent },
     ],
@@ -1320,6 +1328,15 @@ async function refreshCurrentPage() {
   }
 
   if (REPORT_KIND === "efficiency") {
+    resetTableStates([
+      "zeroConvCampaigns",
+      "zeroConvAdGroups",
+      "zeroConvKeywords",
+      "zeroConvSearchTerms",
+      "campaignWinners",
+      "campaignLosers",
+      "campaignConcentration",
+    ]);
     renderTable("zeroConvCampaigns", payload.zero_conv_campaigns || []);
     renderTable("zeroConvAdGroups", payload.zero_conv_ad_groups || []);
     renderTable("zeroConvKeywords", payload.zero_conv_keywords || []);
@@ -1884,6 +1901,10 @@ function renderTable(name, rows) {
 
   state.tables.set(name, { ...tableState, expanded });
   bindTableInteractions(name);
+}
+
+function resetTableStates(names) {
+  (names || []).forEach((name) => state.tables.delete(name));
 }
 
 function bindTableInteractions(name) {

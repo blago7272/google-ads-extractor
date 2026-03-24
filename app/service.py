@@ -900,12 +900,12 @@ select
   r.cost_eur,
   r.conversion_value_eur,
   r.conversions,
+  safe_divide(r.conversion_value_eur, r.cost_eur) as roas,
   safe_divide(r.cost_eur, t.total_cost_eur) as spend_share,
   safe_divide(r.conversion_value_eur, t.total_conversion_value_eur) as value_share
 from rolled r
 cross join totals t
 order by r.cost_eur desc
-limit 20
 """
             return self._run_query(sql, parameters=self._scope_parameters(scope))
 

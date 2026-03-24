@@ -814,6 +814,27 @@ body {
   line-height: 1.38;
 }
 
+[data-table-shell="campaignConcentration"] .data-table {
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 0.9rem;
+}
+
+[data-table-shell="campaignConcentration"] .data-table th,
+[data-table-shell="campaignConcentration"] .data-table td {
+  padding: 9px 10px;
+}
+
+[data-table-shell="campaignConcentration"] .data-table th:nth-child(1),
+[data-table-shell="campaignConcentration"] .data-table td:nth-child(1) {
+  width: 34%;
+}
+
+[data-table-shell="campaignConcentration"] .data-table th:nth-child(n+2),
+[data-table-shell="campaignConcentration"] .data-table td:nth-child(n+2) {
+  white-space: nowrap;
+}
+
 .data-table th button {
   padding: 0;
   border: none;
