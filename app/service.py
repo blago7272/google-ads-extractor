@@ -336,13 +336,21 @@ select
   currency,
   campaign_id,
   campaign_name,
-  any_value(campaign_status) as campaign_status,
-  any_value(campaign_serving_status) as campaign_serving_status,
-  any_value(campaign_channel_type) as campaign_channel_type,
-  any_value(campaign_channel_sub_type) as campaign_channel_sub_type,
-  any_value(bidding_strategy_type) as bidding_strategy_type,
-  any_value(campaign_budget_original) as campaign_budget_original,
-  any_value(campaign_budget_eur) as campaign_budget_eur,
+  array_agg(ifnull(campaign_status, 'Unknown') order by report_date desc limit 1)[safe_offset(0)] as campaign_status,
+  array_agg(ifnull(campaign_serving_status, 'Unknown') order by report_date desc limit 1)[safe_offset(0)] as campaign_serving_status,
+  array_agg(ifnull(campaign_channel_type, 'Unknown') order by report_date desc limit 1)[safe_offset(0)] as campaign_channel_type,
+  array_agg(ifnull(campaign_channel_sub_type, 'Unknown') order by report_date desc limit 1)[safe_offset(0)] as campaign_channel_sub_type,
+  case
+    when count(distinct ifnull(bidding_strategy_type, 'Unknown')) > 1
+      then concat(
+        'Mixed (latest: ',
+        array_agg(ifnull(bidding_strategy_type, 'Unknown') order by report_date desc limit 1)[safe_offset(0)],
+        ')'
+      )
+    else array_agg(ifnull(bidding_strategy_type, 'Unknown') order by report_date desc limit 1)[safe_offset(0)]
+  end as bidding_strategy_type,
+  array_agg(campaign_budget_original order by report_date desc limit 1)[safe_offset(0)] as campaign_budget_original,
+  array_agg(campaign_budget_eur order by report_date desc limit 1)[safe_offset(0)] as campaign_budget_eur,
   sum(cost_original) as cost_original,
   sum(cost_eur) as cost_eur,
   sum(clicks) as clicks,
@@ -581,7 +589,20 @@ order by daypart
     def _daypart_ad_groups_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
         def load_daypart_ad_groups() -> list[dict[str, Any]]:
             sql = f"""
+with latest_campaigns as (
+  select
+    client_id,
+    account_id,
+    campaign_id,
+    array_agg(campaign_name order by report_date desc limit 1)[safe_offset(0)] as campaign_name
+  from {self.mart_table('mart_ads_campaign_daily')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+  group by client_id, account_id, campaign_id
+)
 select
+  c.campaign_name,
   ad_group_name,
   daypart,
   sum(cost_eur) as cost_eur,
@@ -591,11 +612,15 @@ select
   sum(conversion_value_eur) as conversion_value_eur,
   safe_divide(sum(cost_eur), sum(conversions)) as cpa_eur,
   safe_divide(sum(conversion_value_eur), sum(cost_eur)) as roas
-from {self.mart_table('mart_ads_adgroup_daypart')}
-where report_date between @date_from and @date_to
-  and (@client_id is null or client_id = @client_id)
-  and (@account_id is null or account_id = @account_id)
-group by ad_group_name, daypart
+from {self.mart_table('mart_ads_adgroup_daypart')} d
+left join latest_campaigns c
+  on d.client_id = c.client_id
+ and d.account_id = c.account_id
+ and d.campaign_id = c.campaign_id
+where d.report_date between @date_from and @date_to
+  and (@client_id is null or d.client_id = @client_id)
+  and (@account_id is null or d.account_id = @account_id)
+group by c.campaign_name, ad_group_name, daypart
 order by cost_eur desc, conversions desc
 limit 250
 """
@@ -1358,6 +1383,7 @@ limit 160
         summary = self._summary_query(scope)[0]
         previous_summary = self._summary_query(scope, previous=True)[0]
         competition = self._competition_query(scope)
+        campaign_filter_options = [row["campaign_name"] for row in self._campaigns_query(scope)[:10]]
         budget_rows = self._budget_query(scope)
         alerts = self._alerts_query(scope, limit=50)
         hour_of_day = self._hour_of_day_query(scope)
@@ -1366,8 +1392,15 @@ limit 160
             "summary": summary,
             "previous_summary": previous_summary,
             "trend": self._trend_query(scope, campaign_regex=campaign_regex),
+            "previous_trend": self._trend_query(scope, campaign_regex=campaign_regex, previous=True),
             "campaigns": self._campaigns_query(scope, campaign_regex=campaign_regex),
+            "campaign_filter_options": campaign_filter_options,
             "competition": competition,
+            "competition_note": (
+                "No auction insights data is currently available in the reporting mart for this account and selected period."
+                if not competition
+                else "Monthly auction insights rows are shown only when competitor-domain data exists for the selected period."
+            ),
             "status_cards": self._build_status_cards(summary, previous_summary, competition, alerts, hour_of_day, budget_rows),
             "campaign_regex": campaign_regex,
         }

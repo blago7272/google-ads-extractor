@@ -20,10 +20,106 @@
           <p class="section-kicker">Daily trend</p>
           <h2>Spend and conversion rhythm</h2>
         </div>
-        <input id="campaign-regex-input" class="table-search" type="search" placeholder="Regexp filter on campaign name">
+        <div class="campaign-filter-control">
+          <button id="campaign-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All top campaigns</button>
+          <div id="campaign-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Regexp search</span>
+              <input id="campaign-filter-search" class="table-search" type="search" placeholder="Filter top campaigns">
+            </label>
+            <div id="campaign-filter-options" class="campaign-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="campaign-filter-clear" type="button" class="ghost-button">Clear</button>
+              <button id="campaign-filter-close" type="button" class="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <p class="panel-note">This filter applies to the daily trend and campaign explorer after refresh.</p>
+      <p class="panel-note">Select from the top 10 campaigns by spend. The selection filters the daily trend and campaign explorer when you click Done.</p>
+      <div class="trend-selector-grid is-compact">
+        <label class="chart-control">
+          <span>Top primary</span>
+          <select id="overview-top-primary-metric">
+            <option value="cost_eur" selected>Spend</option>
+            <option value="conversion_value_eur">Conversion value</option>
+            <option value="roas">ROAS</option>
+            <option value="conversion_rate">Conversion rate</option>
+            <option value="conversions">Conversions</option>
+            <option value="cpc_eur">CPC</option>
+            <option value="impressions">Impressions</option>
+            <option value="clicks">Clicks</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Top secondary</span>
+          <select id="overview-top-secondary-metric">
+            <option value="">None</option>
+            <option value="cost_eur">Spend</option>
+            <option value="conversion_value_eur" selected>Conversion value</option>
+            <option value="roas">ROAS</option>
+            <option value="conversion_rate">Conversion rate</option>
+            <option value="conversions">Conversions</option>
+            <option value="cpc_eur">CPC</option>
+            <option value="impressions">Impressions</option>
+            <option value="clicks">Clicks</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Top compare</span>
+          <select id="overview-top-compare-metric">
+            <option value="" selected>None</option>
+            <option value="primary">Previous primary period</option>
+            <option value="secondary">Previous secondary period</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Bottom primary</span>
+          <select id="overview-bottom-primary-metric">
+            <option value="cost_eur">Spend</option>
+            <option value="conversion_value_eur">Conversion value</option>
+            <option value="roas">ROAS</option>
+            <option value="conversion_rate">Conversion rate</option>
+            <option value="conversions" selected>Conversions</option>
+            <option value="cpc_eur">CPC</option>
+            <option value="impressions">Impressions</option>
+            <option value="clicks">Clicks</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Bottom secondary</span>
+          <select id="overview-bottom-secondary-metric">
+            <option value="">None</option>
+            <option value="cost_eur">Spend</option>
+            <option value="conversion_value_eur">Conversion value</option>
+            <option value="roas">ROAS</option>
+            <option value="conversion_rate">Conversion rate</option>
+            <option value="conversions">Conversions</option>
+            <option value="cpc_eur" selected>CPC</option>
+            <option value="impressions">Impressions</option>
+            <option value="clicks">Clicks</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Bottom compare</span>
+          <select id="overview-bottom-compare-metric">
+            <option value="" selected>None</option>
+            <option value="primary">Previous primary period</option>
+            <option value="secondary">Previous secondary period</option>
+          </select>
+        </label>
+      </div>
+      <div class="trend-grain-row is-compact">
+        <label class="chart-control trend-grain-control">
+          <span>Time grain</span>
+          <select id="overview-trend-grain">
+            <option value="day" selected>Daily</option>
+            <option value="week">Weekly</option>
+            <option value="month">Monthly</option>
+          </select>
+        </label>
+      </div>
       <div id="trend-chart" class="trend-chart"></div>
+      <div id="trend-secondary-chart" class="trend-chart"></div>
     </section>
 
     <section class="panel">
@@ -45,6 +141,7 @@
         </div>
         <input id="competition-search" class="table-search" type="search" placeholder="Search competitors">
       </div>
+      <p id="competition-note" class="panel-note"></p>
       <div id="competition-table" class="table-host"></div>
     </section>
   {% elif report_name == "keywords" %}
@@ -58,6 +155,7 @@
           <input id="keywords-search" class="table-search" type="search" placeholder="Regex search keywords">
         </div>
         <p class="panel-note">The keyword filter uses a case-insensitive regular expression across keyword, campaign, ad group, and issue fields.</p>
+        <p class="panel-note"><code>QS</code> is the Google Ads Quality Score for the keyword, and <code>Coverage end</code> is the latest date included in that keyword row for the selected range.</p>
         <div id="keywords-table" class="table-host"></div>
       </section>
 
@@ -67,7 +165,6 @@
             <p class="section-kicker">Action queue</p>
             <h2>Keyword-related alerts</h2>
           </div>
-          <input id="alerts-search" class="table-search" type="search" placeholder="Search alerts">
         </div>
         <p id="keyword-alerts-note" class="panel-note"></p>
         <div id="alerts-table" class="table-host"></div>
@@ -129,7 +226,7 @@
         <div class="panel-head">
           <div>
             <p class="section-kicker">Hour of day</p>
-            <h2>Conversion value by hour</h2>
+            <h2 id="hour-chart-title">Conversion value by hour</h2>
           </div>
           <label class="chart-control">
             <span>Metric</span>
@@ -149,7 +246,7 @@
         <div class="panel-head">
           <div>
             <p class="section-kicker">Day of week</p>
-            <h2>Conversion value by weekday</h2>
+            <h2 id="weekday-chart-title">Conversion value by weekday</h2>
           </div>
           <label class="chart-control">
             <span>Metric</span>
@@ -195,8 +292,8 @@
             <p class="section-kicker">Daypart</p>
             <h2>Night versus day summary</h2>
           </div>
-          <input id="daypart-search" class="table-search" type="search" placeholder="Search dayparts">
         </div>
+        <p class="panel-note">This summary only uses two buckets: <code>day</code> and <code>night</code>.</p>
         <div id="daypart-table" class="table-host"></div>
       </section>
 
@@ -219,7 +316,36 @@
           <p class="section-kicker">Ad group timing</p>
           <h2>Which ad groups win by daypart</h2>
         </div>
-        <input id="daypart-groups-search" class="table-search" type="search" placeholder="Search ad groups">
+        <div class="panel-filter-row">
+          <div class="campaign-filter-control">
+            <button id="timing-campaign-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All campaigns</button>
+            <div id="timing-campaign-filter-panel" class="campaign-filter-panel is-hidden">
+              <label class="campaign-filter-search">
+                <span>Regexp search</span>
+                <input id="timing-campaign-filter-search" class="table-search" type="search" placeholder="Filter campaigns">
+              </label>
+              <div id="timing-campaign-filter-options" class="campaign-filter-options"></div>
+              <div class="campaign-filter-actions">
+                <button id="timing-campaign-filter-clear" type="button" class="ghost-button">Clear</button>
+                <button id="timing-campaign-filter-close" type="button" class="primary-button">Done</button>
+              </div>
+            </div>
+          </div>
+          <div class="campaign-filter-control">
+            <button id="timing-adgroup-filter-toggle" type="button" class="table-toggle-button campaign-filter-toggle">All ad groups</button>
+            <div id="timing-adgroup-filter-panel" class="campaign-filter-panel is-hidden">
+              <label class="campaign-filter-search">
+                <span>Regexp search</span>
+                <input id="timing-adgroup-filter-search" class="table-search" type="search" placeholder="Filter ad groups">
+              </label>
+              <div id="timing-adgroup-filter-options" class="campaign-filter-options"></div>
+              <div class="campaign-filter-actions">
+                <button id="timing-adgroup-filter-clear" type="button" class="ghost-button">Clear</button>
+                <button id="timing-adgroup-filter-close" type="button" class="primary-button">Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="daypart-groups-table" class="table-host"></div>
     </section>

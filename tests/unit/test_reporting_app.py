@@ -80,6 +80,10 @@ class FakeReportingService:
                 {"report_date": "2026-03-21", "cost_eur": 90.0, "conversion_value_eur": 180.0, "conversion_rate": 0.11, "conversions": 8.0, "cpc_eur": 0.85, "clicks": 106, "impressions": 1250},
                 {"report_date": "2026-03-22", "cost_eur": 100.0, "conversion_value_eur": 200.0, "conversion_rate": 0.12, "conversions": 9.0, "cpc_eur": 0.91, "clicks": 110, "impressions": 1310},
             ],
+            "previous_trend": [
+                {"report_date": "2026-03-19", "cost_eur": 82.0, "conversion_value_eur": 170.0, "conversion_rate": 0.1, "conversions": 7.0, "cpc_eur": 0.79, "clicks": 104, "impressions": 1210},
+                {"report_date": "2026-03-20", "cost_eur": 95.0, "conversion_value_eur": 190.0, "conversion_rate": 0.11, "conversions": 8.0, "cpc_eur": 0.84, "clicks": 108, "impressions": 1260},
+            ],
             "campaigns": [
                 {
                     "campaign_name": "Brand",
@@ -103,6 +107,8 @@ class FakeReportingService:
                     "outranking_share": 0.04,
                 }
             ],
+            "campaign_filter_options": ["Brand", "Generic", "PMax"],
+            "competition_note": "Monthly auction insights rows are shown only when competitor-domain data exists for the selected period.",
             "status_cards": [{"title": "Budget", "tone": "positive", "detail": "No budget exhaustion"}],
             "campaign_regex": "brand",
         }
@@ -245,13 +251,19 @@ def test_index_renders_hub_shell() -> None:
     assert "Top compare" in response.text
     assert "Bottom secondary" in response.text
     assert "Bottom compare" in response.text
+    assert ">ROAS<" in response.text
 
 
 def test_overview_page_renders_campaign_regex_filter() -> None:
     response = client.get("/reports/overview")
     assert response.status_code == 200
     assert "Spend and conversion rhythm" in response.text
-    assert "Regexp filter on campaign name" in response.text
+    assert "All top campaigns" in response.text
+    assert "Top compare" in response.text
+    assert "Bottom secondary" in response.text
+    assert 'id="overview-trend-grain"' in response.text
+    assert ">ROAS<" in response.text
+    assert "Auction insights snapshot" in response.text
 
 
 def test_timing_page_renders_added_sections() -> None:
@@ -261,12 +273,15 @@ def test_timing_page_renders_added_sections() -> None:
     assert "Weekend versus weekday" in response.text
     assert "Conversion rate" in response.text
     assert "Potential budget exhaustion days" in response.text
+    assert "All campaigns" in response.text
+    assert "All ad groups" in response.text
 
 
 def test_keywords_page_renders_advanced_filters() -> None:
     response = client.get("/reports/keywords")
     assert response.status_code == 200
     assert "Regex search keywords" in response.text
+    assert "Google Ads Quality Score" in response.text
     assert "Keyword-related alerts" in response.text
     assert "Higher than or equal" in response.text
 

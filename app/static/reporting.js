@@ -5,6 +5,15 @@ const state = {
   tables: new Map(),
   tableData: new Map(),
   currentPayload: null,
+  overviewCampaignSelection: [],
+  overviewCampaignOptions: [],
+  overviewCampaignSearch: "",
+  timingCampaignSelection: [],
+  timingCampaignOptions: [],
+  timingCampaignSearch: "",
+  timingAdGroupSelection: [],
+  timingAdGroupOptions: [],
+  timingAdGroupSearch: "",
 };
 
 const PAGE_KIND = document.body.dataset.pageKind;
@@ -162,15 +171,54 @@ const TABLE_CONFIG = {
     searchFields: ["report_date", "severity", "alert_type", "alert_message"],
     containerId: "alerts-table",
     defaultSort: { key: "report_date", direction: "desc" },
+    showSummaryRow: false,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    topbarFilter: {
+      inputId: "alerts-severity-filter",
+      key: "severity",
+      options: [
+        { value: "", label: "All severities" },
+        { value: "high", label: "High only" },
+        { value: "medium", label: "Medium only" },
+        { value: "low", label: "Low only" },
+      ],
+    },
     columns: [
       { key: "report_date", label: "Date", format: formatDate },
       { key: "severity", label: "Severity", format: formatPill },
       { key: "alert_type", label: "Type" },
-      { key: "alert_message", label: "Message" },
+      { key: "alert_message", label: "Message", format: formatAlertMessage },
+    ],
+  },
+  keywordAlerts: {
+    searchInputId: null,
+    searchFields: ["report_date", "severity", "alert_message"],
+    containerId: "alerts-table",
+    defaultSort: { key: "report_date", direction: "desc" },
+    showSummaryRow: false,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    topbarFilter: {
+      inputId: "keyword-alert-severity-filter",
+      key: "severity",
+      options: [
+        { value: "", label: "All severities" },
+        { value: "high", label: "High only" },
+        { value: "medium", label: "Medium only" },
+        { value: "low", label: "Low only" },
+      ],
+    },
+    columns: [
+      { key: "report_date", label: "Date", format: formatDate },
+      { key: "severity", label: "Severity", format: formatPill },
+      { key: "alert_message", label: "Message", format: formatAlertMessage },
     ],
   },
   daypart: {
-    searchInputId: "daypart-search",
+    searchInputId: null,
     searchFields: ["daypart"],
     containerId: "daypart-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
@@ -184,11 +232,13 @@ const TABLE_CONFIG = {
     ],
   },
   daypartGroups: {
-    searchInputId: "daypart-groups-search",
-    searchFields: ["ad_group_name", "daypart"],
+    searchInputId: null,
+    searchFields: ["campaign_name", "ad_group_name", "daypart"],
     containerId: "daypart-groups-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    hideScrollButton: true,
     columns: [
+      { key: "campaign_name", label: "Campaign" },
       { key: "ad_group_name", label: "Ad group" },
       { key: "daypart", label: "Daypart", format: formatPill },
       { key: "cost_eur", label: "Spend", format: formatMoney },
@@ -203,6 +253,16 @@ const TABLE_CONFIG = {
     searchFields: ["report_date", "campaign_name", "budget_exhausted_flag"],
     containerId: "budget-table",
     defaultSort: { key: "report_date", direction: "desc" },
+    hideScrollButton: true,
+    topbarFilter: {
+      inputId: "budget-flag-filter",
+      key: "budget_exhausted_flag",
+      options: [
+        { value: "", label: "All flags" },
+        { value: "true", label: "Flagged only" },
+        { value: "false", label: "Not flagged" },
+      ],
+    },
     columns: [
       { key: "report_date", label: "Date", format: formatDate },
       { key: "campaign_name", label: "Campaign" },
@@ -216,6 +276,9 @@ const TABLE_CONFIG = {
     searchFields: ["period_group"],
     containerId: "weekpart-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    showSummaryRow: false,
+    showTopMeta: false,
+    hideScrollButton: true,
     columns: [
       { key: "period_group", label: "Group" },
       { key: "cost_eur", label: "Spend", format: formatMoney },
@@ -232,6 +295,9 @@ const TABLE_CONFIG = {
     searchFields: ["period_group"],
     containerId: "daywindow-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    showSummaryRow: false,
+    showTopMeta: false,
+    hideScrollButton: true,
     columns: [
       { key: "period_group", label: "Group" },
       { key: "cost_eur", label: "Spend", format: formatMoney },
@@ -455,6 +521,12 @@ function bindFilterEvents() {
       return;
     }
     applyFilterDefaults(state.options.defaults);
+    state.overviewCampaignSelection = [];
+    state.overviewCampaignSearch = "";
+    state.timingCampaignSelection = [];
+    state.timingCampaignSearch = "";
+    state.timingAdGroupSelection = [];
+    state.timingAdGroupSearch = "";
     syncAccountOptions();
     if (state.options.defaults.account_id) {
       document.getElementById("account-select").value = state.options.defaults.account_id;
@@ -464,11 +536,25 @@ function bindFilterEvents() {
   });
 
   document.getElementById("client-select").addEventListener("change", () => {
+    state.overviewCampaignSelection = [];
+    state.overviewCampaignSearch = "";
+    state.timingCampaignSelection = [];
+    state.timingCampaignSearch = "";
+    state.timingAdGroupSelection = [];
+    state.timingAdGroupSearch = "";
     syncAccountOptions();
     updateReportLinks();
   });
 
-  document.getElementById("account-select").addEventListener("change", updateReportLinks);
+  document.getElementById("account-select").addEventListener("change", () => {
+    state.overviewCampaignSelection = [];
+    state.overviewCampaignSearch = "";
+    state.timingCampaignSelection = [];
+    state.timingCampaignSearch = "";
+    state.timingAdGroupSelection = [];
+    state.timingAdGroupSearch = "";
+    updateReportLinks();
+  });
   document.getElementById("date-from-input").addEventListener("change", updateReportLinks);
   document.getElementById("date-to-input").addEventListener("change", updateReportLinks);
 }
@@ -494,33 +580,537 @@ function bindPageSpecificEvents() {
     "hub-bottom-primary-metric",
     "hub-bottom-secondary-metric",
     "hub-bottom-compare-metric",
+    "overview-trend-grain",
+    "overview-top-primary-metric",
+    "overview-top-secondary-metric",
+    "overview-top-compare-metric",
+    "overview-bottom-primary-metric",
+    "overview-bottom-secondary-metric",
+    "overview-bottom-compare-metric",
   ].forEach((id) => {
     const input = document.getElementById(id);
     if (input && input.dataset.bound !== "true") {
       input.addEventListener("change", () => {
         if (PAGE_KIND === "hub" && state.currentPayload) {
           renderHubTrendCharts(state.currentPayload);
+        } else if (REPORT_KIND === "overview" && state.currentPayload) {
+          renderOverviewTrendCharts(state.currentPayload);
         }
       });
       input.dataset.bound = "true";
     }
   });
 
-  const campaignRegexInput = document.getElementById("campaign-regex-input");
-  if (campaignRegexInput && campaignRegexInput.dataset.bound !== "true") {
-    campaignRegexInput.addEventListener("input", () => {
-      clearInputError("campaign-regex-input");
-      campaignRegexInput.setCustomValidity("");
-      updateReportLinks();
-    });
-    campaignRegexInput.addEventListener("keydown", async (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        await refreshCurrentPage();
+  bindOverviewCampaignFilterEvents();
+  bindTimingCampaignFilterEvents();
+  bindTimingAdGroupFilterEvents();
+}
+
+function bindOverviewCampaignFilterEvents() {
+  const toggle = document.getElementById("campaign-filter-toggle");
+  const panel = document.getElementById("campaign-filter-panel");
+  const searchInput = document.getElementById("campaign-filter-search");
+  const clearButton = document.getElementById("campaign-filter-clear");
+  const closeButton = document.getElementById("campaign-filter-close");
+  const optionsContainer = document.getElementById("campaign-filter-options");
+
+  if (!toggle || !panel || !searchInput || !clearButton || !closeButton || !optionsContainer) {
+    return;
+  }
+
+  const selectionSignature = () => normalizeSelectionSignature(getSelectedOverviewCampaigns());
+  const closePanel = (applySelection = false) => {
+    const shouldRefresh = applySelection && panel.dataset.selectionSignature !== selectionSignature();
+    panel.classList.add("is-hidden");
+    toggle.classList.remove("is-open");
+    if (shouldRefresh) {
+      panel.dataset.selectionSignature = selectionSignature();
+      refreshCurrentPage().catch(renderGlobalError);
+    }
+  };
+
+  if (toggle.dataset.bound !== "true") {
+    toggle.addEventListener("click", () => {
+      const isOpening = panel.classList.contains("is-hidden");
+      if (isOpening) {
+        panel.dataset.selectionSignature = selectionSignature();
+        panel.classList.remove("is-hidden");
+        toggle.classList.add("is-open");
+        searchInput.focus();
+      } else {
+        closePanel(true);
       }
     });
-    campaignRegexInput.dataset.bound = "true";
+    toggle.dataset.bound = "true";
   }
+
+  if (searchInput.dataset.bound !== "true") {
+    searchInput.addEventListener("input", () => {
+      state.overviewCampaignSearch = searchInput.value.trim();
+      renderOverviewCampaignOptions();
+    });
+    searchInput.dataset.bound = "true";
+  }
+
+  if (clearButton.dataset.bound !== "true") {
+    clearButton.addEventListener("click", () => {
+      state.overviewCampaignSelection = [];
+      state.overviewCampaignSearch = "";
+      searchInput.value = "";
+      renderOverviewCampaignSelector(state.overviewCampaignOptions);
+      updateReportLinks();
+    });
+    clearButton.dataset.bound = "true";
+  }
+
+  if (closeButton.dataset.bound !== "true") {
+    closeButton.addEventListener("click", () => {
+      closePanel(true);
+    });
+    closeButton.dataset.bound = "true";
+  }
+
+  if (optionsContainer.dataset.bound !== "true") {
+    optionsContainer.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") {
+        return;
+      }
+      if (target.checked) {
+        state.overviewCampaignSelection = [...new Set([...state.overviewCampaignSelection, target.value])];
+      } else {
+        state.overviewCampaignSelection = state.overviewCampaignSelection.filter((value) => value !== target.value);
+      }
+      renderOverviewCampaignToggleLabel();
+      updateReportLinks();
+    });
+    optionsContainer.dataset.bound = "true";
+  }
+
+  if (panel.dataset.boundOutside !== "true") {
+    document.addEventListener("click", (event) => {
+      if (panel.classList.contains("is-hidden")) {
+        return;
+      }
+      if (panel.contains(event.target) || toggle.contains(event.target)) {
+        return;
+      }
+      closePanel(true);
+    });
+    panel.dataset.boundOutside = "true";
+  }
+}
+
+function renderOverviewCampaignSelector(campaignNames) {
+  const toggle = document.getElementById("campaign-filter-toggle");
+  const panel = document.getElementById("campaign-filter-panel");
+  const searchInput = document.getElementById("campaign-filter-search");
+  if (!toggle || !panel || !searchInput) {
+    return;
+  }
+  const mergedOptions = [...new Set([...(campaignNames || []), ...state.overviewCampaignSelection])];
+  state.overviewCampaignOptions = mergedOptions.slice(0, Math.max(10, mergedOptions.length));
+  searchInput.value = state.overviewCampaignSearch;
+  panel.dataset.selectionSignature = normalizeSelectionSignature(getSelectedOverviewCampaigns());
+  renderOverviewCampaignToggleLabel();
+  renderOverviewCampaignOptions();
+}
+
+function bindTimingCampaignFilterEvents() {
+  const toggle = document.getElementById("timing-campaign-filter-toggle");
+  const panel = document.getElementById("timing-campaign-filter-panel");
+  const searchInput = document.getElementById("timing-campaign-filter-search");
+  const clearButton = document.getElementById("timing-campaign-filter-clear");
+  const closeButton = document.getElementById("timing-campaign-filter-close");
+  const optionsContainer = document.getElementById("timing-campaign-filter-options");
+
+  if (!toggle || !panel || !searchInput || !clearButton || !closeButton || !optionsContainer) {
+    return;
+  }
+
+  const selectionSignature = () => normalizeSelectionSignature(getSelectedTimingCampaigns());
+  const closePanel = (applySelection = false) => {
+    const shouldRerender = applySelection && panel.dataset.selectionSignature !== selectionSignature();
+    panel.classList.add("is-hidden");
+    toggle.classList.remove("is-open");
+    if (shouldRerender) {
+      panel.dataset.selectionSignature = selectionSignature();
+      renderTable("daypartGroups", state.tableData.get("daypartGroups") || []);
+    }
+  };
+
+  if (toggle.dataset.bound !== "true") {
+    toggle.addEventListener("click", () => {
+      const isOpening = panel.classList.contains("is-hidden");
+      if (isOpening) {
+        panel.dataset.selectionSignature = selectionSignature();
+        panel.classList.remove("is-hidden");
+        toggle.classList.add("is-open");
+        searchInput.focus();
+      } else {
+        closePanel(true);
+      }
+    });
+    toggle.dataset.bound = "true";
+  }
+
+  if (searchInput.dataset.bound !== "true") {
+    searchInput.addEventListener("input", () => {
+      state.timingCampaignSearch = searchInput.value.trim();
+      renderTimingCampaignOptions();
+    });
+    searchInput.dataset.bound = "true";
+  }
+
+  if (clearButton.dataset.bound !== "true") {
+    clearButton.addEventListener("click", () => {
+      state.timingCampaignSelection = [];
+      state.timingCampaignSearch = "";
+      searchInput.value = "";
+      renderTimingCampaignSelector(state.tableData.get("daypartGroups") || []);
+      renderTimingAdGroupSelector(state.tableData.get("daypartGroups") || []);
+    });
+    clearButton.dataset.bound = "true";
+  }
+
+  if (closeButton.dataset.bound !== "true") {
+    closeButton.addEventListener("click", () => {
+      closePanel(true);
+    });
+    closeButton.dataset.bound = "true";
+  }
+
+  if (optionsContainer.dataset.bound !== "true") {
+    optionsContainer.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") {
+        return;
+      }
+      if (target.checked) {
+        state.timingCampaignSelection = [...new Set([...state.timingCampaignSelection, target.value])];
+      } else {
+        state.timingCampaignSelection = state.timingCampaignSelection.filter((value) => value !== target.value);
+      }
+      renderTimingCampaignToggleLabel();
+      renderTimingAdGroupSelector(state.tableData.get("daypartGroups") || []);
+    });
+    optionsContainer.dataset.bound = "true";
+  }
+
+  if (panel.dataset.boundOutside !== "true") {
+    document.addEventListener("click", (event) => {
+      if (panel.classList.contains("is-hidden")) {
+        return;
+      }
+      if (panel.contains(event.target) || toggle.contains(event.target)) {
+        return;
+      }
+      closePanel(true);
+    });
+    panel.dataset.boundOutside = "true";
+  }
+}
+
+function renderTimingCampaignSelector(rows) {
+  const toggle = document.getElementById("timing-campaign-filter-toggle");
+  const panel = document.getElementById("timing-campaign-filter-panel");
+  const searchInput = document.getElementById("timing-campaign-filter-search");
+  if (!toggle || !panel || !searchInput) {
+    return;
+  }
+  const spendByCampaign = new Map();
+  (rows || []).forEach((row) => {
+    if (!row?.campaign_name) {
+      return;
+    }
+    spendByCampaign.set(
+      row.campaign_name,
+      (spendByCampaign.get(row.campaign_name) || 0) + Number(row.cost_eur || 0),
+    );
+  });
+  const sortedCampaigns = [...spendByCampaign.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], undefined, { sensitivity: "base" }))
+    .map(([campaignName]) => campaignName);
+  const mergedOptions = [...new Set([...sortedCampaigns, ...state.timingCampaignSelection])];
+  state.timingCampaignOptions = mergedOptions;
+  searchInput.value = state.timingCampaignSearch;
+  panel.dataset.selectionSignature = normalizeSelectionSignature(getSelectedTimingCampaigns());
+  renderTimingCampaignToggleLabel();
+  renderTimingCampaignOptions();
+}
+
+function renderTimingCampaignToggleLabel() {
+  const toggle = document.getElementById("timing-campaign-filter-toggle");
+  if (!toggle) {
+    return;
+  }
+  const count = getSelectedTimingCampaigns().length;
+  toggle.textContent = count ? `${count} campaign${count === 1 ? "" : "s"} selected` : "All campaigns";
+}
+
+function renderTimingCampaignOptions() {
+  const container = document.getElementById("timing-campaign-filter-options");
+  if (!container) {
+    return;
+  }
+  const query = state.timingCampaignSearch || "";
+  let options = state.timingCampaignOptions;
+  if (query) {
+    const pattern = compileRegex(query, "timing-campaign-filter-search");
+    if (!pattern) {
+      container.innerHTML = '<div class="empty-state">The campaign search is not a valid regular expression.</div>';
+      return;
+    }
+    options = options.filter((campaignName) => pattern.test(campaignName));
+  } else {
+    clearInputError("timing-campaign-filter-search");
+  }
+
+  if (!options.length) {
+    container.innerHTML = '<div class="empty-state">No campaign names match the current filter.</div>';
+    return;
+  }
+
+  const selected = new Set(getSelectedTimingCampaigns());
+  container.innerHTML = options.map((campaignName) => `
+    <label class="campaign-filter-option">
+      <input type="checkbox" value="${escapeHtml(campaignName)}"${selected.has(campaignName) ? " checked" : ""}>
+      <span>${escapeHtml(campaignName)}</span>
+    </label>
+  `).join("");
+}
+
+function getSelectedTimingCampaigns() {
+  return Array.isArray(state.timingCampaignSelection) ? state.timingCampaignSelection : [];
+}
+
+function bindTimingAdGroupFilterEvents() {
+  const toggle = document.getElementById("timing-adgroup-filter-toggle");
+  const panel = document.getElementById("timing-adgroup-filter-panel");
+  const searchInput = document.getElementById("timing-adgroup-filter-search");
+  const clearButton = document.getElementById("timing-adgroup-filter-clear");
+  const closeButton = document.getElementById("timing-adgroup-filter-close");
+  const optionsContainer = document.getElementById("timing-adgroup-filter-options");
+
+  if (!toggle || !panel || !searchInput || !clearButton || !closeButton || !optionsContainer) {
+    return;
+  }
+
+  const selectionSignature = () => normalizeSelectionSignature(getSelectedTimingAdGroups());
+  const closePanel = (applySelection = false) => {
+    const shouldRerender = applySelection && panel.dataset.selectionSignature !== selectionSignature();
+    panel.classList.add("is-hidden");
+    toggle.classList.remove("is-open");
+    if (shouldRerender) {
+      panel.dataset.selectionSignature = selectionSignature();
+      renderTable("daypartGroups", state.tableData.get("daypartGroups") || []);
+    }
+  };
+
+  if (toggle.dataset.bound !== "true") {
+    toggle.addEventListener("click", () => {
+      const isOpening = panel.classList.contains("is-hidden");
+      if (isOpening) {
+        panel.dataset.selectionSignature = selectionSignature();
+        panel.classList.remove("is-hidden");
+        toggle.classList.add("is-open");
+        searchInput.focus();
+      } else {
+        closePanel(true);
+      }
+    });
+    toggle.dataset.bound = "true";
+  }
+
+  if (searchInput.dataset.bound !== "true") {
+    searchInput.addEventListener("input", () => {
+      state.timingAdGroupSearch = searchInput.value.trim();
+      renderTimingAdGroupOptions();
+    });
+    searchInput.dataset.bound = "true";
+  }
+
+  if (clearButton.dataset.bound !== "true") {
+    clearButton.addEventListener("click", () => {
+      state.timingAdGroupSelection = [];
+      state.timingAdGroupSearch = "";
+      searchInput.value = "";
+      renderTimingAdGroupSelector(state.tableData.get("daypartGroups") || []);
+    });
+    clearButton.dataset.bound = "true";
+  }
+
+  if (closeButton.dataset.bound !== "true") {
+    closeButton.addEventListener("click", () => {
+      closePanel(true);
+    });
+    closeButton.dataset.bound = "true";
+  }
+
+  if (optionsContainer.dataset.bound !== "true") {
+    optionsContainer.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") {
+        return;
+      }
+      if (target.checked) {
+        state.timingAdGroupSelection = [...new Set([...state.timingAdGroupSelection, target.value])];
+      } else {
+        state.timingAdGroupSelection = state.timingAdGroupSelection.filter((value) => value !== target.value);
+      }
+      renderTimingAdGroupToggleLabel();
+    });
+    optionsContainer.dataset.bound = "true";
+  }
+
+  if (panel.dataset.boundOutside !== "true") {
+    document.addEventListener("click", (event) => {
+      if (panel.classList.contains("is-hidden")) {
+        return;
+      }
+      if (panel.contains(event.target) || toggle.contains(event.target)) {
+        return;
+      }
+      closePanel(true);
+    });
+    panel.dataset.boundOutside = "true";
+  }
+}
+
+function renderTimingAdGroupSelector(rows) {
+  const toggle = document.getElementById("timing-adgroup-filter-toggle");
+  const panel = document.getElementById("timing-adgroup-filter-panel");
+  const searchInput = document.getElementById("timing-adgroup-filter-search");
+  if (!toggle || !panel || !searchInput) {
+    return;
+  }
+  const selectedCampaigns = getSelectedTimingCampaigns();
+  const scopedRows = selectedCampaigns.length
+    ? (rows || []).filter((row) => selectedCampaigns.includes(row.campaign_name))
+    : (rows || []);
+  const spendByAdGroup = new Map();
+  scopedRows.forEach((row) => {
+    if (!row?.ad_group_name) {
+      return;
+    }
+    spendByAdGroup.set(
+      row.ad_group_name,
+      (spendByAdGroup.get(row.ad_group_name) || 0) + Number(row.cost_eur || 0),
+    );
+  });
+  const sortedAdGroups = [...spendByAdGroup.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], undefined, { sensitivity: "base" }))
+    .map(([adGroupName]) => adGroupName);
+  const allowedSet = new Set(sortedAdGroups);
+  state.timingAdGroupSelection = getSelectedTimingAdGroups().filter((adGroupName) => allowedSet.has(adGroupName));
+  const mergedOptions = [...new Set([...sortedAdGroups, ...state.timingAdGroupSelection])];
+  state.timingAdGroupOptions = mergedOptions;
+  searchInput.value = state.timingAdGroupSearch;
+  panel.dataset.selectionSignature = normalizeSelectionSignature(getSelectedTimingAdGroups());
+  renderTimingAdGroupToggleLabel();
+  renderTimingAdGroupOptions();
+}
+
+function renderTimingAdGroupToggleLabel() {
+  const toggle = document.getElementById("timing-adgroup-filter-toggle");
+  if (!toggle) {
+    return;
+  }
+  const count = getSelectedTimingAdGroups().length;
+  toggle.textContent = count ? `${count} ad group${count === 1 ? "" : "s"} selected` : "All ad groups";
+}
+
+function renderTimingAdGroupOptions() {
+  const container = document.getElementById("timing-adgroup-filter-options");
+  if (!container) {
+    return;
+  }
+  const query = state.timingAdGroupSearch || "";
+  let options = state.timingAdGroupOptions;
+  if (query) {
+    const pattern = compileRegex(query, "timing-adgroup-filter-search");
+    if (!pattern) {
+      container.innerHTML = '<div class="empty-state">The ad group search is not a valid regular expression.</div>';
+      return;
+    }
+    options = options.filter((adGroupName) => pattern.test(adGroupName));
+  } else {
+    clearInputError("timing-adgroup-filter-search");
+  }
+
+  if (!options.length) {
+    container.innerHTML = '<div class="empty-state">No ad groups match the current filter.</div>';
+    return;
+  }
+
+  const selected = new Set(getSelectedTimingAdGroups());
+  container.innerHTML = options.map((adGroupName) => `
+    <label class="campaign-filter-option">
+      <input type="checkbox" value="${escapeHtml(adGroupName)}"${selected.has(adGroupName) ? " checked" : ""}>
+      <span>${escapeHtml(adGroupName)}</span>
+    </label>
+  `).join("");
+}
+
+function getSelectedTimingAdGroups() {
+  return Array.isArray(state.timingAdGroupSelection) ? state.timingAdGroupSelection : [];
+}
+
+function renderOverviewCampaignToggleLabel() {
+  const toggle = document.getElementById("campaign-filter-toggle");
+  if (!toggle) {
+    return;
+  }
+  const count = getSelectedOverviewCampaigns().length;
+  toggle.textContent = count ? `${count} campaign${count === 1 ? "" : "s"} selected` : "All top campaigns";
+}
+
+function renderOverviewCampaignOptions() {
+  const container = document.getElementById("campaign-filter-options");
+  if (!container) {
+    return;
+  }
+  const query = state.overviewCampaignSearch || "";
+  let options = state.overviewCampaignOptions;
+  if (query) {
+    const pattern = compileRegex(query, "campaign-filter-search");
+    if (!pattern) {
+      container.innerHTML = '<div class="empty-state">The campaign search is not a valid regular expression.</div>';
+      return;
+    }
+    options = options.filter((campaignName) => pattern.test(campaignName));
+  } else {
+    clearInputError("campaign-filter-search");
+  }
+
+  if (!options.length) {
+    container.innerHTML = '<div class="empty-state">No campaign names match the current filter.</div>';
+    return;
+  }
+
+  const selected = new Set(getSelectedOverviewCampaigns());
+  container.innerHTML = options.map((campaignName) => `
+    <label class="campaign-filter-option">
+      <input type="checkbox" value="${escapeHtml(campaignName)}"${selected.has(campaignName) ? " checked" : ""}>
+      <span>${escapeHtml(campaignName)}</span>
+    </label>
+  `).join("");
+}
+
+function getSelectedOverviewCampaigns() {
+  return Array.isArray(state.overviewCampaignSelection) ? state.overviewCampaignSelection : [];
+}
+
+function buildExactCampaignRegex(campaignNames) {
+  return `^(${campaignNames.map((name) => escapeRegex(name)).join("|")})$`;
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeSelectionSignature(values) {
+  return [...new Set(values || [])].sort().join("\u0001");
 }
 
 function showLoadingState() {
@@ -584,10 +1174,8 @@ function populateFilters(options) {
   if (urlFilters.account_id || options.defaults.account_id) {
     document.getElementById("account-select").value = urlFilters.account_id || options.defaults.account_id;
   }
-  const campaignRegexInput = document.getElementById("campaign-regex-input");
-  if (campaignRegexInput) {
-    campaignRegexInput.value = urlFilters.campaign_regex || "";
-  }
+  state.overviewCampaignSelection = urlFilters.campaign_names || [];
+  state.overviewCampaignSearch = "";
   updateReportLinks();
 }
 
@@ -598,6 +1186,7 @@ function readFiltersFromUrl() {
     account_id: params.get("account_id") || undefined,
     date_from: params.get("date_from") || undefined,
     date_to: params.get("date_to") || undefined,
+    campaign_names: params.getAll("campaign_name"),
     campaign_regex: params.get("campaign_regex") || undefined,
   };
 }
@@ -634,7 +1223,6 @@ function currentFilterQuery() {
   const accountId = document.getElementById("account-select").value;
   const dateFrom = document.getElementById("date-from-input").value;
   const dateTo = document.getElementById("date-to-input").value;
-  const campaignRegex = document.getElementById("campaign-regex-input")?.value.trim();
   if (clientId) {
     params.set("client_id", clientId);
   }
@@ -647,6 +1235,17 @@ function currentFilterQuery() {
   if (dateTo) {
     params.set("date_to", dateTo);
   }
+  const selectedCampaigns = REPORT_KIND === "overview" ? getSelectedOverviewCampaigns() : [];
+  selectedCampaigns.forEach((campaignName) => params.append("campaign_name", campaignName));
+  return params;
+}
+
+function currentApiQuery() {
+  const params = currentFilterQuery();
+  const selectedCampaigns = REPORT_KIND === "overview" ? getSelectedOverviewCampaigns() : [];
+  const campaignRegex = selectedCampaigns.length
+    ? buildExactCampaignRegex(selectedCampaigns)
+    : document.getElementById("campaign-regex-input")?.value.trim() || "";
   if (campaignRegex) {
     params.set("campaign_regex", campaignRegex);
   }
@@ -673,7 +1272,7 @@ async function refreshCurrentPage() {
   updateReportLinks();
   showLoadingState();
 
-  const params = currentFilterQuery();
+  const params = currentApiQuery();
   const endpoint = PAGE_KIND === "hub"
     ? `/api/hub?${params.toString()}`
     : `/api/reports/${REPORT_KIND}?${params.toString()}`;
@@ -689,8 +1288,10 @@ async function refreshCurrentPage() {
   }
 
   if (REPORT_KIND === "overview") {
+    renderOverviewCampaignSelector(payload.campaign_filter_options || []);
+    renderCompetitionNote(payload.competition_note || "", payload.competition || []);
     renderStatusCards(payload.status_cards || [], "status-card-grid");
-    renderTrendChart(payload.trend || [], "trend-chart");
+    renderOverviewTrendCharts(payload);
     renderTable("campaigns", payload.campaigns || []);
     renderTable("competition", payload.competition || []);
     return;
@@ -700,7 +1301,7 @@ async function refreshCurrentPage() {
     renderNote("keyword-alerts-note", payload.alerts_definition);
     renderTable("keywords", payload.keywords || []);
     renderTable("searchTerms", payload.search_terms || []);
-    renderTable("alerts", payload.alerts || []);
+    renderTable("keywordAlerts", payload.alerts || []);
     return;
   }
 
@@ -708,6 +1309,8 @@ async function refreshCurrentPage() {
     renderInsights(payload.timing_highlights || [], "timing-highlights");
     renderNote("budget-definition-note", payload.budget_flags_definition);
     renderTimingCharts(payload);
+    renderTimingCampaignSelector(payload.daypart_ad_groups || []);
+    renderTimingAdGroupSelector(payload.daypart_ad_groups || []);
     renderTable("weekpartComparison", payload.weekpart_comparison || []);
     renderTable("dayWindowComparison", payload.day_window_comparison || []);
     renderTable("daypart", payload.daypart || []);
@@ -810,7 +1413,10 @@ function renderKpis(summary, previousSummary) {
       <article class="kpi-card">
         <p class="kpi-title">${definition.label}</p>
         <div class="kpi-value">${definition.formatter(currentValue)}</div>
-        <div class="kpi-delta ${delta.className}">${delta.label}</div>
+        <div class="kpi-delta-row">
+          <div class="kpi-delta ${delta.className}">${delta.label}</div>
+          <div class="kpi-reference">Prev ${definition.formatter(previousValue)}</div>
+        </div>
       </article>
     `;
   }).join("");
@@ -862,27 +1468,55 @@ function renderReportCards(cards) {
 }
 
 function renderHubTrendCharts(payload) {
-  const grain = document.getElementById("hub-trend-grain")?.value || "day";
+  renderControlledTrendCharts(payload, {
+    grainId: "hub-trend-grain",
+    topPrimaryId: "hub-top-primary-metric",
+    topSecondaryId: "hub-top-secondary-metric",
+    topCompareId: "hub-top-compare-metric",
+    bottomPrimaryId: "hub-bottom-primary-metric",
+    bottomSecondaryId: "hub-bottom-secondary-metric",
+    bottomCompareId: "hub-bottom-compare-metric",
+  });
+}
+
+function renderOverviewTrendCharts(payload) {
+  renderControlledTrendCharts(payload, {
+    grainId: "overview-trend-grain",
+    topPrimaryId: "overview-top-primary-metric",
+    topSecondaryId: "overview-top-secondary-metric",
+    topCompareId: "overview-top-compare-metric",
+    bottomPrimaryId: "overview-bottom-primary-metric",
+    bottomSecondaryId: "overview-bottom-secondary-metric",
+    bottomCompareId: "overview-bottom-compare-metric",
+  });
+}
+
+function renderControlledTrendCharts(payload, config) {
+  const grain = document.getElementById(config.grainId)?.value || "day";
   const currentRows = aggregateTrendRows(payload?.trend || [], grain);
   const previousRows = aggregateTrendRows(payload?.previous_trend || [], grain);
   renderMetricTrendChart(
     "trend-chart",
     currentRows,
-    getTrendMetricKeys("hub-top-primary-metric", "hub-top-secondary-metric"),
+    getTrendMetricKeys(config.topPrimaryId, config.topSecondaryId),
     {
-      compareMetricKey: getTrendCompareMetric("hub-top-primary-metric", "hub-top-secondary-metric", "hub-top-compare-metric"),
+      compareMetricKey: getTrendCompareMetric(config.topPrimaryId, config.topSecondaryId, config.topCompareId),
       previousRows,
     },
   );
   renderMetricTrendChart(
     "trend-secondary-chart",
     currentRows,
-    getTrendMetricKeys("hub-bottom-primary-metric", "hub-bottom-secondary-metric"),
+    getTrendMetricKeys(config.bottomPrimaryId, config.bottomSecondaryId),
     {
-      compareMetricKey: getTrendCompareMetric("hub-bottom-primary-metric", "hub-bottom-secondary-metric", "hub-bottom-compare-metric"),
+      compareMetricKey: getTrendCompareMetric(config.bottomPrimaryId, config.bottomSecondaryId, config.bottomCompareId),
       previousRows,
     },
   );
+}
+
+function renderTrendChart(rows, containerId) {
+  renderMetricTrendChart(containerId, rows, ["cost_eur", "conversion_value_eur"]);
 }
 
 function getTrendMetricKeys(primaryId, secondaryId) {
@@ -905,10 +1539,6 @@ function getTrendCompareMetric(primaryId, secondaryId, compareId) {
     return document.getElementById(secondaryId)?.value || null;
   }
   return null;
-}
-
-function renderTrendChart(rows, containerId) {
-  renderMetricTrendChart(containerId, rows, ["cost_eur", "conversion_value_eur"]);
 }
 
 function renderMetricTrendChart(containerId, rows, metricKeys, options = {}) {
@@ -1059,6 +1689,15 @@ function buildTrendAxis({ domain, formatter, side, width, height, padding }) {
 function renderTimingCharts(payload) {
   const hourMetric = getChartMetric(document.getElementById("hour-metric-select")?.value);
   const weekdayMetric = getChartMetric(document.getElementById("weekday-metric-select")?.value);
+  const hourTitle = document.getElementById("hour-chart-title");
+  const weekdayTitle = document.getElementById("weekday-chart-title");
+
+  if (hourTitle) {
+    hourTitle.textContent = `${hourMetric.label} by hour`;
+  }
+  if (weekdayTitle) {
+    weekdayTitle.textContent = `${weekdayMetric.label} by weekday`;
+  }
 
   renderBarChart("hour-chart", payload.hour_of_day || [], {
     labelKey: "report_hour",
@@ -1090,15 +1729,16 @@ function renderBarChart(containerId, rows, options) {
 
   const width = 1080;
   const height = 320;
-  const padding = { top: 26, right: 16, bottom: 48, left: 28 };
-  const maxValue = Math.max(...rows.map((row) => Number(row[options.valueKey] || 0)), 1);
+  const padding = { top: 26, right: 16, bottom: 48, left: 78 };
+  const values = rows.map((row) => Number(row[options.valueKey] || 0));
+  const domain = buildBarDomain(values);
   const barSpace = (width - padding.left - padding.right) / rows.length;
   const barWidth = Math.max(Math.min(barSpace * 0.62, 42), 12);
 
   const bars = rows.map((row, index) => {
     const value = Number(row[options.valueKey] || 0);
     const x = padding.left + index * barSpace + (barSpace - barWidth) / 2;
-    const y = pointY(value, height, padding, maxValue);
+    const y = pointYForDomain(value, height, padding, domain);
     const barHeight = height - padding.bottom - y;
     const label = options.labelFormatter ? options.labelFormatter(row[options.labelKey]) : row[options.labelKey];
     const title = buildChartTooltip(label, row, options);
@@ -1113,6 +1753,14 @@ function renderBarChart(containerId, rows, options) {
   host.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Bar chart">
       ${buildGridLines(width, height, padding)}
+      ${buildTrendAxis({
+        domain,
+        formatter: options.valueFormatter || formatDecimal,
+        side: "left",
+        width,
+        height,
+        padding,
+      })}
       <text x="${padding.left}" y="${padding.top - 6}" fill="#66766a" font-size="12">${escapeHtml(options.valueLabel)} by ${escapeHtml(options.labelKey)}</text>
       ${bars}
     </svg>
@@ -1165,14 +1813,17 @@ function renderTable(name, rows) {
 
   const sortedRows = [...filteredRows].sort((left, right) => compareRows(left, right, tableState.sortKey, tableState.direction));
   if (!sortedRows.length) {
+    const emptyTopMetaHtml = config.showTopMeta === false ? "" : '<div class="table-meta">0 filtered rows</div>';
+    const hasEmptyTopbarContent = Boolean(emptyTopMetaHtml || topbarFilterHtml || scrollButtonHtml);
     container.innerHTML = `
+      ${hasEmptyTopbarContent ? `
       <div class="table-topbar">
-        ${config.showTopMeta === false ? "" : '<div class="table-meta">0 filtered rows</div>'}
+        ${emptyTopMetaHtml}
         <div class="table-actions">
           ${topbarFilterHtml}
           ${scrollButtonHtml}
         </div>
-      </div>
+      </div>` : ""}
       <div class="empty-state">No rows for the selected range.</div>
     `;
     bindTableInteractions(name);
@@ -1185,23 +1836,26 @@ function renderTable(name, rows) {
   const metaLabel = expanded || !isCollapsible
     ? `${formatInteger(sortedRows.length)} filtered rows`
     : `Showing first ${formatInteger(collapseThreshold)} of ${formatInteger(sortedRows.length)} filtered rows`;
+  const toggleButtonHtml = isCollapsible ? `<button type="button" class="table-toggle-button" data-table-toggle="${name}">${expanded ? "Show first 10" : "Expand all"}</button>` : "";
   const tableShellClass = expanded || !isCollapsible ? "table-shell is-expanded" : "table-shell is-collapsed";
   const visibleRowsStyle = `--visible-rows:${collapseThreshold};`;
   const topMetaHtml = config.showTopMeta === false ? "" : `<div class="table-meta">${metaLabel}</div>`;
+  const hasTopbarContent = Boolean(topMetaHtml || topbarFilterHtml || scrollButtonHtml || toggleButtonHtml);
   const footerHtml = config.showFooterCount
     ? `<div class="table-footer-meta">${formatInteger(sortedRows.length)} filtered rows</div>`
     : "";
   const summaryRowHtml = config.showSummaryRow === false ? "" : buildSummaryRow(name, filteredRows, config);
 
   container.innerHTML = `
+    ${hasTopbarContent ? `
     <div class="table-topbar">
       ${topMetaHtml}
       <div class="table-actions">
         ${topbarFilterHtml}
         ${scrollButtonHtml}
-        ${isCollapsible ? `<button type="button" class="table-toggle-button" data-table-toggle="${name}">${expanded ? "Show first 10" : "Expand all"}</button>` : ""}
+        ${toggleButtonHtml}
       </div>
-    </div>
+    </div>` : ""}
     <div class="${tableShellClass}" data-table-shell="${name}" style="${visibleRowsStyle}" tabindex="0" aria-label="Scrollable table">
       <table class="data-table">
         <thead>
@@ -1334,7 +1988,20 @@ function filterRowsForTable(name, rows) {
   if (config.topbarFilter) {
     const selectedValue = document.getElementById(config.topbarFilter.inputId)?.value || "";
     if (selectedValue) {
-      filteredRows = filteredRows.filter((row) => String(row[config.topbarFilter.key] || "").toLowerCase() === selectedValue.toLowerCase());
+      filteredRows = filteredRows.filter((row) => String(row[config.topbarFilter.key] ?? "").toLowerCase() === selectedValue.toLowerCase());
+    }
+  }
+
+  if (name === "daypartGroups") {
+    const selectedCampaigns = getSelectedTimingCampaigns();
+    if (selectedCampaigns.length) {
+      const selectedSet = new Set(selectedCampaigns);
+      filteredRows = filteredRows.filter((row) => selectedSet.has(row.campaign_name));
+    }
+    const selectedAdGroups = getSelectedTimingAdGroups();
+    if (selectedAdGroups.length) {
+      const selectedSet = new Set(selectedAdGroups);
+      filteredRows = filteredRows.filter((row) => selectedSet.has(row.ad_group_name));
     }
   }
 
@@ -1551,6 +2218,17 @@ function renderNote(containerId, text) {
   container.textContent = text || "";
 }
 
+function renderCompetitionNote(text, rows) {
+  renderNote("competition-note", text);
+  const input = document.getElementById("competition-search");
+  if (!input) {
+    return;
+  }
+  const hasRows = Array.isArray(rows) && rows.length > 0;
+  input.disabled = !hasRows;
+  input.placeholder = hasRows ? "Search competitors" : "No auction insights data available";
+}
+
 function buildGridLines(width, height, padding) {
   const lines = [];
   for (let step = 0; step < 4; step += 1) {
@@ -1584,6 +2262,21 @@ function buildTrendDomain(primaryValues, secondaryValues = []) {
   min = min >= 0 ? Math.max(0, min - pad) : min - pad;
   max += pad;
   return { min, max };
+}
+
+function buildBarDomain(values) {
+  const finiteValues = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (!finiteValues.length) {
+    return { min: 0, max: 1 };
+  }
+  const max = Math.max(...finiteValues);
+  if (max <= 0) {
+    return { min: 0, max: 1 };
+  }
+  const pad = max * 0.08 || 1;
+  return { min: 0, max: max + pad };
 }
 
 function buildTrendLinePoints(values, width, height, padding, domain) {
