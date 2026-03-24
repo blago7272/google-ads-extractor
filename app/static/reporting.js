@@ -1,3 +1,5 @@
+const DEFAULT_VISIBLE_ROWS = 10;
+
 const state = {
   options: null,
   tables: new Map(),
@@ -29,11 +31,53 @@ const CHART_METRICS = {
   cost_eur: { key: "cost_eur", label: "Spend", formatter: formatMoney },
   roas: { key: "roas", label: "ROAS", formatter: formatRatio },
   conversions: { key: "conversions", label: "Conversions", formatter: formatDecimal },
+  conversion_rate: { key: "conversion_rate", label: "Conversion rate", formatter: formatPercent },
 };
+
+const CHART_TOOLTIP_KEYS = ["conversion_value_eur", "cost_eur", "roas", "conversions", "conversion_rate"];
+
+const MONEY_KEYS = new Set([
+  "campaign_budget_eur",
+  "campaign_budget_original",
+  "conversion_value_eur",
+  "conversion_value_original",
+  "cost_eur",
+  "cost_original",
+  "cpa_eur",
+  "cpa_original",
+  "cpc_eur",
+  "cpc_original",
+  "current_conversion_value_eur",
+  "current_cost_eur",
+  "previous_conversion_value_eur",
+  "previous_cost_eur",
+  "spend_delta_eur",
+  "total_cost_eur",
+  "value_delta_eur",
+]);
+
+const INTEGER_KEYS = new Set(["clicks", "impressions", "quality_score"]);
+const DECIMAL_KEYS = new Set(["conversions", "current_conversions", "previous_conversions"]);
+const PERCENT_KEYS = new Set([
+  "conversion_rate",
+  "ctr",
+  "impression_share",
+  "overlap_rate",
+  "outranking_share",
+  "position_above_rate",
+  "spend_share",
+  "value_share",
+]);
+const RATIO_KEYS = new Set(["roas", "current_roas", "previous_roas"]);
+const DATE_KEYS = new Set(["report_date", "report_date_end", "report_date_start"]);
+const MONTH_KEYS = new Set(["report_month"]);
+const HOUR_KEYS = new Set(["first_active_hour", "last_active_hour", "report_hour"]);
+const BOOLEAN_KEYS = new Set(["budget_exhausted_flag"]);
 
 const TABLE_CONFIG = {
   campaigns: {
     searchInputId: "campaigns-search",
+    searchFields: ["campaign_name", "campaign_channel_type", "bidding_strategy_type", "campaign_status", "campaign_serving_status"],
     containerId: "campaigns-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
     columns: [
@@ -42,6 +86,7 @@ const TABLE_CONFIG = {
       { key: "bidding_strategy_type", label: "Bid strategy" },
       { key: "cost_eur", label: "Spend", format: formatMoney },
       { key: "conversions", label: "Conv.", format: formatDecimal },
+      { key: "conversion_rate", label: "Conv. rate", format: formatPercent },
       { key: "conversion_value_eur", label: "Conv. value", format: formatMoney },
       { key: "cpa_eur", label: "CPA", format: formatMoney },
       { key: "roas", label: "ROAS", format: formatRatio },
@@ -49,6 +94,7 @@ const TABLE_CONFIG = {
   },
   competition: {
     searchInputId: "competition-search",
+    searchFields: ["competitor_domain", "report_month"],
     containerId: "competition-table",
     defaultSort: { key: "report_month", direction: "desc" },
     columns: [
@@ -62,6 +108,7 @@ const TABLE_CONFIG = {
   },
   keywords: {
     searchInputId: "keywords-search",
+    searchFields: ["keyword_text", "campaign_name", "ad_group_name", "audit_reason", "match_type", "keyword_status"],
     searchMode: "regex",
     containerId: "keywords-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
@@ -69,6 +116,7 @@ const TABLE_CONFIG = {
       { key: "audit_reason", label: "Issue", format: formatPill },
       { key: "keyword_text", label: "Keyword" },
       { key: "campaign_name", label: "Campaign" },
+      { key: "ad_group_name", label: "Ad group" },
       { key: "quality_score", label: "QS", format: formatNullableInteger },
       { key: "cost_eur", label: "Spend", format: formatMoney },
       { key: "conversions", label: "Conv.", format: formatDecimal },
@@ -78,6 +126,7 @@ const TABLE_CONFIG = {
   },
   searchTerms: {
     searchInputId: "search-terms-search",
+    searchFields: ["search_term", "campaign_name", "ad_group_name", "search_term_status", "search_term_match_type"],
     extraFilterInputIds: [
       "search-terms-conversions-operator",
       "search-terms-conversions-value",
@@ -105,6 +154,7 @@ const TABLE_CONFIG = {
   },
   alerts: {
     searchInputId: "alerts-search",
+    searchFields: ["report_date", "severity", "alert_type", "alert_message"],
     containerId: "alerts-table",
     defaultSort: { key: "report_date", direction: "desc" },
     columns: [
@@ -116,6 +166,7 @@ const TABLE_CONFIG = {
   },
   daypart: {
     searchInputId: "daypart-search",
+    searchFields: ["daypart"],
     containerId: "daypart-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
     columns: [
@@ -129,6 +180,7 @@ const TABLE_CONFIG = {
   },
   daypartGroups: {
     searchInputId: "daypart-groups-search",
+    searchFields: ["ad_group_name", "daypart"],
     containerId: "daypart-groups-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
     columns: [
@@ -143,6 +195,7 @@ const TABLE_CONFIG = {
   },
   budgetFlags: {
     searchInputId: "budget-search",
+    searchFields: ["report_date", "campaign_name", "budget_exhausted_flag"],
     containerId: "budget-table",
     defaultSort: { key: "report_date", direction: "desc" },
     columns: [
@@ -153,8 +206,181 @@ const TABLE_CONFIG = {
       { key: "total_cost_eur", label: "Spend", format: formatMoney },
     ],
   },
+  weekpartComparison: {
+    searchInputId: null,
+    searchFields: ["period_group"],
+    containerId: "weekpart-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "period_group", label: "Group" },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "clicks", label: "Clicks", format: formatInteger },
+      { key: "impressions", label: "Impressions", format: formatInteger },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+      { key: "conversion_rate", label: "Conv. rate", format: formatPercent },
+      { key: "conversion_value_eur", label: "Conv. value", format: formatMoney },
+      { key: "roas", label: "ROAS", format: formatRatio },
+    ],
+  },
+  dayWindowComparison: {
+    searchInputId: null,
+    searchFields: ["period_group"],
+    containerId: "daywindow-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "period_group", label: "Group" },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "clicks", label: "Clicks", format: formatInteger },
+      { key: "impressions", label: "Impressions", format: formatInteger },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+      { key: "conversion_rate", label: "Conv. rate", format: formatPercent },
+      { key: "conversion_value_eur", label: "Conv. value", format: formatMoney },
+      { key: "roas", label: "ROAS", format: formatRatio },
+    ],
+  },
+  zeroConvCampaigns: {
+    searchInputId: "zero-conv-campaigns-search",
+    searchFields: ["campaign_name"],
+    containerId: "zero-conv-campaigns-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "campaign_name", label: "Campaign" },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "clicks", label: "Clicks", format: formatInteger },
+      { key: "impressions", label: "Impressions", format: formatInteger },
+      { key: "ctr", label: "CTR", format: formatPercent },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+    ],
+  },
+  zeroConvAdGroups: {
+    searchInputId: "zero-conv-adgroups-search",
+    searchFields: ["campaign_name", "ad_group_name"],
+    containerId: "zero-conv-adgroups-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "campaign_name", label: "Campaign" },
+      { key: "ad_group_name", label: "Ad group" },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "clicks", label: "Clicks", format: formatInteger },
+      { key: "impressions", label: "Impressions", format: formatInteger },
+      { key: "ctr", label: "CTR", format: formatPercent },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+    ],
+  },
+  zeroConvKeywords: {
+    searchInputId: "zero-conv-keywords-search",
+    searchFields: ["campaign_name", "ad_group_name", "keyword_text", "match_type"],
+    containerId: "zero-conv-keywords-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "campaign_name", label: "Campaign" },
+      { key: "ad_group_name", label: "Ad group" },
+      { key: "keyword_text", label: "Keyword" },
+      { key: "match_type", label: "Match type" },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "clicks", label: "Clicks", format: formatInteger },
+      { key: "impressions", label: "Impressions", format: formatInteger },
+      { key: "ctr", label: "CTR", format: formatPercent },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+    ],
+  },
+  zeroConvSearchTerms: {
+    searchInputId: "zero-conv-searchterms-search",
+    searchFields: ["campaign_name", "ad_group_name", "search_term", "search_term_status"],
+    containerId: "zero-conv-searchterms-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "search_term", label: "Search term" },
+      { key: "campaign_name", label: "Campaign" },
+      { key: "ad_group_name", label: "Ad group" },
+      { key: "search_term_status", label: "Status" },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "clicks", label: "Clicks", format: formatInteger },
+      { key: "impressions", label: "Impressions", format: formatInteger },
+      { key: "ctr", label: "CTR", format: formatPercent },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+    ],
+  },
+  campaignWinners: {
+    searchInputId: "campaign-winners-search",
+    searchFields: ["campaign_name"],
+    containerId: "campaign-winners-table",
+    defaultSort: { key: "value_delta_eur", direction: "desc" },
+    columns: buildDeltaColumns("Campaign"),
+  },
+  campaignLosers: {
+    searchInputId: "campaign-losers-search",
+    searchFields: ["campaign_name"],
+    containerId: "campaign-losers-table",
+    defaultSort: { key: "value_delta_eur", direction: "asc" },
+    columns: buildDeltaColumns("Campaign"),
+  },
+  campaignConcentration: {
+    searchInputId: "campaign-concentration-search",
+    searchFields: ["campaign_name"],
+    containerId: "campaign-concentration-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "campaign_name", label: "Campaign" },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "conversion_value_eur", label: "Conv. value", format: formatMoney },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+      { key: "spend_share", label: "Spend share", format: formatPercent },
+      { key: "value_share", label: "Value share", format: formatPercent },
+    ],
+  },
+  coverageOpportunities: {
+    searchInputId: "coverage-opportunities-search",
+    searchFields: ["campaign_name", "ad_group_name", "search_term", "search_term_status"],
+    containerId: "coverage-opportunities-table",
+    defaultSort: { key: "conversion_value_eur", direction: "desc" },
+    columns: [
+      { key: "search_term", label: "Search term" },
+      { key: "campaign_name", label: "Campaign" },
+      { key: "ad_group_name", label: "Ad group" },
+      { key: "search_term_status", label: "Status" },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "clicks", label: "Clicks", format: formatInteger },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+      { key: "conversion_rate", label: "Conv. rate", format: formatPercent },
+      { key: "conversion_value_eur", label: "Conv. value", format: formatMoney },
+      { key: "roas", label: "ROAS", format: formatRatio },
+    ],
+  },
+  negativeCandidates: {
+    searchInputId: "negative-candidates-search",
+    searchFields: ["campaign_name", "ad_group_name", "search_term", "search_term_status"],
+    containerId: "negative-candidates-table",
+    defaultSort: { key: "cost_eur", direction: "desc" },
+    columns: [
+      { key: "search_term", label: "Search term" },
+      { key: "campaign_name", label: "Campaign" },
+      { key: "ad_group_name", label: "Ad group" },
+      { key: "search_term_status", label: "Status" },
+      { key: "cost_eur", label: "Spend", format: formatMoney },
+      { key: "clicks", label: "Clicks", format: formatInteger },
+      { key: "impressions", label: "Impressions", format: formatInteger },
+      { key: "ctr", label: "CTR", format: formatPercent },
+      { key: "conversions", label: "Conv.", format: formatDecimal },
+    ],
+  },
+  adWinners: {
+    searchInputId: "ad-winners-search",
+    searchFields: ["campaign_name", "ad_group_name", "ad_label"],
+    containerId: "ad-winners-table",
+    defaultSort: { key: "value_delta_eur", direction: "desc" },
+    columns: buildDeltaColumns("Ad", { includeAdGroup: true, labelKey: "ad_label" }),
+  },
+  adLosers: {
+    searchInputId: "ad-losers-search",
+    searchFields: ["campaign_name", "ad_group_name", "ad_label"],
+    containerId: "ad-losers-table",
+    defaultSort: { key: "value_delta_eur", direction: "asc" },
+    columns: buildDeltaColumns("Ad", { includeAdGroup: true, labelKey: "ad_label" }),
+  },
   hubAlerts: {
     searchInputId: null,
+    searchFields: ["report_date", "severity", "alert_message"],
     containerId: "hub-alerts-list",
     defaultSort: { key: "report_date", direction: "desc" },
     columns: [
@@ -168,7 +394,6 @@ const TABLE_CONFIG = {
 document.addEventListener("DOMContentLoaded", async () => {
   bindFilterEvents();
   bindPageSpecificEvents();
-  showLoadingState();
   try {
     const options = await fetchJson("/api/options");
     state.options = options;
@@ -178,6 +403,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderGlobalError(error);
   }
 });
+
+function buildDeltaColumns(primaryLabel, options = {}) {
+  const columns = [{ key: options.labelKey || `${primaryLabel.toLowerCase()}_name`, label: primaryLabel }];
+  if (options.includeAdGroup) {
+    columns.unshift({ key: "campaign_name", label: "Campaign" });
+    columns.push({ key: "ad_group_name", label: "Ad group" });
+  }
+  return [
+    ...columns,
+    { key: "current_cost_eur", label: "Current spend", format: formatMoney },
+    { key: "previous_cost_eur", label: "Previous spend", format: formatMoney },
+    { key: "current_conversions", label: "Current conv.", format: formatDecimal },
+    { key: "previous_conversions", label: "Previous conv.", format: formatDecimal },
+    { key: "current_conversion_value_eur", label: "Current value", format: formatMoney },
+    { key: "previous_conversion_value_eur", label: "Previous value", format: formatMoney },
+    { key: "current_roas", label: "Current ROAS", format: formatRatio },
+    { key: "previous_roas", label: "Previous ROAS", format: formatRatio },
+    { key: "value_delta_eur", label: "Value delta", format: formatMoney },
+    { key: "roas_delta", label: "ROAS delta", format: formatDeltaRatio },
+  ];
+}
 
 function bindFilterEvents() {
   document.getElementById("filters-form").addEventListener("submit", async (event) => {
@@ -194,6 +440,7 @@ function bindFilterEvents() {
     if (state.options.defaults.account_id) {
       document.getElementById("account-select").value = state.options.defaults.account_id;
     }
+    updateReportLinks();
     await refreshCurrentPage();
   });
 
@@ -219,6 +466,22 @@ function bindPageSpecificEvents() {
       input.dataset.bound = "true";
     }
   });
+
+  const campaignRegexInput = document.getElementById("campaign-regex-input");
+  if (campaignRegexInput && campaignRegexInput.dataset.bound !== "true") {
+    campaignRegexInput.addEventListener("input", () => {
+      clearInputError("campaign-regex-input");
+      campaignRegexInput.setCustomValidity("");
+      updateReportLinks();
+    });
+    campaignRegexInput.addEventListener("keydown", async (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        await refreshCurrentPage();
+      }
+    });
+    campaignRegexInput.dataset.bound = "true";
+  }
 }
 
 function showLoadingState() {
@@ -242,6 +505,19 @@ function showLoadingState() {
     "timing-highlights",
     "hour-chart",
     "weekday-chart",
+    "weekpart-table",
+    "daywindow-table",
+    "zero-conv-campaigns-table",
+    "zero-conv-adgroups-table",
+    "zero-conv-keywords-table",
+    "zero-conv-searchterms-table",
+    "campaign-winners-table",
+    "campaign-losers-table",
+    "campaign-concentration-table",
+    "coverage-opportunities-table",
+    "negative-candidates-table",
+    "ad-winners-table",
+    "ad-losers-table",
   ].forEach((id) => {
     const element = document.getElementById(id);
     if (element) {
@@ -268,6 +544,10 @@ function populateFilters(options) {
   if (urlFilters.account_id || options.defaults.account_id) {
     document.getElementById("account-select").value = urlFilters.account_id || options.defaults.account_id;
   }
+  const campaignRegexInput = document.getElementById("campaign-regex-input");
+  if (campaignRegexInput) {
+    campaignRegexInput.value = urlFilters.campaign_regex || "";
+  }
   updateReportLinks();
 }
 
@@ -278,6 +558,7 @@ function readFiltersFromUrl() {
     account_id: params.get("account_id") || undefined,
     date_from: params.get("date_from") || undefined,
     date_to: params.get("date_to") || undefined,
+    campaign_regex: params.get("campaign_regex") || undefined,
   };
 }
 
@@ -313,6 +594,7 @@ function currentFilterQuery() {
   const accountId = document.getElementById("account-select").value;
   const dateFrom = document.getElementById("date-from-input").value;
   const dateTo = document.getElementById("date-to-input").value;
+  const campaignRegex = document.getElementById("campaign-regex-input")?.value.trim();
   if (clientId) {
     params.set("client_id", clientId);
   }
@@ -324,6 +606,9 @@ function currentFilterQuery() {
   }
   if (dateTo) {
     params.set("date_to", dateTo);
+  }
+  if (campaignRegex) {
+    params.set("campaign_regex", campaignRegex);
   }
   return params;
 }
@@ -341,14 +626,20 @@ function updateReportLinks() {
 }
 
 async function refreshCurrentPage() {
+  if (!validatePageFilters()) {
+    return;
+  }
+
   updateReportLinks();
   showLoadingState();
+
   const params = currentFilterQuery();
   const endpoint = PAGE_KIND === "hub"
     ? `/api/hub?${params.toString()}`
     : `/api/reports/${REPORT_KIND}?${params.toString()}`;
   const payload = await fetchJson(endpoint);
   state.currentPayload = payload;
+
   renderScope(payload.scope, payload.summary);
   renderKpis(payload.summary, payload.previous_summary);
 
@@ -358,9 +649,9 @@ async function refreshCurrentPage() {
   }
 
   if (REPORT_KIND === "overview") {
-    renderStatusCards(payload.status_cards, "status-card-grid");
-    renderTrendChart(payload.trend, "trend-chart");
-    renderTable("campaigns", payload.campaigns);
+    renderStatusCards(payload.status_cards || [], "status-card-grid");
+    renderTrendChart(payload.trend || [], "trend-chart");
+    renderTable("campaigns", payload.campaigns || []);
     renderTable("competition", payload.competition || []);
     return;
   }
@@ -377,15 +668,65 @@ async function refreshCurrentPage() {
     renderInsights(payload.timing_highlights || [], "timing-highlights");
     renderNote("budget-definition-note", payload.budget_flags_definition);
     renderTimingCharts(payload);
+    renderTable("weekpartComparison", payload.weekpart_comparison || []);
+    renderTable("dayWindowComparison", payload.day_window_comparison || []);
     renderTable("daypart", payload.daypart || []);
     renderTable("daypartGroups", payload.daypart_ad_groups || []);
     renderTable("budgetFlags", payload.budget_flags || []);
     return;
   }
 
+  if (REPORT_KIND === "efficiency") {
+    renderTable("zeroConvCampaigns", payload.zero_conv_campaigns || []);
+    renderTable("zeroConvAdGroups", payload.zero_conv_ad_groups || []);
+    renderTable("zeroConvKeywords", payload.zero_conv_keywords || []);
+    renderTable("zeroConvSearchTerms", payload.zero_conv_search_terms || []);
+    renderTable("campaignWinners", payload.campaign_winners || []);
+    renderTable("campaignLosers", payload.campaign_losers || []);
+    renderTable("campaignConcentration", payload.campaign_concentration || []);
+    return;
+  }
+
+  if (REPORT_KIND === "coverage") {
+    renderTable("coverageOpportunities", payload.coverage_opportunities || []);
+    renderTable("negativeCandidates", payload.negative_candidates || []);
+    return;
+  }
+
+  if (REPORT_KIND === "creative") {
+    renderTable("adWinners", payload.ad_winners || []);
+    renderTable("adLosers", payload.ad_losers || []);
+    return;
+  }
+
   if (REPORT_KIND === "alerts") {
     renderTable("alerts", payload.alerts || []);
     renderTable("budgetFlags", payload.budget_flags || []);
+  }
+}
+
+function validatePageFilters() {
+  const campaignRegexInput = document.getElementById("campaign-regex-input");
+  if (!campaignRegexInput) {
+    return true;
+  }
+  const query = campaignRegexInput.value.trim();
+  if (!query) {
+    clearInputError("campaign-regex-input");
+    campaignRegexInput.setCustomValidity("");
+    return true;
+  }
+  try {
+    // Validate the pattern locally before it reaches BigQuery regexp_contains.
+    new RegExp(query, "i");
+    clearInputError("campaign-regex-input");
+    campaignRegexInput.setCustomValidity("");
+    return true;
+  } catch {
+    campaignRegexInput.classList.add("is-invalid");
+    campaignRegexInput.setCustomValidity("Campaign regexp is invalid.");
+    campaignRegexInput.reportValidity();
+    return false;
   }
 }
 
@@ -521,7 +862,7 @@ function renderTimingCharts(payload) {
     valueKey: hourMetric.key,
     valueLabel: hourMetric.label,
     valueFormatter: hourMetric.formatter,
-    tooltipKeys: ["conversion_value_eur", "cost_eur", "roas", "conversions"],
+    tooltipKeys: CHART_TOOLTIP_KEYS,
     labelFormatter: (value) => `${String(value).padStart(2, "0")}:00`,
   });
   renderBarChart("weekday-chart", payload.weekday_profile || [], {
@@ -529,7 +870,7 @@ function renderTimingCharts(payload) {
     valueKey: weekdayMetric.key,
     valueLabel: weekdayMetric.label,
     valueFormatter: weekdayMetric.formatter,
-    tooltipKeys: ["conversion_value_eur", "cost_eur", "roas", "conversions"],
+    tooltipKeys: CHART_TOOLTIP_KEYS,
     labelFormatter: shortWeekday,
   });
 }
@@ -594,8 +935,13 @@ function renderTable(name, rows) {
   if (!container) {
     return;
   }
+
   state.tableData.set(name, rows);
-  const tableState = state.tables.get(name) || { sortKey: config.defaultSort.key, direction: config.defaultSort.direction };
+  const tableState = state.tables.get(name) || {
+    sortKey: config.defaultSort.key,
+    direction: config.defaultSort.direction,
+    expanded: false,
+  };
   const { filteredRows, filterError } = filterRowsForTable(name, rows);
 
   if (filterError) {
@@ -604,50 +950,87 @@ function renderTable(name, rows) {
   }
 
   const sortedRows = [...filteredRows].sort((left, right) => compareRows(left, right, tableState.sortKey, tableState.direction));
-
   if (!sortedRows.length) {
     container.innerHTML = '<div class="empty-state">No rows for the selected range.</div>';
     return;
   }
 
+  const collapseThreshold = config.collapseThreshold || DEFAULT_VISIBLE_ROWS;
+  const isCollapsible = sortedRows.length > collapseThreshold;
+  const expanded = isCollapsible ? tableState.expanded : true;
+  const visibleRows = expanded ? sortedRows : sortedRows.slice(0, collapseThreshold);
+  const metaLabel = expanded || !isCollapsible
+    ? `${formatInteger(sortedRows.length)} filtered rows`
+    : `Showing first ${formatInteger(visibleRows.length)} of ${formatInteger(sortedRows.length)} filtered rows`;
+
   container.innerHTML = `
-    <table class="data-table">
-      <thead>
-        <tr>
-          ${config.columns.map((column) => `
-            <th>
-              <button type="button" data-table="${name}" data-key="${column.key}">
-                ${column.label}${renderSortMarker(tableState, column.key)}
-              </button>
-            </th>
-          `).join("")}
-        </tr>
-      </thead>
-      <tbody>
-        ${buildSummaryRow(name, filteredRows, config)}
-        ${sortedRows.map((row) => `
+    <div class="table-topbar">
+      <div class="table-meta">${metaLabel}</div>
+      ${isCollapsible ? `<button type="button" class="table-toggle-button" data-table-toggle="${name}">${expanded ? "Show first 10" : "Expand all"}</button>` : ""}
+    </div>
+    <div class="table-shell">
+      <table class="data-table">
+        <thead>
           <tr>
-            ${config.columns.map((column) => `<td>${formatCell(row[column.key], column.format)}</td>`).join("")}
+            ${config.columns.map((column) => `
+              <th>
+                <button type="button" data-table="${name}" data-key="${column.key}">
+                  ${column.label}${renderSortMarker(tableState, column.key)}
+                </button>
+              </th>
+            `).join("")}
           </tr>
-        `).join("")}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          ${buildSummaryRow(name, filteredRows, config)}
+          ${visibleRows.map((row) => `
+            <tr>
+              ${config.columns.map((column) => `<td>${formatCell(row[column.key], column.format)}</td>`).join("")}
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
   `;
 
-  state.tables.set(name, tableState);
+  state.tables.set(name, { ...tableState, expanded });
   bindTableInteractions(name);
 }
 
 function bindTableInteractions(name) {
   const config = TABLE_CONFIG[name];
   document.querySelectorAll(`button[data-table="${name}"]`).forEach((button) => {
+    if (button.dataset.bound === "true") {
+      return;
+    }
     button.addEventListener("click", () => {
-      const tableState = state.tables.get(name) || { sortKey: config.defaultSort.key, direction: config.defaultSort.direction };
+      const tableState = state.tables.get(name) || {
+        sortKey: config.defaultSort.key,
+        direction: config.defaultSort.direction,
+        expanded: false,
+      };
       const key = button.dataset.key;
       const direction = tableState.sortKey === key && tableState.direction === "desc" ? "asc" : "desc";
-      state.tables.set(name, { sortKey: key, direction });
+      state.tables.set(name, { ...tableState, sortKey: key, direction });
       renderTable(name, state.tableData.get(name) || []);
     });
+    button.dataset.bound = "true";
+  });
+
+  document.querySelectorAll(`button[data-table-toggle="${name}"]`).forEach((button) => {
+    if (button.dataset.bound === "true") {
+      return;
+    }
+    button.addEventListener("click", () => {
+      const tableState = state.tables.get(name) || {
+        sortKey: config.defaultSort.key,
+        direction: config.defaultSort.direction,
+        expanded: false,
+      };
+      state.tables.set(name, { ...tableState, expanded: !tableState.expanded });
+      renderTable(name, state.tableData.get(name) || []);
+    });
+    button.dataset.bound = "true";
   });
 
   if (config.searchInputId) {
@@ -672,19 +1055,19 @@ function bindTableInteractions(name) {
 function filterRowsForTable(name, rows) {
   const config = TABLE_CONFIG[name];
   let filteredRows = [...rows];
-  const query = config.searchInputId ? document.getElementById(config.searchInputId).value : "";
+  const query = config.searchInputId ? document.getElementById(config.searchInputId)?.value.trim() || "" : "";
 
   if (query) {
     if (config.searchMode === "regex") {
       const pattern = compileRegex(query, config.searchInputId);
       if (!pattern) {
-        return { filteredRows: [], filterError: "The keyword filter is not a valid regular expression." };
+        return { filteredRows: [], filterError: "The filter is not a valid regular expression." };
       }
-      filteredRows = filteredRows.filter((row) => pattern.test(JSON.stringify(row)));
+      filteredRows = filteredRows.filter((row) => pattern.test(getRowSearchText(row, config)));
     } else {
       clearInputError(config.searchInputId);
       const normalizedQuery = query.toLowerCase();
-      filteredRows = filteredRows.filter((row) => JSON.stringify(row).toLowerCase().includes(normalizedQuery));
+      filteredRows = filteredRows.filter((row) => getRowSearchText(row, config).toLowerCase().includes(normalizedQuery));
     }
   } else {
     clearInputError(config.searchInputId);
@@ -706,6 +1089,13 @@ function filterRowsForTable(name, rows) {
   return { filteredRows, filterError: null };
 }
 
+function getRowSearchText(row, config) {
+  const keys = config.searchFields?.length ? config.searchFields : config.columns.map((column) => column.key);
+  return keys
+    .map((key) => row?.[key] ?? "")
+    .join(" ");
+}
+
 function buildSummaryRow(name, rows, config) {
   const cells = config.columns.map((column, index) => `<td>${buildSummaryCell(name, column.key, rows, index)}</td>`).join("");
   return `<tr class="summary-row">${cells}</tr>`;
@@ -716,24 +1106,30 @@ function buildSummaryCell(name, key, rows, index) {
     return `<div class="summary-label">Filtered total</div><div class="summary-meta">${formatInteger(rows.length)} rows</div>`;
   }
 
-  if (key === "budget_exhausted_flag") {
-    return formatInteger(rows.filter((row) => row.budget_exhausted_flag).length);
+  if (BOOLEAN_KEYS.has(key)) {
+    return formatInteger(rows.filter((row) => row[key]).length);
   }
 
-  if (["cost_eur", "cost_original", "conversion_value_eur", "conversion_value_original", "total_cost_eur"].includes(key)) {
-    return formatMoney(sumRows(rows, key));
+  if (key === "ctr") {
+    const totalClicks = sumRows(rows, "clicks");
+    const totalImpressions = sumRows(rows, "impressions");
+    return totalImpressions ? formatPercent(totalClicks / totalImpressions) : "—";
   }
 
-  if (["clicks", "impressions"].includes(key)) {
-    return formatInteger(sumRows(rows, key));
-  }
-
-  if (["conversions"].includes(key)) {
-    return formatDecimal(sumRows(rows, key));
+  if (key === "conversion_rate") {
+    const totalConversions = sumRows(rows, "conversions");
+    const totalClicks = sumRows(rows, "clicks");
+    return totalClicks ? formatPercent(totalConversions / totalClicks) : "—";
   }
 
   if (key === "cpa_eur") {
     const totalCost = sumRows(rows, "cost_eur") || sumRows(rows, "total_cost_eur");
+    const totalConversions = sumRows(rows, "conversions");
+    return totalConversions ? formatMoney(totalCost / totalConversions) : "—";
+  }
+
+  if (key === "cpa_original") {
+    const totalCost = sumRows(rows, "cost_original");
     const totalConversions = sumRows(rows, "conversions");
     return totalConversions ? formatMoney(totalCost / totalConversions) : "—";
   }
@@ -744,16 +1140,62 @@ function buildSummaryCell(name, key, rows, index) {
     return totalClicks ? formatMoney(totalCost / totalClicks) : "—";
   }
 
-  if (key === "ctr") {
+  if (key === "cpc_original") {
+    const totalCost = sumRows(rows, "cost_original");
     const totalClicks = sumRows(rows, "clicks");
-    const totalImpressions = sumRows(rows, "impressions");
-    return totalImpressions ? formatPercent(totalClicks / totalImpressions) : "—";
+    return totalClicks ? formatMoney(totalCost / totalClicks) : "—";
   }
 
   if (key === "roas") {
     const totalValue = sumRows(rows, "conversion_value_eur");
     const totalCost = sumRows(rows, "cost_eur") || sumRows(rows, "total_cost_eur");
     return totalCost ? formatRatio(totalValue / totalCost) : "—";
+  }
+
+  if (key === "current_roas") {
+    const totalValue = sumRows(rows, "current_conversion_value_eur");
+    const totalCost = sumRows(rows, "current_cost_eur");
+    return totalCost ? formatRatio(totalValue / totalCost) : "—";
+  }
+
+  if (key === "previous_roas") {
+    const totalValue = sumRows(rows, "previous_conversion_value_eur");
+    const totalCost = sumRows(rows, "previous_cost_eur");
+    return totalCost ? formatRatio(totalValue / totalCost) : "—";
+  }
+
+  if (key === "roas_delta") {
+    const currentValue = sumRows(rows, "current_conversion_value_eur");
+    const currentCost = sumRows(rows, "current_cost_eur");
+    const previousValue = sumRows(rows, "previous_conversion_value_eur");
+    const previousCost = sumRows(rows, "previous_cost_eur");
+    const currentRoas = currentCost ? currentValue / currentCost : 0;
+    const previousRoas = previousCost ? previousValue / previousCost : 0;
+    return formatDeltaRatio(currentRoas - previousRoas);
+  }
+
+  if (MONEY_KEYS.has(key)) {
+    return formatMoney(sumRows(rows, key));
+  }
+
+  if (INTEGER_KEYS.has(key)) {
+    return formatInteger(sumRows(rows, key));
+  }
+
+  if (DECIMAL_KEYS.has(key)) {
+    return formatDecimal(sumRows(rows, key));
+  }
+
+  if (PERCENT_KEYS.has(key)) {
+    return formatPercent(sumRows(rows, key));
+  }
+
+  if (RATIO_KEYS.has(key)) {
+    return formatRatio(sumRows(rows, key));
+  }
+
+  if (DATE_KEYS.has(key) || MONTH_KEYS.has(key) || HOUR_KEYS.has(key)) {
+    return "—";
   }
 
   return "—";
@@ -763,7 +1205,9 @@ function compareRows(left, right, key, direction) {
   const a = left?.[key];
   const b = right?.[key];
   let comparison = 0;
-  if (typeof a === "number" || typeof b === "number" || (!Number.isNaN(Number(a)) && !Number.isNaN(Number(b)))) {
+  if (typeof a === "boolean" || typeof b === "boolean") {
+    comparison = Number(Boolean(a)) - Number(Boolean(b));
+  } else if (typeof a === "number" || typeof b === "number" || (!Number.isNaN(Number(a)) && !Number.isNaN(Number(b)))) {
     comparison = Number(a || 0) - Number(b || 0);
   } else {
     comparison = String(a || "").localeCompare(String(b || ""), undefined, { numeric: true, sensitivity: "base" });
@@ -877,19 +1321,34 @@ function formatCell(value, formatter) {
 }
 
 function formatMetricValue(key, value) {
-  if (["cost_eur", "total_cost_eur", "conversion_value_eur", "cpa_eur", "cpc_eur"].includes(key)) {
+  if (BOOLEAN_KEYS.has(key)) {
+    return value ? "Flagged" : "OK";
+  }
+  if (DATE_KEYS.has(key)) {
+    return formatDate(value);
+  }
+  if (MONTH_KEYS.has(key)) {
+    return formatMonth(value);
+  }
+  if (HOUR_KEYS.has(key)) {
+    return formatHour(value);
+  }
+  if (key === "roas_delta") {
+    return formatDeltaRatio(value);
+  }
+  if (MONEY_KEYS.has(key)) {
     return formatMoney(value);
   }
-  if (["conversions"].includes(key)) {
+  if (DECIMAL_KEYS.has(key)) {
     return formatDecimal(value);
   }
-  if (["clicks", "impressions"].includes(key)) {
+  if (INTEGER_KEYS.has(key)) {
     return formatInteger(value);
   }
-  if (key === "roas") {
+  if (RATIO_KEYS.has(key)) {
     return formatRatio(value);
   }
-  if (key === "ctr") {
+  if (PERCENT_KEYS.has(key)) {
     return formatPercent(value);
   }
   return String(value ?? "—");
@@ -897,14 +1356,28 @@ function formatMetricValue(key, value) {
 
 function metricLabel(key) {
   const labels = {
+    conversion_rate: "Conv. rate",
     conversion_value_eur: "Conv. value",
     cost_eur: "Spend",
-    roas: "ROAS",
-    conversions: "Conversions",
-    clicks: "Clicks",
-    impressions: "Impressions",
     ctr: "CTR",
+    impressions: "Impressions",
+    clicks: "Clicks",
+    conversions: "Conversions",
+    roas: "ROAS",
     cpa_eur: "CPA",
+    cpc_eur: "CPC",
+    current_cost_eur: "Current spend",
+    previous_cost_eur: "Previous spend",
+    current_conversions: "Current conversions",
+    previous_conversions: "Previous conversions",
+    current_conversion_value_eur: "Current value",
+    previous_conversion_value_eur: "Previous value",
+    current_roas: "Current ROAS",
+    previous_roas: "Previous ROAS",
+    value_delta_eur: "Value delta",
+    roas_delta: "ROAS delta",
+    spend_share: "Spend share",
+    value_share: "Value share",
   };
   return labels[key] || key;
 }
@@ -913,7 +1386,9 @@ function formatMoney(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
   }
-  return `€${moneyFormat.format(Number(value))}`;
+  const number = Number(value);
+  const sign = number < 0 ? "-" : "";
+  return `${sign}€${moneyFormat.format(Math.abs(number))}`;
 }
 
 function formatDecimal(value) {
@@ -942,6 +1417,15 @@ function formatRatio(value) {
     return "—";
   }
   return `${decimalFormat.format(Number(value))}x`;
+}
+
+function formatDeltaRatio(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  const number = Number(value);
+  const sign = number > 0 ? "+" : "";
+  return `${sign}${decimalFormat.format(number)}x`;
 }
 
 function formatPercent(value) {

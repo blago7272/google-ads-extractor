@@ -20,7 +20,9 @@
           <p class="section-kicker">Daily trend</p>
           <h2>Spend and conversion rhythm</h2>
         </div>
+        <input id="campaign-regex-input" class="table-search" type="search" placeholder="Regexp filter on campaign name">
       </div>
+      <p class="panel-note">This filter applies to the daily trend and campaign explorer after refresh.</p>
       <div id="trend-chart" class="trend-chart"></div>
     </section>
 
@@ -30,9 +32,9 @@
           <p class="section-kicker">Campaign explorer</p>
           <h2>Campaigns by spend and return</h2>
         </div>
-        <input id="campaigns-search" class="table-search" type="search" placeholder="Search campaigns">
+        <input id="campaigns-search" class="table-search" type="search" placeholder="Search visible campaigns">
       </div>
-      <div id="campaigns-table" class="table-shell"></div>
+      <div id="campaigns-table" class="table-host"></div>
     </section>
 
     <section class="panel">
@@ -43,7 +45,7 @@
         </div>
         <input id="competition-search" class="table-search" type="search" placeholder="Search competitors">
       </div>
-      <div id="competition-table" class="table-shell"></div>
+      <div id="competition-table" class="table-host"></div>
     </section>
   {% elif report_name == "keywords" %}
     <section class="split-panels">
@@ -55,8 +57,8 @@
           </div>
           <input id="keywords-search" class="table-search" type="search" placeholder="Regex search keywords">
         </div>
-        <p class="panel-note">The keyword filter uses a case-insensitive regular expression across the visible row text.</p>
-        <div id="keywords-table" class="table-shell"></div>
+        <p class="panel-note">The keyword filter uses a case-insensitive regular expression across keyword, campaign, ad group, and issue fields.</p>
+        <div id="keywords-table" class="table-host"></div>
       </section>
 
       <section class="panel">
@@ -68,7 +70,7 @@
           <input id="alerts-search" class="table-search" type="search" placeholder="Search alerts">
         </div>
         <p id="keyword-alerts-note" class="panel-note"></p>
-        <div id="alerts-table" class="table-shell"></div>
+        <div id="alerts-table" class="table-host"></div>
       </section>
     </section>
 
@@ -109,7 +111,7 @@
           <input id="search-terms-roas-value" type="number" step="0.01" placeholder="x">
         </label>
       </div>
-      <div id="search-terms-table" class="table-shell"></div>
+      <div id="search-terms-table" class="table-host"></div>
     </section>
   {% elif report_name == "timing" %}
     <section class="panel">
@@ -136,6 +138,7 @@
               <option value="cost_eur">Spend</option>
               <option value="roas">ROAS</option>
               <option value="conversions">Conversions</option>
+              <option value="conversion_rate">Conversion rate</option>
             </select>
           </label>
         </div>
@@ -155,10 +158,33 @@
               <option value="cost_eur">Spend</option>
               <option value="roas">ROAS</option>
               <option value="conversions">Conversions</option>
+              <option value="conversion_rate">Conversion rate</option>
             </select>
           </label>
         </div>
         <div id="weekday-chart" class="trend-chart bar-chart"></div>
+      </section>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Week structure</p>
+            <h2>Weekend versus weekday</h2>
+          </div>
+        </div>
+        <div id="weekpart-table" class="table-host"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Serving window</p>
+            <h2>Business hours versus off hours</h2>
+          </div>
+        </div>
+        <div id="daywindow-table" class="table-host"></div>
       </section>
     </section>
 
@@ -171,7 +197,7 @@
           </div>
           <input id="daypart-search" class="table-search" type="search" placeholder="Search dayparts">
         </div>
-        <div id="daypart-table" class="table-shell"></div>
+        <div id="daypart-table" class="table-host"></div>
       </section>
 
       <section class="panel">
@@ -183,7 +209,7 @@
           <input id="budget-search" class="table-search" type="search" placeholder="Search campaigns">
         </div>
         <p id="budget-definition-note" class="panel-note"></p>
-        <div id="budget-table" class="table-shell"></div>
+        <div id="budget-table" class="table-host"></div>
       </section>
     </section>
 
@@ -195,7 +221,138 @@
         </div>
         <input id="daypart-groups-search" class="table-search" type="search" placeholder="Search ad groups">
       </div>
-      <div id="daypart-groups-table" class="table-shell"></div>
+      <div id="daypart-groups-table" class="table-host"></div>
+    </section>
+  {% elif report_name == "efficiency" %}
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Loss audit</p>
+            <h2>Zero-conversion campaigns</h2>
+          </div>
+          <input id="zero-conv-campaigns-search" class="table-search" type="search" placeholder="Search campaigns">
+        </div>
+        <div id="zero-conv-campaigns-table" class="table-host"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Loss audit</p>
+            <h2>Zero-conversion ad groups</h2>
+          </div>
+          <input id="zero-conv-adgroups-search" class="table-search" type="search" placeholder="Search ad groups">
+        </div>
+        <div id="zero-conv-adgroups-table" class="table-host"></div>
+      </section>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Loss audit</p>
+            <h2>Zero-conversion keywords</h2>
+          </div>
+          <input id="zero-conv-keywords-search" class="table-search" type="search" placeholder="Search keywords">
+        </div>
+        <div id="zero-conv-keywords-table" class="table-host"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Loss audit</p>
+            <h2>Zero-conversion search terms</h2>
+          </div>
+          <input id="zero-conv-searchterms-search" class="table-search" type="search" placeholder="Search terms">
+        </div>
+        <div id="zero-conv-searchterms-table" class="table-host"></div>
+      </section>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Period change</p>
+            <h2>Campaign winners</h2>
+          </div>
+          <input id="campaign-winners-search" class="table-search" type="search" placeholder="Search campaigns">
+        </div>
+        <div id="campaign-winners-table" class="table-host"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Period change</p>
+            <h2>Campaign losers</h2>
+          </div>
+          <input id="campaign-losers-search" class="table-search" type="search" placeholder="Search campaigns">
+        </div>
+        <div id="campaign-losers-table" class="table-host"></div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Dependency</p>
+          <h2>Spend concentration by campaign</h2>
+        </div>
+        <input id="campaign-concentration-search" class="table-search" type="search" placeholder="Search campaigns">
+      </div>
+      <div id="campaign-concentration-table" class="table-host"></div>
+    </section>
+  {% elif report_name == "coverage" %}
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Coverage opportunity</p>
+            <h2>Converting terms not yet covered</h2>
+          </div>
+          <input id="coverage-opportunities-search" class="table-search" type="search" placeholder="Search terms">
+        </div>
+        <div id="coverage-opportunities-table" class="table-host"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Negative candidates</p>
+            <h2>Terms spending without return</h2>
+          </div>
+          <input id="negative-candidates-search" class="table-search" type="search" placeholder="Search terms">
+        </div>
+        <div id="negative-candidates-table" class="table-host"></div>
+      </section>
+    </section>
+  {% elif report_name == "creative" %}
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Ad change</p>
+            <h2>Winning ads</h2>
+          </div>
+          <input id="ad-winners-search" class="table-search" type="search" placeholder="Search ads">
+        </div>
+        <div id="ad-winners-table" class="table-host"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Ad change</p>
+            <h2>Losing ads</h2>
+          </div>
+          <input id="ad-losers-search" class="table-search" type="search" placeholder="Search ads">
+        </div>
+        <div id="ad-losers-table" class="table-host"></div>
+      </section>
     </section>
   {% elif report_name == "alerts" %}
     <section class="split-panels">
@@ -207,7 +364,7 @@
           </div>
           <input id="alerts-search" class="table-search" type="search" placeholder="Search alerts">
         </div>
-        <div id="alerts-table" class="table-shell"></div>
+        <div id="alerts-table" class="table-host"></div>
       </section>
 
       <section class="panel">
@@ -218,7 +375,7 @@
           </div>
           <input id="budget-search" class="table-search" type="search" placeholder="Search campaigns">
         </div>
-        <div id="budget-table" class="table-shell"></div>
+        <div id="budget-table" class="table-host"></div>
       </section>
     </section>
   {% endif %}

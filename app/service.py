@@ -249,6 +249,18 @@ order by a.client_id, a.account_name
             bigquery.ScalarQueryParameter("date_to", "DATE", date_to),
         ]
 
+    def _scope_parameters_with_campaign_regex(
+        self,
+        scope: ScopeFilters,
+        *,
+        campaign_regex: str | None,
+        previous: bool = False,
+    ) -> list[bigquery.ScalarQueryParameter]:
+        return [
+            *self._scope_parameters(scope, previous=previous),
+            bigquery.ScalarQueryParameter("campaign_regex", "STRING", campaign_regex),
+        ]
+
     def _summary_query(self, scope: ScopeFilters, *, previous: bool = False) -> list[dict[str, Any]]:
         def load_summary() -> list[dict[str, Any]]:
             sql = f"""
@@ -280,7 +292,7 @@ where report_date between @date_from and @date_to
 
         return self._cached_query_result("summary", (*self._scope_cache_key(scope), previous), load_summary)
 
-    def _trend_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+    def _trend_query(self, scope: ScopeFilters, *, campaign_regex: str | None = None) -> list[dict[str, Any]]:
         def load_trend() -> list[dict[str, Any]]:
             sql = f"""
 select
@@ -290,19 +302,21 @@ select
   sum(impressions) as impressions,
   sum(conversions) as conversions,
   sum(conversion_value_eur) as conversion_value_eur,
-  safe_divide(sum(conversion_value_eur), sum(cost_eur)) as roas
-from {self.mart_table('mart_ads_overview_daily')}
+  safe_divide(sum(conversion_value_eur), sum(cost_eur)) as roas,
+  safe_divide(sum(conversions), sum(clicks)) as conversion_rate
+from {self.mart_table('mart_ads_campaign_daily')}
 where report_date between @date_from and @date_to
   and (@client_id is null or client_id = @client_id)
   and (@account_id is null or account_id = @account_id)
+  and (@campaign_regex is null or regexp_contains(campaign_name, @campaign_regex))
 group by report_date
 order by report_date
 """
-            return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters_with_campaign_regex(scope, campaign_regex=campaign_regex))
 
-        return self._cached_query_result("trend", self._scope_cache_key(scope), load_trend)
+        return self._cached_query_result("trend", (*self._scope_cache_key(scope), campaign_regex), load_trend)
 
-    def _campaigns_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+    def _campaigns_query(self, scope: ScopeFilters, *, campaign_regex: str | None = None) -> list[dict[str, Any]]:
         def load_campaigns() -> list[dict[str, Any]]:
             sql = f"""
 select
@@ -327,6 +341,7 @@ select
   sum(conversion_value_original) as conversion_value_original,
   sum(conversion_value_eur) as conversion_value_eur,
   safe_divide(sum(clicks), sum(impressions)) as ctr,
+  safe_divide(sum(conversions), sum(clicks)) as conversion_rate,
   safe_divide(sum(cost_original), sum(clicks)) as cpc_original,
   safe_divide(sum(cost_eur), sum(clicks)) as cpc_eur,
   safe_divide(sum(cost_original), sum(conversions)) as cpa_original,
@@ -336,13 +351,14 @@ from {self.mart_table('mart_ads_campaign_daily')}
 where report_date between @date_from and @date_to
   and (@client_id is null or client_id = @client_id)
   and (@account_id is null or account_id = @account_id)
+  and (@campaign_regex is null or regexp_contains(campaign_name, @campaign_regex))
 group by client_id, account_id, account_name, currency, campaign_id, campaign_name
 order by cost_eur desc, conversions desc
 limit 250
 """
-            return self._run_query(sql, parameters=self._scope_parameters(scope))
+            return self._run_query(sql, parameters=self._scope_parameters_with_campaign_regex(scope, campaign_regex=campaign_regex))
 
-        return self._cached_query_result("campaigns", self._scope_cache_key(scope), load_campaigns)
+        return self._cached_query_result("campaigns", (*self._scope_cache_key(scope), campaign_regex), load_campaigns)
 
     def _keywords_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
         def load_keywords() -> list[dict[str, Any]]:
@@ -491,6 +507,7 @@ select
   sum(conversions) as conversions,
   sum(conversion_value_eur) as conversion_value_eur,
   safe_divide(sum(clicks), sum(impressions)) as ctr,
+  safe_divide(sum(conversions), sum(clicks)) as conversion_rate,
   safe_divide(sum(cost_eur), sum(conversions)) as cpa_eur,
   safe_divide(sum(conversion_value_eur), sum(cost_eur)) as roas
 from {self.mart_table('mart_ads_hourly_performance_daily')}
@@ -516,6 +533,7 @@ select
   sum(conversions) as conversions,
   sum(conversion_value_eur) as conversion_value_eur,
   safe_divide(sum(clicks), sum(impressions)) as ctr,
+  safe_divide(sum(conversions), sum(clicks)) as conversion_rate,
   safe_divide(sum(cost_eur), sum(conversions)) as cpa_eur,
   safe_divide(sum(conversion_value_eur), sum(cost_eur)) as roas
 from {self.mart_table('mart_ads_hourly_performance_daily')}
@@ -599,6 +617,464 @@ limit 250
             return self._run_query(sql, parameters=self._scope_parameters(scope))
 
         return self._cached_query_result("budget", self._scope_cache_key(scope), load_budget)
+
+    def _zero_conv_campaigns_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_zero_conv_campaigns() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    campaign_name,
+    cost_eur,
+    clicks,
+    impressions,
+    conversions
+  from {self.mart_table('mart_ads_campaign_daily')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+),
+rolled as (
+  select
+    campaign_name,
+    sum(cost_eur) as cost_eur,
+    sum(clicks) as clicks,
+    sum(impressions) as impressions,
+    sum(conversions) as conversions,
+    safe_divide(sum(clicks), sum(impressions)) as ctr
+  from scoped
+  group by campaign_name
+)
+select *
+from rolled
+where cost_eur > 0 and conversions = 0
+order by cost_eur desc
+limit 100
+"""
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("zero_conv_campaigns", self._scope_cache_key(scope), load_zero_conv_campaigns)
+
+    def _zero_conv_ad_groups_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_zero_conv_ad_groups() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    campaign_name,
+    ad_group_name,
+    cost_eur,
+    clicks,
+    impressions,
+    conversions
+  from {self.mart_table('mart_ads_ad_group_daily')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+),
+rolled as (
+  select
+    campaign_name,
+    ad_group_name,
+    sum(cost_eur) as cost_eur,
+    sum(clicks) as clicks,
+    sum(impressions) as impressions,
+    sum(conversions) as conversions,
+    safe_divide(sum(clicks), sum(impressions)) as ctr
+  from scoped
+  group by campaign_name, ad_group_name
+)
+select *
+from rolled
+where cost_eur > 0 and conversions = 0
+order by cost_eur desc
+limit 100
+"""
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("zero_conv_ad_groups", self._scope_cache_key(scope), load_zero_conv_ad_groups)
+
+    def _zero_conv_keywords_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_zero_conv_keywords() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    campaign_name,
+    ad_group_name,
+    keyword_text,
+    match_type,
+    cost_eur,
+    clicks,
+    impressions,
+    conversions
+  from {self.mart_table('mart_ads_keyword_daily')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+),
+rolled as (
+  select
+    campaign_name,
+    ad_group_name,
+    keyword_text,
+    match_type,
+    sum(cost_eur) as cost_eur,
+    sum(clicks) as clicks,
+    sum(impressions) as impressions,
+    sum(conversions) as conversions,
+    safe_divide(sum(clicks), sum(impressions)) as ctr
+  from scoped
+  group by campaign_name, ad_group_name, keyword_text, match_type
+)
+select *
+from rolled
+where cost_eur > 0 and conversions = 0
+order by cost_eur desc
+limit 100
+"""
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("zero_conv_keywords", self._scope_cache_key(scope), load_zero_conv_keywords)
+
+    def _zero_conv_search_terms_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_zero_conv_search_terms() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    campaign_name,
+    ad_group_name,
+    search_term,
+    search_term_status,
+    cost_eur,
+    clicks,
+    impressions,
+    conversions
+  from {self.mart_table('mart_ads_search_terms')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+),
+rolled as (
+  select
+    campaign_name,
+    ad_group_name,
+    search_term,
+    search_term_status,
+    sum(cost_eur) as cost_eur,
+    sum(clicks) as clicks,
+    sum(impressions) as impressions,
+    sum(conversions) as conversions,
+    safe_divide(sum(clicks), sum(impressions)) as ctr
+  from scoped
+  group by campaign_name, ad_group_name, search_term, search_term_status
+)
+select *
+from rolled
+where cost_eur > 0 and conversions = 0
+order by cost_eur desc
+limit 100
+"""
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("zero_conv_search_terms", self._scope_cache_key(scope), load_zero_conv_search_terms)
+
+    def _campaign_delta_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_campaign_delta() -> list[dict[str, Any]]:
+            sql = f"""
+with current_period as (
+  select
+    campaign_id,
+    any_value(campaign_name) as campaign_name,
+    sum(cost_eur) as current_cost_eur,
+    sum(conversions) as current_conversions,
+    sum(conversion_value_eur) as current_conversion_value_eur,
+    safe_divide(sum(conversion_value_eur), sum(cost_eur)) as current_roas
+  from {self.mart_table('mart_ads_campaign_daily')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+  group by campaign_id
+),
+previous_period as (
+  select
+    campaign_id,
+    any_value(campaign_name) as campaign_name,
+    sum(cost_eur) as previous_cost_eur,
+    sum(conversions) as previous_conversions,
+    sum(conversion_value_eur) as previous_conversion_value_eur,
+    safe_divide(sum(conversion_value_eur), sum(cost_eur)) as previous_roas
+  from {self.mart_table('mart_ads_campaign_daily')}
+  where report_date between @date_from_previous and @date_to_previous
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+  group by campaign_id
+)
+select
+  coalesce(c.campaign_name, p.campaign_name) as campaign_name,
+  ifnull(c.current_cost_eur, 0) as current_cost_eur,
+  ifnull(p.previous_cost_eur, 0) as previous_cost_eur,
+  ifnull(c.current_conversions, 0) as current_conversions,
+  ifnull(p.previous_conversions, 0) as previous_conversions,
+  ifnull(c.current_conversion_value_eur, 0) as current_conversion_value_eur,
+  ifnull(p.previous_conversion_value_eur, 0) as previous_conversion_value_eur,
+  ifnull(c.current_roas, 0) as current_roas,
+  ifnull(p.previous_roas, 0) as previous_roas,
+  ifnull(c.current_conversion_value_eur, 0) - ifnull(p.previous_conversion_value_eur, 0) as value_delta_eur,
+  ifnull(c.current_cost_eur, 0) - ifnull(p.previous_cost_eur, 0) as spend_delta_eur,
+  ifnull(c.current_roas, 0) - ifnull(p.previous_roas, 0) as roas_delta
+from current_period c
+full outer join previous_period p
+  using (campaign_id)
+where coalesce(c.current_cost_eur, 0) > 0 or coalesce(p.previous_cost_eur, 0) > 0
+order by value_delta_eur desc, current_cost_eur desc
+limit 120
+"""
+            parameters = [
+                bigquery.ScalarQueryParameter("client_id", "STRING", scope.client_id),
+                bigquery.ScalarQueryParameter("account_id", "STRING", scope.account_id),
+                bigquery.ScalarQueryParameter("date_from", "DATE", scope.date_from),
+                bigquery.ScalarQueryParameter("date_to", "DATE", scope.date_to),
+                bigquery.ScalarQueryParameter("date_from_previous", "DATE", scope.previous_date_from),
+                bigquery.ScalarQueryParameter("date_to_previous", "DATE", scope.previous_date_to),
+            ]
+            return self._run_query(sql, parameters=parameters)
+
+        return self._cached_query_result("campaign_delta", self._scope_cache_key(scope), load_campaign_delta)
+
+    def _campaign_concentration_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_campaign_concentration() -> list[dict[str, Any]]:
+            sql = f"""
+with rolled as (
+  select
+    campaign_name,
+    sum(cost_eur) as cost_eur,
+    sum(conversion_value_eur) as conversion_value_eur,
+    sum(conversions) as conversions
+  from {self.mart_table('mart_ads_campaign_daily')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+  group by campaign_name
+),
+totals as (
+  select
+    sum(cost_eur) as total_cost_eur,
+    sum(conversion_value_eur) as total_conversion_value_eur
+  from rolled
+)
+select
+  r.campaign_name,
+  r.cost_eur,
+  r.conversion_value_eur,
+  r.conversions,
+  safe_divide(r.cost_eur, t.total_cost_eur) as spend_share,
+  safe_divide(r.conversion_value_eur, t.total_conversion_value_eur) as value_share
+from rolled r
+cross join totals t
+order by r.cost_eur desc
+limit 20
+"""
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("campaign_concentration", self._scope_cache_key(scope), load_campaign_concentration)
+
+    def _weekpart_comparison_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_weekpart_comparison() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  case when weekday_number in (6, 7) then 'Weekend' else 'Weekday' end as period_group,
+  sum(cost_eur) as cost_eur,
+  sum(clicks) as clicks,
+  sum(impressions) as impressions,
+  sum(conversions) as conversions,
+  sum(conversion_value_eur) as conversion_value_eur,
+  safe_divide(sum(conversions), sum(clicks)) as conversion_rate,
+  safe_divide(sum(conversion_value_eur), sum(cost_eur)) as roas
+from {self.mart_table('mart_ads_hourly_performance_daily')}
+where report_date between @date_from and @date_to
+  and (@client_id is null or client_id = @client_id)
+  and (@account_id is null or account_id = @account_id)
+group by period_group
+order by period_group
+"""
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("weekpart_comparison", self._scope_cache_key(scope), load_weekpart_comparison)
+
+    def _day_window_comparison_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_day_window_comparison() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  case when report_hour between 8 and 19 then 'Business hours' else 'Off hours' end as period_group,
+  sum(cost_eur) as cost_eur,
+  sum(clicks) as clicks,
+  sum(impressions) as impressions,
+  sum(conversions) as conversions,
+  sum(conversion_value_eur) as conversion_value_eur,
+  safe_divide(sum(conversions), sum(clicks)) as conversion_rate,
+  safe_divide(sum(conversion_value_eur), sum(cost_eur)) as roas
+from {self.mart_table('mart_ads_hourly_performance_daily')}
+where report_date between @date_from and @date_to
+  and (@client_id is null or client_id = @client_id)
+  and (@account_id is null or account_id = @account_id)
+group by period_group
+order by period_group
+"""
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("day_window_comparison", self._scope_cache_key(scope), load_day_window_comparison)
+
+    def _coverage_opportunity_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_coverage_opportunities() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    campaign_name,
+    ad_group_name,
+    search_term,
+    search_term_status,
+    cost_eur,
+    clicks,
+    conversions,
+    conversion_value_eur
+  from {self.mart_table('mart_ads_search_terms')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+),
+rolled as (
+select
+  campaign_name,
+  ad_group_name,
+  search_term,
+  search_term_status,
+  sum(cost_eur) as cost_eur,
+  sum(clicks) as clicks,
+  sum(conversions) as conversions,
+  sum(conversion_value_eur) as conversion_value_eur,
+  safe_divide(sum(conversions), sum(clicks)) as conversion_rate,
+  safe_divide(sum(conversion_value_eur), sum(cost_eur)) as roas
+from scoped
+group by campaign_name, ad_group_name, search_term, search_term_status
+)
+select *
+from rolled
+where conversions > 0
+  and search_term_status not in ('ADDED', 'ADDED_EXCLUDED')
+order by conversion_value_eur desc, conversions desc
+limit 100
+"""
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("coverage_opportunities", self._scope_cache_key(scope), load_coverage_opportunities)
+
+    def _negative_candidate_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_negative_candidates() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    campaign_name,
+    ad_group_name,
+    search_term,
+    search_term_status,
+    cost_eur,
+    clicks,
+    impressions,
+    conversions
+  from {self.mart_table('mart_ads_search_terms')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+),
+rolled as (
+select
+  campaign_name,
+  ad_group_name,
+  search_term,
+  search_term_status,
+  sum(cost_eur) as cost_eur,
+  sum(clicks) as clicks,
+  sum(impressions) as impressions,
+  sum(conversions) as conversions,
+  safe_divide(sum(clicks), sum(impressions)) as ctr
+from scoped
+group by campaign_name, ad_group_name, search_term, search_term_status
+)
+select *
+from rolled
+where conversions = 0
+  and cost_eur >= 15
+  and clicks >= 10
+  and search_term_status != 'ADDED_EXCLUDED'
+order by cost_eur desc, clicks desc
+limit 100
+"""
+            return self._run_query(sql, parameters=self._scope_parameters(scope))
+
+        return self._cached_query_result("negative_candidates", self._scope_cache_key(scope), load_negative_candidates)
+
+    def _ad_delta_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_ad_delta() -> list[dict[str, Any]]:
+            sql = f"""
+with current_period as (
+  select
+    ad_id,
+    any_value(campaign_name) as campaign_name,
+    any_value(ad_group_name) as ad_group_name,
+    any_value(ad_name) as ad_name,
+    any_value(headline_primary) as headline_primary,
+    sum(cost_eur) as current_cost_eur,
+    sum(conversions) as current_conversions,
+    sum(conversion_value_eur) as current_conversion_value_eur,
+    safe_divide(sum(conversion_value_eur), sum(cost_eur)) as current_roas
+  from {self.mart_table('mart_ads_ad_performance_daily')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+  group by ad_id
+),
+previous_period as (
+  select
+    ad_id,
+    sum(cost_eur) as previous_cost_eur,
+    sum(conversions) as previous_conversions,
+    sum(conversion_value_eur) as previous_conversion_value_eur,
+    safe_divide(sum(conversion_value_eur), sum(cost_eur)) as previous_roas
+  from {self.mart_table('mart_ads_ad_performance_daily')}
+  where report_date between @date_from_previous and @date_to_previous
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+  group by ad_id
+)
+select
+  c.campaign_name,
+  c.ad_group_name,
+  coalesce(c.ad_name, c.headline_primary, cast(c.ad_id as string)) as ad_label,
+  ifnull(c.current_cost_eur, 0) as current_cost_eur,
+  ifnull(p.previous_cost_eur, 0) as previous_cost_eur,
+  ifnull(c.current_conversions, 0) as current_conversions,
+  ifnull(p.previous_conversions, 0) as previous_conversions,
+  ifnull(c.current_conversion_value_eur, 0) as current_conversion_value_eur,
+  ifnull(p.previous_conversion_value_eur, 0) as previous_conversion_value_eur,
+  ifnull(c.current_roas, 0) as current_roas,
+  ifnull(p.previous_roas, 0) as previous_roas,
+  ifnull(c.current_conversion_value_eur, 0) - ifnull(p.previous_conversion_value_eur, 0) as value_delta_eur,
+  ifnull(c.current_roas, 0) - ifnull(p.previous_roas, 0) as roas_delta
+from current_period c
+left join previous_period p using (ad_id)
+where ifnull(c.current_cost_eur, 0) > 0
+order by value_delta_eur desc, current_cost_eur desc
+limit 160
+"""
+            parameters = [
+                bigquery.ScalarQueryParameter("client_id", "STRING", scope.client_id),
+                bigquery.ScalarQueryParameter("account_id", "STRING", scope.account_id),
+                bigquery.ScalarQueryParameter("date_from", "DATE", scope.date_from),
+                bigquery.ScalarQueryParameter("date_to", "DATE", scope.date_to),
+                bigquery.ScalarQueryParameter("date_from_previous", "DATE", scope.previous_date_from),
+                bigquery.ScalarQueryParameter("date_to_previous", "DATE", scope.previous_date_to),
+            ]
+            return self._run_query(sql, parameters=parameters)
+
+        return self._cached_query_result("ad_delta", self._scope_cache_key(scope), load_ad_delta)
 
     def _build_status_cards(
         self,
@@ -796,6 +1272,24 @@ limit 250
                 "description": "Consolidated issues and budget flags that need review.",
                 "meta": f"{len(alerts)} alerts, {len(exhausted_rows)} budget flags",
             },
+            {
+                "report_name": "efficiency",
+                "title": "Efficiency lab",
+                "description": "Zero-conversion spend, winners and losers, and concentration risk.",
+                "meta": "Loss and dependency review",
+            },
+            {
+                "report_name": "coverage",
+                "title": "Query coverage",
+                "description": "Coverage opportunities and negative-keyword candidates.",
+                "meta": "Search-term action list",
+            },
+            {
+                "report_name": "creative",
+                "title": "Creative performance",
+                "description": "Ad winners and losers versus the prior period.",
+                "meta": "Ad-level change review",
+            },
         ]
 
     def get_hub_data(
@@ -841,6 +1335,7 @@ limit 250
         account_id: str | None,
         date_from: date | None,
         date_to: date | None,
+        campaign_regex: str | None = None,
     ) -> dict[str, Any]:
         scope = self.resolve_scope(
             client_id=client_id,
@@ -858,10 +1353,11 @@ limit 250
             "scope": self._scope_payload(scope),
             "summary": summary,
             "previous_summary": previous_summary,
-            "trend": self._trend_query(scope),
-            "campaigns": self._campaigns_query(scope),
+            "trend": self._trend_query(scope, campaign_regex=campaign_regex),
+            "campaigns": self._campaigns_query(scope, campaign_regex=campaign_regex),
             "competition": competition,
             "status_cards": self._build_status_cards(summary, previous_summary, competition, alerts, hour_of_day, budget_rows),
+            "campaign_regex": campaign_regex,
         }
 
     def get_keywords_data(
@@ -911,6 +1407,8 @@ limit 250
             "previous_summary": self._summary_query(scope, previous=True)[0],
             "hour_of_day": hour_of_day,
             "weekday_profile": weekday_profile,
+            "weekpart_comparison": self._weekpart_comparison_query(scope),
+            "day_window_comparison": self._day_window_comparison_query(scope),
             "daypart": self._daypart_query(scope),
             "daypart_ad_groups": self._daypart_ad_groups_query(scope),
             "budget_flags": budget_rows,
@@ -920,6 +1418,85 @@ limit 250
                 "not proof of a hard campaign-budget cap."
             ),
             "timing_highlights": self._build_timing_highlights(hour_of_day, weekday_profile, budget_rows),
+        }
+
+    def get_efficiency_data(
+        self,
+        *,
+        client_id: str | None,
+        account_id: str | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, Any]:
+        scope = self.resolve_scope(
+            client_id=client_id,
+            account_id=account_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        campaign_delta = self._campaign_delta_query(scope)
+        return {
+            "scope": self._scope_payload(scope),
+            "summary": self._summary_query(scope)[0],
+            "previous_summary": self._summary_query(scope, previous=True)[0],
+            "zero_conv_campaigns": self._zero_conv_campaigns_query(scope),
+            "zero_conv_ad_groups": self._zero_conv_ad_groups_query(scope),
+            "zero_conv_keywords": self._zero_conv_keywords_query(scope),
+            "zero_conv_search_terms": self._zero_conv_search_terms_query(scope),
+            "campaign_winners": [row for row in campaign_delta if _as_float(row.get("value_delta_eur")) > 0][:20],
+            "campaign_losers": sorted(
+                [row for row in campaign_delta if _as_float(row.get("value_delta_eur")) < 0],
+                key=lambda row: _as_float(row.get("value_delta_eur")),
+            )[:20],
+            "campaign_concentration": self._campaign_concentration_query(scope),
+        }
+
+    def get_coverage_data(
+        self,
+        *,
+        client_id: str | None,
+        account_id: str | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, Any]:
+        scope = self.resolve_scope(
+            client_id=client_id,
+            account_id=account_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        return {
+            "scope": self._scope_payload(scope),
+            "summary": self._summary_query(scope)[0],
+            "previous_summary": self._summary_query(scope, previous=True)[0],
+            "coverage_opportunities": self._coverage_opportunity_query(scope),
+            "negative_candidates": self._negative_candidate_query(scope),
+        }
+
+    def get_creative_data(
+        self,
+        *,
+        client_id: str | None,
+        account_id: str | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, Any]:
+        scope = self.resolve_scope(
+            client_id=client_id,
+            account_id=account_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        ad_delta = self._ad_delta_query(scope)
+        return {
+            "scope": self._scope_payload(scope),
+            "summary": self._summary_query(scope)[0],
+            "previous_summary": self._summary_query(scope, previous=True)[0],
+            "ad_winners": [row for row in ad_delta if _as_float(row.get("value_delta_eur")) > 0][:20],
+            "ad_losers": sorted(
+                [row for row in ad_delta if _as_float(row.get("value_delta_eur")) < 0],
+                key=lambda row: _as_float(row.get("value_delta_eur")),
+            )[:20],
         }
 
     def get_alerts_data(
@@ -952,15 +1529,28 @@ limit 250
         account_id: str | None,
         date_from: date | None,
         date_to: date | None,
+        campaign_regex: str | None = None,
     ) -> dict[str, Any]:
         if report_name == "overview":
-            return self.get_overview_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
+            return self.get_overview_data(
+                client_id=client_id,
+                account_id=account_id,
+                date_from=date_from,
+                date_to=date_to,
+                campaign_regex=campaign_regex,
+            )
         if report_name == "keywords":
             return self.get_keywords_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
         if report_name == "timing":
             return self.get_timing_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
         if report_name == "alerts":
             return self.get_alerts_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
+        if report_name == "efficiency":
+            return self.get_efficiency_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
+        if report_name == "coverage":
+            return self.get_coverage_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
+        if report_name == "creative":
+            return self.get_creative_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
         raise ValueError(f"Unknown report: {report_name}")
 
     def _build_timing_highlights(

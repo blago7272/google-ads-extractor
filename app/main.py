@@ -31,6 +31,18 @@ REPORT_PAGES = {
         "title": "Action Queue",
         "subtitle": "Consolidated findings and budget flags that need review.",
     },
+    "efficiency": {
+        "title": "Efficiency Lab",
+        "subtitle": "Zero-conversion spend, winners and losers, and concentration risk.",
+    },
+    "coverage": {
+        "title": "Query Coverage",
+        "subtitle": "Search-term coverage opportunities and negative-keyword candidates.",
+    },
+    "creative": {
+        "title": "Creative Performance",
+        "subtitle": "Ad winners and losers versus the previous period.",
+    },
 }
 
 app = FastAPI(title="Google Ads Signal Board")
@@ -123,6 +135,7 @@ def report_data(
     account_id: str | None = Query(default=None),
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    campaign_regex: str | None = Query(default=None),
     service: BigQueryReportingService = Depends(get_reporting_service),
 ) -> dict[str, object]:
     try:
@@ -132,6 +145,7 @@ def report_data(
             account_id=account_id,
             date_from=date_from,
             date_to=date_to,
+            campaign_regex=campaign_regex,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -143,6 +157,7 @@ def dashboard_alias(
     account_id: str | None = Query(default=None),
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    campaign_regex: str | None = Query(default=None),
     service: BigQueryReportingService = Depends(get_reporting_service),
 ) -> dict[str, object]:
     try:
@@ -151,6 +166,7 @@ def dashboard_alias(
             account_id=account_id,
             date_from=date_from,
             date_to=date_to,
+            campaign_regex=campaign_regex,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

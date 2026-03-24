@@ -207,6 +207,61 @@ models:
       - name: roas
         data_type: float64
 
+  - name: mart_ads_ad_group_daily
+    description: Daily ad group performance mart used for detailed efficiency reporting.
+    columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
+      - name: account_id
+        data_type: string
+        tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
+        tests: [not_null]
+      - name: campaign_id
+        data_type: string
+        tests: [not_null]
+      - name: campaign_name
+        data_type: string
+      - name: ad_group_id
+        data_type: string
+        tests: [not_null]
+      - name: ad_group_name
+        data_type: string
+      - name: report_date
+        data_type: date
+        tests: [not_null]
+      - name: cost_original
+        data_type: float64
+      - name: cost_eur
+        data_type: float64
+      - name: clicks
+        data_type: int64
+      - name: impressions
+        data_type: int64
+      - name: conversions
+        data_type: float64
+      - name: conversion_value_original
+        data_type: float64
+      - name: conversion_value_eur
+        data_type: float64
+      - name: ctr
+        data_type: float64
+      - name: cpc_original
+        data_type: float64
+      - name: cpc_eur
+        data_type: float64
+      - name: cpa_original
+        data_type: float64
+      - name: cpa_eur
+        data_type: float64
+      - name: roas
+        data_type: float64
+
   - name: mart_ads_hourly_performance_daily
     description: Account-level hourly performance mart used for time-of-day and day-of-week reporting.
     columns:
@@ -236,6 +291,72 @@ models:
         tests: [not_null]
       - name: report_hour
         data_type: int64
+        tests: [not_null]
+      - name: cost_original
+        data_type: float64
+      - name: cost_eur
+        data_type: float64
+      - name: clicks
+        data_type: int64
+      - name: impressions
+        data_type: int64
+      - name: conversions
+        data_type: float64
+      - name: conversion_value_original
+        data_type: float64
+      - name: conversion_value_eur
+        data_type: float64
+      - name: ctr
+        data_type: float64
+      - name: cpc_original
+        data_type: float64
+      - name: cpc_eur
+        data_type: float64
+      - name: cpa_original
+        data_type: float64
+      - name: cpa_eur
+        data_type: float64
+      - name: roas
+        data_type: float64
+
+  - name: mart_ads_keyword_daily
+    description: Daily keyword performance mart used for efficiency and coverage reporting.
+    columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
+      - name: account_id
+        data_type: string
+        tests: [not_null]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: currency
+        data_type: string
+        tests: [not_null]
+      - name: campaign_id
+        data_type: string
+        tests: [not_null]
+      - name: campaign_name
+        data_type: string
+      - name: ad_group_id
+        data_type: string
+        tests: [not_null]
+      - name: ad_group_name
+        data_type: string
+      - name: keyword_id
+        data_type: string
+        tests: [not_null]
+      - name: keyword_text
+        data_type: string
+      - name: match_type
+        data_type: string
+      - name: keyword_status
+        data_type: string
+      - name: quality_score
+        data_type: int64
+      - name: report_date
+        data_type: date
         tests: [not_null]
       - name: cost_original
         data_type: float64
