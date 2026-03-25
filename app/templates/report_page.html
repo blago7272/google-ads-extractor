@@ -144,6 +144,322 @@
       <p id="competition-note" class="panel-note"></p>
       <div id="competition-table" class="table-host"></div>
     </section>
+  {% elif report_name == "ga4-overview" %}
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">GA4 overview</p>
+          <h2>Commerce conclusions</h2>
+        </div>
+      </div>
+      <p id="ga4-overview-note" class="panel-note"></p>
+      <div id="ga4-overview-insights" class="insight-grid"></div>
+    </section>
+
+    <section class="panel chart-panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Daily trend</p>
+          <h2>Revenue and order curve</h2>
+        </div>
+      </div>
+      <div class="trend-selector-grid is-compact">
+        <label class="chart-control">
+          <span>Top compare</span>
+          <select id="ga4-overview-top-compare-metric">
+            <option value="" selected>None</option>
+            <option value="primary">Previous revenue</option>
+            <option value="secondary">Previous orders</option>
+          </select>
+        </label>
+        <label class="chart-control">
+          <span>Bottom compare</span>
+          <select id="ga4-overview-bottom-compare-metric">
+            <option value="" selected>None</option>
+            <option value="primary">Previous added to cart</option>
+            <option value="secondary">Previous items purchased</option>
+          </select>
+        </label>
+      </div>
+      <div class="trend-grain-row is-compact">
+        <label class="chart-control trend-grain-control">
+          <span>Time grain</span>
+          <select id="ga4-overview-trend-grain">
+            <option value="day" selected>Daily</option>
+            <option value="week">Weekly</option>
+            <option value="month">Monthly</option>
+          </select>
+        </label>
+      </div>
+      <div id="ga4-overview-trend-chart" class="trend-chart"></div>
+      <div id="ga4-overview-secondary-chart" class="trend-chart"></div>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Source / medium</p>
+            <h2>Revenue impact by source</h2>
+          </div>
+          <input id="ga4-source-summary-search" class="table-search" type="search" placeholder="Search source / medium">
+        </div>
+        <div id="ga4-source-summary-table" class="table-host"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Campaign</p>
+            <h2>Revenue impact by campaign</h2>
+          </div>
+          <input id="ga4-campaign-summary-search" class="table-search" type="search" placeholder="Search campaigns">
+        </div>
+        <div id="ga4-campaign-summary-table" class="table-host"></div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Products</p>
+          <h2>Top items by revenue</h2>
+        </div>
+        <input id="ga4-top-products-search" class="table-search" type="search" placeholder="Search items, brands, or categories">
+      </div>
+      <div class="panel-filter-row panel-subfilter-row">
+        <div class="campaign-filter-control">
+          <button id="ga4-top-products-brand-filter-toggle" class="button button-secondary campaign-filter-toggle" type="button">All brands</button>
+          <div id="ga4-top-products-brand-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Search brands</span>
+              <input id="ga4-top-products-brand-filter-search" type="search" placeholder="Search brands">
+            </label>
+            <div id="ga4-top-products-brand-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="ga4-top-products-brand-filter-clear" class="button button-ghost" type="button">Clear</button>
+              <button id="ga4-top-products-brand-filter-close" class="button button-secondary" type="button">Done</button>
+            </div>
+          </div>
+        </div>
+        <div class="campaign-filter-control">
+          <button id="ga4-top-products-category-filter-toggle" class="button button-secondary campaign-filter-toggle" type="button">All categories</button>
+          <div id="ga4-top-products-category-filter-panel" class="campaign-filter-panel is-hidden">
+            <label class="campaign-filter-search">
+              <span>Search categories</span>
+              <input id="ga4-top-products-category-filter-search" type="search" placeholder="Search categories">
+            </label>
+            <div id="ga4-top-products-category-filter-options" class="campaign-filter-options auction-filter-options"></div>
+            <div class="campaign-filter-actions">
+              <button id="ga4-top-products-category-filter-clear" class="button button-ghost" type="button">Clear</button>
+              <button id="ga4-top-products-category-filter-close" class="button button-secondary" type="button">Done</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="ga4-top-products-table" class="table-host"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Channel mix</p>
+          <h2>Monthly channel share</h2>
+        </div>
+        <input id="ga4-channel-monthly-search" class="table-search" type="search" placeholder="Search channels">
+      </div>
+      <div id="ga4-channel-monthly-table" class="table-host"></div>
+    </section>
+  {% elif report_name == "ga4-impact" %}
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">GA4 impact</p>
+          <h2>Source and campaign impact on the catalog</h2>
+        </div>
+      </div>
+      <p id="ga4-impact-note" class="panel-note"></p>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Source / medium → item</p>
+            <h2>Product impact by source</h2>
+          </div>
+          <input id="ga4-impact-source-item-search" class="table-search" type="search" placeholder="Search source or item">
+        </div>
+        <div id="ga4-impact-source-item-table" class="table-host"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Campaign → item</p>
+            <h2>Product impact by campaign</h2>
+          </div>
+          <input id="ga4-impact-campaign-item-search" class="table-search" type="search" placeholder="Search campaign or item">
+        </div>
+        <div id="ga4-impact-campaign-item-table" class="table-host"></div>
+      </section>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Source / medium → category</p>
+            <h2>Category impact by source</h2>
+          </div>
+          <input id="ga4-impact-source-category-search" class="table-search" type="search" placeholder="Search source or category">
+        </div>
+        <div id="ga4-impact-source-category-table" class="table-host"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Campaign → category</p>
+            <h2>Category impact by campaign</h2>
+          </div>
+          <input id="ga4-impact-campaign-category-search" class="table-search" type="search" placeholder="Search campaign or category">
+        </div>
+        <div id="ga4-impact-campaign-category-table" class="table-host"></div>
+      </section>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Source / medium → brand</p>
+            <h2>Brand impact by source</h2>
+          </div>
+          <input id="ga4-impact-source-brand-search" class="table-search" type="search" placeholder="Search source or brand">
+        </div>
+        <div id="ga4-impact-source-brand-table" class="table-host"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Campaign → brand</p>
+            <h2>Brand impact by campaign</h2>
+          </div>
+          <input id="ga4-impact-campaign-brand-search" class="table-search" type="search" placeholder="Search campaign or brand">
+        </div>
+        <div id="ga4-impact-campaign-brand-table" class="table-host"></div>
+      </section>
+    </section>
+  {% elif report_name == "ga4-funnel" %}
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">GA4 funnel</p>
+          <h2>View, add-to-cart, and purchase flow</h2>
+        </div>
+      </div>
+      <p id="ga4-funnel-note" class="panel-note"></p>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Channel group</p>
+            <h2>Funnel by channel</h2>
+          </div>
+          <input id="ga4-channel-funnel-search" class="table-search" type="search" placeholder="Search channels">
+        </div>
+        <div id="ga4-channel-funnel-table" class="table-host"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Source / medium</p>
+            <h2>Funnel by source</h2>
+          </div>
+          <input id="ga4-source-funnel-search" class="table-search" type="search" placeholder="Search source / medium">
+        </div>
+        <div id="ga4-source-funnel-table" class="table-host"></div>
+      </section>
+    </section>
+  {% elif report_name == "ga4-timing" %}
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">GA4 timing</p>
+          <h2>Hourly conclusions</h2>
+        </div>
+      </div>
+      <p id="ga4-timing-note" class="panel-note"></p>
+      <div id="ga4-timing-highlights" class="insight-grid"></div>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel chart-panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Hour of day</p>
+            <h2>Revenue by hour</h2>
+          </div>
+        </div>
+        <div id="ga4-hourly-revenue-chart" class="trend-chart bar-chart"></div>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Hour of day</p>
+            <h2>Orders by hour</h2>
+          </div>
+        </div>
+        <div id="ga4-hourly-orders-chart" class="trend-chart bar-chart"></div>
+      </section>
+    </section>
+
+    <section class="split-panels">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Hourly summary</p>
+            <h2>Revenue and orders by hour</h2>
+          </div>
+          <input id="ga4-hourly-summary-search" class="table-search" type="search" placeholder="Search hours">
+        </div>
+        <div id="ga4-hourly-summary-table" class="table-host"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Day window</p>
+            <h2>Night versus day summary</h2>
+          </div>
+          <input id="ga4-day-window-search" class="table-search" type="search" placeholder="Search windows">
+        </div>
+        <div id="ga4-day-window-table" class="table-host"></div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Date × hour</p>
+          <h2>Revenue by date and hour</h2>
+        </div>
+      </div>
+      <div id="ga4-revenue-matrix-table" class="table-host"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="section-kicker">Date × hour</p>
+          <h2>Orders by date and hour</h2>
+        </div>
+      </div>
+      <div id="ga4-orders-matrix-table" class="table-host"></div>
+    </section>
   {% elif report_name == "auction" %}
     <p id="auction-source-note" class="panel-note"></p>
     <section class="panel">

@@ -143,6 +143,123 @@ class BigQueryReportingService:
     def auction_table(self, grain: str) -> str:
         return f"`experimental-clients.sexwell_analyses.gads--impression_share--{grain}`"
 
+    def ga4_table(self) -> str:
+        return "`experimental-clients.sexwell_analyses.GA4-345365542--historical`"
+
+    def erp_item_category_table(self) -> str:
+        return "`experimental-clients.sexwell_analyses.erp_import_item_category_v`"
+
+    def _ga4_channel_group_case(self, field_name: str = "sessionSourceMedium") -> str:
+        return f"""
+case
+  when lower(coalesce({field_name}, "")) = 'google / cpc' then 'Google Ads'
+  when {field_name} = '(direct) / (none)' then 'Direct'
+  when lower(coalesce({field_name}, "")) like '% / organic' then 'Organic'
+  when lower(coalesce({field_name}, "")) like '% / referral' then 'Referral'
+  when lower(coalesce({field_name}, "")) like '% / email' then 'Email'
+  else 'Other'
+end
+"""
+
+    def _ga4_item_dimension_ctes(self) -> str:
+        return f"""
+ga4_item_base as (
+  select
+    safe_cast(itemId as string) as item_id,
+    itemName as item_name,
+    sum(coalesce(itemsViewed, 0)) as items_viewed,
+    sum(coalesce(itemsPurchased, 0)) as items_purchased,
+    sum(coalesce(itemRevenue, 0)) as item_revenue
+  from {self.ga4_table()}
+  where coalesce(itemId, '') != ''
+    and coalesce(itemName, '') != ''
+  group by 1, 2
+),
+ga4_item_ranked as (
+  select
+    *,
+    row_number() over (
+      partition by item_id
+      order by item_revenue desc, items_viewed desc, items_purchased desc, item_name
+    ) as rn
+  from ga4_item_base
+),
+ga4_brand_base as (
+  select
+    safe_cast(itemId as string) as item_id,
+    itemBrand as item_brand,
+    sum(coalesce(itemsViewed, 0)) as items_viewed,
+    sum(coalesce(itemsPurchased, 0)) as items_purchased,
+    sum(coalesce(itemRevenue, 0)) as item_revenue
+  from {self.ga4_table()}
+  where coalesce(itemId, '') != ''
+    and coalesce(itemBrand, '') not in ('', '(not set)')
+  group by 1, 2
+),
+ga4_brand_counts as (
+  select
+    item_id,
+    count(*) as brand_count
+  from ga4_brand_base
+  group by 1
+),
+ga4_brand_ranked as (
+  select
+    b.item_id,
+    b.item_brand,
+    c.brand_count,
+    row_number() over (
+      partition by b.item_id
+      order by b.items_viewed desc, b.items_purchased desc, b.item_revenue desc, b.item_brand
+    ) as rn
+  from ga4_brand_base b
+  left join ga4_brand_counts c using (item_id)
+),
+ga4_category_single as (
+  select
+    safe_cast(itemId as string) as item_id,
+    any_value(itemCategory) as ga4_item_category
+  from {self.ga4_table()}
+  where coalesce(itemId, '') != ''
+    and coalesce(itemCategory, '') not in ('', '(not set)')
+  group by 1
+  having count(distinct itemCategory) = 1
+),
+erp_category_catalog as (
+  select
+    safe_cast(item_id as string) as item_id,
+    any_value(category_l1) as erp_item_category
+  from {self.erp_item_category_table()}
+  group by 1
+),
+ga4_item_dimension as (
+  select
+    i.item_id,
+    i.item_name as canonical_item_name,
+    br.item_brand as derived_item_brand,
+    case
+      when br.item_brand is null then 'missing'
+      when br.brand_count = 1 then 'high'
+      else 'derived_from_view_item'
+    end as brand_confidence,
+    coalesce(ec.erp_item_category, gc.ga4_item_category) as derived_item_category,
+    case
+      when ec.erp_item_category is not null then 'erp'
+      when gc.ga4_item_category is not null then 'ga4_single'
+      else 'missing'
+    end as category_source
+  from ga4_item_ranked i
+  left join (
+    select item_id, item_brand, brand_count
+    from ga4_brand_ranked
+    where rn = 1
+  ) br using (item_id)
+  left join erp_category_catalog ec using (item_id)
+  left join ga4_category_single gc using (item_id)
+  where i.rn = 1
+)
+"""
+
     def _run_query(
         self,
         sql: str,
@@ -320,6 +437,47 @@ from bounds
             date_to=resolved_to,
         )
 
+    def _get_ga4_date_bounds(self) -> dict[str, str]:
+        def load_bounds() -> dict[str, str]:
+            sql = f"""
+select
+  min(date(dateHourMinute)) as min_report_date,
+  max(date(dateHourMinute)) as max_report_date
+from {self.ga4_table()}
+"""
+            rows = self._run_query(sql)
+            if not rows or not rows[0]["min_report_date"] or not rows[0]["max_report_date"]:
+                raise ValueError("GA4 historical export does not have any rows")
+            return {
+                "min_report_date": rows[0]["min_report_date"],
+                "max_report_date": rows[0]["max_report_date"],
+            }
+
+        return self.options_cache.get_or_set(("ga4_date_bounds",), load_bounds)
+
+    def resolve_ga4_scope(
+        self,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> ScopeFilters:
+        bounds = self._get_ga4_date_bounds()
+        min_date = date.fromisoformat(bounds["min_report_date"])
+        max_date = date.fromisoformat(bounds["max_report_date"])
+        resolved_from, resolved_to = resolve_date_window_with_latest_fallback(
+            min_date=min_date,
+            max_date=max_date,
+            requested_from=date_from,
+            requested_to=date_to,
+            default_window_days=28,
+        )
+        return ScopeFilters(
+            client_id=None,
+            account_id=None,
+            date_from=resolved_from,
+            date_to=resolved_to,
+        )
+
     def _scope_parameters(
         self,
         scope: ScopeFilters,
@@ -345,6 +503,19 @@ from bounds
         return [
             *self._scope_parameters(scope, previous=previous),
             bigquery.ScalarQueryParameter("campaign_regex", "STRING", campaign_regex),
+        ]
+
+    def _ga4_scope_parameters(
+        self,
+        scope: ScopeFilters,
+        *,
+        previous: bool = False,
+    ) -> list[bigquery.ScalarQueryParameter]:
+        date_from = scope.previous_date_from if previous else scope.date_from
+        date_to = scope.previous_date_to if previous else scope.date_to
+        return [
+            bigquery.ScalarQueryParameter("date_from", "DATE", date_from),
+            bigquery.ScalarQueryParameter("date_to", "DATE", date_to),
         ]
 
     def _summary_query(self, scope: ScopeFilters, *, previous: bool = False) -> list[dict[str, Any]]:
@@ -1156,6 +1327,522 @@ order by bucket_date desc, account_name, campaign_name, display_url_domain
 
         return self._cached_query_result(f"auction_rows_{grain}", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
 
+    def _ga4_summary_query(self, scope: ScopeFilters, *, previous: bool = False) -> list[dict[str, Any]]:
+        def load_summary() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  min(date(dateHourMinute)) as report_date_start,
+  max(date(dateHourMinute)) as report_date_end,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsPurchased) as items_purchased,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsViewed) as items_viewed,
+  safe_divide(sum(itemRevenue), count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null))) as aov,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsViewed)) as view_to_order_rate,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsAddedToCart)) as atc_to_order_rate
+from {self.ga4_table()}
+where date(dateHourMinute) between @date_from and @date_to
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope, previous=previous))
+
+        return self._cached_query_result("ga4_summary", (scope.date_from.isoformat(), scope.date_to.isoformat(), previous), load_summary)
+
+    def _ga4_trend_query(self, scope: ScopeFilters, *, previous: bool = False) -> list[dict[str, Any]]:
+        def load_trend() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  date(dateHourMinute) as report_date,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsPurchased) as items_purchased,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsViewed) as items_viewed,
+  safe_divide(sum(itemRevenue), count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null))) as aov
+from {self.ga4_table()}
+where date(dateHourMinute) between @date_from and @date_to
+group by report_date
+order by report_date
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope, previous=previous))
+
+        return self._cached_query_result("ga4_trend", (scope.date_from.isoformat(), scope.date_to.isoformat(), previous), load_trend)
+
+    def _ga4_source_summary_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        channel_group = self._ga4_channel_group_case("sessionSourceMedium")
+
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    {channel_group} as channel_group,
+    sessionSourceMedium,
+    itemRevenue,
+    itemsPurchased,
+    itemsAddedToCart,
+    itemsViewed,
+    transactionId
+  from {self.ga4_table()}
+  where date(dateHourMinute) between @date_from and @date_to
+)
+select
+  channel_group,
+  sessionSourceMedium,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsPurchased) as items_purchased,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsViewed) as items_viewed,
+  safe_divide(sum(itemRevenue), count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null))) as aov
+from scoped
+group by channel_group, sessionSourceMedium
+order by revenue desc
+limit 30
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result("ga4_source_summary", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
+
+    def _ga4_campaign_summary_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        channel_group = self._ga4_channel_group_case("sessionSourceMedium")
+
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    {channel_group} as channel_group,
+    sessionCampaignName,
+    itemRevenue,
+    itemsPurchased,
+    itemsAddedToCart,
+    itemsViewed,
+    transactionId
+  from {self.ga4_table()}
+  where date(dateHourMinute) between @date_from and @date_to
+)
+select
+  channel_group,
+  sessionCampaignName,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsPurchased) as items_purchased,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsViewed) as items_viewed,
+  safe_divide(sum(itemRevenue), count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null))) as aov
+from scoped
+group by channel_group, sessionCampaignName
+order by revenue desc
+limit 30
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result("ga4_campaign_summary", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
+
+    def _ga4_top_products_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+with
+{self._ga4_item_dimension_ctes()},
+scoped as (
+  select
+    safe_cast(src.itemId as string) as item_id,
+    src.itemName as item_name,
+    dim.canonical_item_name,
+    dim.derived_item_brand as item_brand,
+    dim.brand_confidence,
+    dim.derived_item_category as item_category,
+    dim.category_source,
+    src.itemRevenue,
+    src.itemsPurchased,
+    src.itemsAddedToCart,
+    src.itemsViewed,
+    src.transactionId
+  from {self.ga4_table()} src
+  left join ga4_item_dimension dim
+    on safe_cast(src.itemId as string) = dim.item_id
+  where date(src.dateHourMinute) between @date_from and @date_to
+)
+select
+  any_value(item_id) as item_id,
+  coalesce(any_value(canonical_item_name), any_value(item_name)) as item_name,
+  any_value(item_brand) as item_brand,
+  any_value(brand_confidence) as brand_confidence,
+  any_value(item_category) as item_category,
+  any_value(category_source) as category_source,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsPurchased) as items_purchased,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsViewed) as items_viewed,
+  safe_divide(sum(itemRevenue), count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null))) as aov
+from scoped
+group by coalesce(item_id, concat('name:', item_name))
+order by revenue desc
+limit 30
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result("ga4_top_products", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
+
+    def _ga4_channel_monthly_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        channel_group = self._ga4_channel_group_case("sessionSourceMedium")
+
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+with monthly as (
+  select
+    date_trunc(date(dateHourMinute), month) as report_month,
+    {channel_group} as channel_group,
+    sum(itemRevenue) as revenue,
+    count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders
+  from {self.ga4_table()}
+  where date(dateHourMinute) between @date_from and @date_to
+  group by report_month, channel_group
+),
+month_totals as (
+  select
+    report_month,
+    sum(revenue) as total_revenue,
+    sum(orders) as total_orders
+  from monthly
+  group by report_month
+)
+select
+  m.report_month,
+  m.channel_group,
+  m.revenue,
+  safe_divide(m.revenue, t.total_revenue) as revenue_share,
+  m.orders,
+  safe_divide(m.orders, t.total_orders) as order_share
+from monthly m
+join month_totals t using (report_month)
+order by report_month desc, revenue desc
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result("ga4_channel_monthly", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
+
+    def _ga4_hourly_summary_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  extract(hour from dateHourMinute) as report_hour,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsPurchased) as items_purchased,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsViewed) as items_viewed,
+  safe_divide(sum(itemRevenue), count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null))) as aov
+from {self.ga4_table()}
+where date(dateHourMinute) between @date_from and @date_to
+group by report_hour
+order by report_hour
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result("ga4_hourly_summary", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
+
+    def _ga4_day_window_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  case when extract(hour from dateHourMinute) between 0 and 6 then 'Night 00-06h' else 'Day 07-23h' end as period_group,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsPurchased) as items_purchased,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsViewed) as items_viewed,
+  safe_divide(sum(itemRevenue), count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null))) as aov
+from {self.ga4_table()}
+where date(dateHourMinute) between @date_from and @date_to
+group by period_group
+order by period_group
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result("ga4_day_window", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
+
+    def _ga4_matrix_date_bounds(self, scope: ScopeFilters) -> tuple[date, date]:
+        matrix_to = scope.date_to
+        matrix_from = max(scope.date_from, matrix_to - timedelta(days=27))
+        return matrix_from, matrix_to
+
+    def _ga4_matrix_query(self, scope: ScopeFilters, metric: str) -> list[dict[str, Any]]:
+        matrix_from, matrix_to = self._ga4_matrix_date_bounds(scope)
+
+        def load_rows() -> list[dict[str, Any]]:
+            pivot_columns = ",\n  ".join(
+                [
+                    (
+                        f"count(distinct if(extract(hour from dateHourMinute) = {hour} and itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as h{hour:02d}"
+                        if metric == "orders"
+                        else f"sum(if(extract(hour from dateHourMinute) = {hour}, itemRevenue, null)) as h{hour:02d}"
+                    )
+                    for hour in range(24)
+                ]
+            )
+            sql = f"""
+with dates as (
+  select day
+  from unnest(generate_date_array(@date_from, @date_to)) as day
+),
+scoped as (
+  select *
+  from {self.ga4_table()}
+  where date(dateHourMinute) between @date_from and @date_to
+)
+select
+  d.day as report_date,
+  format_date('%Y-%m-%d %a', d.day) as day_label,
+  {pivot_columns}
+from dates d
+left join scoped s
+  on date(s.dateHourMinute) = d.day
+group by report_date, day_label
+order by report_date desc
+"""
+            parameters = [
+                bigquery.ScalarQueryParameter("date_from", "DATE", matrix_from),
+                bigquery.ScalarQueryParameter("date_to", "DATE", matrix_to),
+            ]
+            return self._run_query(sql, parameters=parameters)
+
+        return self._cached_query_result(
+            f"ga4_matrix_{metric}",
+            (matrix_from.isoformat(), matrix_to.isoformat()),
+            load_rows,
+        )
+
+    def _ga4_funnel_channel_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        channel_group = self._ga4_channel_group_case("sessionSourceMedium")
+
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    {channel_group} as channel_group,
+    itemRevenue,
+    itemsViewed,
+    itemsAddedToCart,
+    itemsPurchased,
+    transactionId
+  from {self.ga4_table()}
+  where date(dateHourMinute) between @date_from and @date_to
+)
+select
+  channel_group,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsViewed) as items_viewed,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsPurchased) as items_purchased,
+  safe_divide(sum(itemsAddedToCart), sum(itemsViewed)) as view_to_atc_rate,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsViewed)) as view_to_order_rate,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsAddedToCart)) as atc_to_order_rate
+from scoped
+group by channel_group
+order by revenue desc
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result("ga4_funnel_channel", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
+
+    def _ga4_funnel_source_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        channel_group = self._ga4_channel_group_case("sessionSourceMedium")
+
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+with scoped as (
+  select
+    {channel_group} as channel_group,
+    sessionSourceMedium,
+    itemRevenue,
+    itemsViewed,
+    itemsAddedToCart,
+    itemsPurchased,
+    transactionId
+  from {self.ga4_table()}
+  where date(dateHourMinute) between @date_from and @date_to
+)
+select
+  channel_group,
+  sessionSourceMedium,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsViewed) as items_viewed,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsPurchased) as items_purchased,
+  safe_divide(sum(itemsAddedToCart), sum(itemsViewed)) as view_to_atc_rate,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsViewed)) as view_to_order_rate,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsAddedToCart)) as atc_to_order_rate
+from scoped
+group by channel_group, sessionSourceMedium
+having sum(itemsViewed) > 0
+order by revenue desc
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result("ga4_funnel_source", (scope.date_from.isoformat(), scope.date_to.isoformat()), load_rows)
+
+    def _ga4_funnel_entity_query(self, scope: ScopeFilters, *, entity_field: str) -> list[dict[str, Any]]:
+        channel_group = self._ga4_channel_group_case("sessionSourceMedium")
+        entity_label = {
+            "itemBrand": "item_brand",
+            "itemCategory": "item_category",
+        }[entity_field]
+        entity_sql = {
+            "itemBrand": "derived_item_brand",
+            "itemCategory": "derived_item_category",
+        }[entity_field]
+
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+with
+{self._ga4_item_dimension_ctes()},
+scoped as (
+  select
+    {channel_group} as channel_group,
+    {entity_sql} as {entity_label},
+    src.itemRevenue,
+    src.itemsViewed,
+    src.itemsAddedToCart,
+    src.itemsPurchased,
+    src.transactionId
+  from {self.ga4_table()} src
+  left join ga4_item_dimension dim
+    on safe_cast(src.itemId as string) = dim.item_id
+  where date(src.dateHourMinute) between @date_from and @date_to
+)
+select
+  {entity_label},
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsViewed) as items_viewed,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsPurchased) as items_purchased,
+  safe_divide(sum(itemsAddedToCart), sum(itemsViewed)) as view_to_atc_rate,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsViewed)) as view_to_order_rate,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsAddedToCart)) as atc_to_order_rate
+from scoped
+where {entity_label} is not null
+group by {entity_label}
+having sum(itemsViewed) > 0
+order by revenue desc
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result(
+            f"ga4_funnel_{entity_field}",
+            (scope.date_from.isoformat(), scope.date_to.isoformat()),
+            load_rows,
+        )
+
+    def _ga4_funnel_channel_brand_category_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
+        channel_group = self._ga4_channel_group_case("sessionSourceMedium")
+
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+with
+{self._ga4_item_dimension_ctes()},
+scoped as (
+  select
+    {channel_group} as channel_group,
+    derived_item_category as item_category,
+    derived_item_brand as item_brand,
+    src.itemRevenue,
+    src.itemsViewed,
+    src.itemsAddedToCart,
+    src.itemsPurchased,
+    src.transactionId
+  from {self.ga4_table()} src
+  left join ga4_item_dimension dim
+    on safe_cast(src.itemId as string) = dim.item_id
+  where date(src.dateHourMinute) between @date_from and @date_to
+)
+select
+  channel_group,
+  item_category,
+  item_brand,
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsViewed) as items_viewed,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsPurchased) as items_purchased,
+  safe_divide(sum(itemsAddedToCart), sum(itemsViewed)) as view_to_atc_rate,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsViewed)) as view_to_order_rate,
+  safe_divide(count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)), sum(itemsAddedToCart)) as atc_to_order_rate
+from scoped
+where item_category is not null
+  and item_brand is not null
+group by channel_group, item_category, item_brand
+having sum(itemsViewed) > 0
+order by revenue desc
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result(
+            "ga4_funnel_channel_brand_category",
+            (scope.date_from.isoformat(), scope.date_to.isoformat()),
+            load_rows,
+        )
+
+    def _ga4_impact_query(self, scope: ScopeFilters, *, driver_field: str, entity_field: str) -> list[dict[str, Any]]:
+        driver_label = "source_medium" if driver_field == "sessionSourceMedium" else "campaign_name"
+        entity_label = {
+            "itemBrand": "item_brand",
+            "itemCategory": "item_category",
+            "itemName": "item_name",
+        }[entity_field]
+        entity_sql = {
+            "itemName": "coalesce(canonical_item_name, item_name)",
+            "itemBrand": "derived_item_brand",
+            "itemCategory": "derived_item_category",
+        }[entity_field]
+
+        def load_rows() -> list[dict[str, Any]]:
+            sql = f"""
+with
+{self._ga4_item_dimension_ctes()},
+scoped as (
+  select
+    {driver_field} as {driver_label},
+    src.itemName as item_name,
+    dim.canonical_item_name,
+    dim.derived_item_brand,
+    dim.derived_item_category,
+    src.itemRevenue,
+    src.itemsPurchased,
+    src.itemsAddedToCart,
+    src.itemsViewed,
+    src.transactionId
+  from {self.ga4_table()} src
+  left join ga4_item_dimension dim
+    on safe_cast(src.itemId as string) = dim.item_id
+  where date(src.dateHourMinute) between @date_from and @date_to
+)
+select
+  {driver_label},
+  {entity_sql} as {entity_label},
+  sum(itemRevenue) as revenue,
+  count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null)) as orders,
+  sum(itemsPurchased) as items_purchased,
+  sum(itemsAddedToCart) as items_added_to_cart,
+  sum(itemsViewed) as items_viewed,
+  safe_divide(sum(itemRevenue), count(distinct if(itemsPurchased > 0 and transactionId != '(not set)', transactionId, null))) as aov
+from scoped
+where {driver_label} is not null
+  and {entity_sql} is not null
+group by {driver_label}, {entity_label}
+order by revenue desc
+"""
+            return self._run_query(sql, parameters=self._ga4_scope_parameters(scope))
+
+        return self._cached_query_result(
+            f"ga4_impact_{driver_field}_{entity_field}",
+            (scope.date_from.isoformat(), scope.date_to.isoformat()),
+            load_rows,
+        )
+
     def _ad_delta_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
         def load_ad_delta() -> list[dict[str, Any]]:
             sql = f"""
@@ -1435,7 +2122,140 @@ limit 160
                 "description": "Ad winners and losers versus the prior period.",
                 "meta": "Ad-level change review",
             },
+            {
+                "report_name": "ga4-overview",
+                "title": "GA4 overview",
+                "description": "Commerce KPIs, source mix, campaign mix, and top products.",
+                "meta": "GA4 ecommerce export",
+            },
+            {
+                "report_name": "ga4-impact",
+                "title": "GA4 impact",
+                "description": "Source and campaign impact on products.",
+                "meta": "Last 28 days vs previous 28",
+            },
+            {
+                "report_name": "ga4-funnel",
+                "title": "GA4 funnel",
+                "description": "Views, add-to-cart, and purchases by channel and source.",
+                "meta": "No checkout stage in source",
+            },
+            {
+                "report_name": "ga4-timing",
+                "title": "GA4 timing",
+                "description": "Hour-of-day performance and date-by-hour matrices.",
+                "meta": "Last 28 days timing view",
+            },
         ]
+
+    def _build_ga4_overview_insights(
+        self,
+        summary: dict[str, Any],
+        previous_summary: dict[str, Any],
+        source_summary: list[dict[str, Any]],
+        campaign_summary: list[dict[str, Any]],
+        top_products: list[dict[str, Any]],
+        hourly_summary: list[dict[str, Any]],
+    ) -> list[dict[str, str]]:
+        insights: list[dict[str, str]] = []
+        revenue_delta = _delta_pct(summary.get("revenue"), previous_summary.get("revenue"))
+        orders_delta = _delta_pct(summary.get("orders"), previous_summary.get("orders"))
+
+        insights.append(
+            {
+                "title": "Revenue trend",
+                "detail": (
+                    f"Revenue is {_fmt_pct(revenue_delta)} versus the previous 28-day window."
+                    if revenue_delta is not None
+                    else "No previous-period revenue baseline is available."
+                ),
+            }
+        )
+        insights.append(
+            {
+                "title": "Order trend",
+                "detail": (
+                    f"Orders are {_fmt_pct(orders_delta)} versus the previous 28-day window."
+                    if orders_delta is not None
+                    else "No previous-period order baseline is available."
+                ),
+            }
+        )
+
+        if source_summary:
+            top_source = source_summary[0]
+            insights.append(
+                {
+                    "title": "Top source / medium",
+                    "detail": (
+                        f"{top_source.get('sessionSourceMedium') or 'Unknown source'} leads with "
+                        f"€{_as_float(top_source.get('revenue')):,.0f} revenue and "
+                        f"{int(_as_float(top_source.get('orders'))):,} orders."
+                    ),
+                }
+            )
+
+        if campaign_summary:
+            top_campaign = campaign_summary[0]
+            insights.append(
+                {
+                    "title": "Top campaign",
+                    "detail": (
+                        f"{top_campaign.get('sessionCampaignName') or 'Unknown campaign'} contributes "
+                        f"€{_as_float(top_campaign.get('revenue')):,.0f} revenue."
+                    ),
+                }
+            )
+
+        if top_products:
+            top_product = top_products[0]
+            insights.append(
+                {
+                    "title": "Top product",
+                    "detail": (
+                        f"{top_product.get('item_name') or 'Unknown item'} is the leading item with "
+                        f"€{_as_float(top_product.get('revenue')):,.0f} revenue."
+                    ),
+                }
+            )
+
+        if hourly_summary:
+            best_hour = max(hourly_summary, key=lambda row: (_as_float(row.get("revenue")), _as_float(row.get("orders"))))
+            insights.append(
+                {
+                    "title": "Best hour",
+                    "detail": f"{int(_as_float(best_hour.get('report_hour'))):02d}:00 is the strongest hour by revenue in the current 28-day window.",
+                }
+            )
+
+        return insights[:5]
+
+    def _build_ga4_timing_highlights(self, hourly_summary: list[dict[str, Any]], day_window_summary: list[dict[str, Any]]) -> list[dict[str, str]]:
+        highlights: list[dict[str, str]] = []
+        if hourly_summary:
+            best_revenue_hour = max(hourly_summary, key=lambda row: (_as_float(row.get("revenue")), _as_float(row.get("orders"))))
+            best_order_hour = max(hourly_summary, key=lambda row: (_as_float(row.get("orders")), _as_float(row.get("revenue"))))
+            highlights.append(
+                {
+                    "title": "Best revenue hour",
+                    "detail": f"{int(_as_float(best_revenue_hour.get('report_hour'))):02d}:00 leads on revenue in the current window.",
+                }
+            )
+            highlights.append(
+                {
+                    "title": "Best order hour",
+                    "detail": f"{int(_as_float(best_order_hour.get('report_hour'))):02d}:00 leads on distinct purchase orders.",
+                }
+            )
+        if day_window_summary:
+            best_window = max(day_window_summary, key=lambda row: (_as_float(row.get("revenue")), _as_float(row.get("orders"))))
+            highlights.append(
+                {
+                    "title": "Day window",
+                    "detail": f"{best_window.get('period_group') or 'Unknown window'} is currently the stronger revenue block.",
+                }
+            )
+        return highlights[:3]
 
     def get_hub_data(
         self,
@@ -1679,6 +2499,116 @@ limit 160
             "auction_monthly": monthly_rows,
         }
 
+    def get_ga4_overview_data(
+        self,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, Any]:
+        scope = self.resolve_ga4_scope(date_from=date_from, date_to=date_to)
+        summary = self._ga4_summary_query(scope)[0]
+        previous_summary = self._ga4_summary_query(scope, previous=True)[0]
+        source_summary = self._ga4_source_summary_query(scope)
+        campaign_summary = self._ga4_campaign_summary_query(scope)
+        top_products = self._ga4_top_products_query(scope)
+        hourly_summary = self._ga4_hourly_summary_query(scope)
+        return {
+            "scope": {
+                **self._scope_payload(scope),
+                "scope_label": "GA4 ecommerce export",
+            },
+            "summary": summary,
+            "previous_summary": previous_summary,
+            "trend": self._ga4_trend_query(scope),
+            "previous_trend": self._ga4_trend_query(scope, previous=True),
+            "source_summary": source_summary,
+            "campaign_summary": campaign_summary,
+            "top_products": top_products,
+            "channel_monthly": self._ga4_channel_monthly_query(scope),
+            "insights": self._build_ga4_overview_insights(summary, previous_summary, source_summary, campaign_summary, top_products, hourly_summary),
+            "source_note": (
+                "This page is sourced directly from the GA4 historical ecommerce export. "
+                "Comparison uses the previous 28-day window, channel groups are normalized into Organic, Google Ads, Direct, Referral, Email, and Other, "
+                "brand is derived from GA4 view-bearing rows, and category is enriched from the ERP item mapping."
+            ),
+        }
+
+    def get_ga4_impact_data(
+        self,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, Any]:
+        scope = self.resolve_ga4_scope(date_from=date_from, date_to=date_to)
+        return {
+            "scope": {
+                **self._scope_payload(scope),
+                "scope_label": "GA4 ecommerce export",
+            },
+            "summary": self._ga4_summary_query(scope)[0],
+            "previous_summary": self._ga4_summary_query(scope, previous=True)[0],
+            "source_item_impact": self._ga4_impact_query(scope, driver_field="sessionSourceMedium", entity_field="itemName"),
+            "source_category_impact": self._ga4_impact_query(scope, driver_field="sessionSourceMedium", entity_field="itemCategory"),
+            "source_brand_impact": self._ga4_impact_query(scope, driver_field="sessionSourceMedium", entity_field="itemBrand"),
+            "campaign_item_impact": self._ga4_impact_query(scope, driver_field="sessionCampaignName", entity_field="itemName"),
+            "campaign_category_impact": self._ga4_impact_query(scope, driver_field="sessionCampaignName", entity_field="itemCategory"),
+            "campaign_brand_impact": self._ga4_impact_query(scope, driver_field="sessionCampaignName", entity_field="itemBrand"),
+            "source_note": (
+                "These tables show the current 28-day window only. Product brand is derived from GA4 view-bearing rows by item ID, "
+                "while category is derived primarily from the ERP item-category mapping with a conservative GA4 fallback."
+            ),
+        }
+
+    def get_ga4_funnel_data(
+        self,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, Any]:
+        scope = self.resolve_ga4_scope(date_from=date_from, date_to=date_to)
+        return {
+            "scope": {
+                **self._scope_payload(scope),
+                "scope_label": "GA4 ecommerce export",
+            },
+            "summary": self._ga4_summary_query(scope)[0],
+            "previous_summary": self._ga4_summary_query(scope, previous=True)[0],
+            "channel_funnel": self._ga4_funnel_channel_query(scope),
+            "source_funnel": self._ga4_funnel_source_query(scope),
+            "brand_funnel": self._ga4_funnel_entity_query(scope, entity_field="itemBrand"),
+            "category_funnel": self._ga4_funnel_entity_query(scope, entity_field="itemCategory"),
+            "channel_brand_category_funnel": self._ga4_funnel_channel_brand_category_query(scope),
+            "funnel_note": (
+                "This funnel uses item views, add-to-cart, and purchase orders. "
+                "Checkout is intentionally excluded because the current GA4 historical export does not populate itemsCheckedOut. "
+                "Brand is derived from GA4 view-bearing item rows, and category is derived primarily from the ERP item-category mapping."
+            ),
+        }
+
+    def get_ga4_timing_data(
+        self,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, Any]:
+        scope = self.resolve_ga4_scope(date_from=date_from, date_to=date_to)
+        hourly_summary = self._ga4_hourly_summary_query(scope)
+        day_window_summary = self._ga4_day_window_query(scope)
+        return {
+            "scope": {
+                **self._scope_payload(scope),
+                "scope_label": "GA4 ecommerce export",
+            },
+            "summary": self._ga4_summary_query(scope)[0],
+            "previous_summary": self._ga4_summary_query(scope, previous=True)[0],
+            "hourly_summary": hourly_summary,
+            "day_window_summary": day_window_summary,
+            "revenue_matrix": self._ga4_matrix_query(scope, "revenue"),
+            "orders_matrix": self._ga4_matrix_query(scope, "orders"),
+            "timing_highlights": self._build_ga4_timing_highlights(hourly_summary, day_window_summary),
+            "timing_note": "The date-by-hour matrices always show the last 28 days inside the selected date window.",
+        }
+
     def get_creative_data(
         self,
         *,
@@ -1745,6 +2675,14 @@ limit 160
                 date_to=date_to,
                 campaign_regex=campaign_regex,
             )
+        if report_name == "ga4-overview":
+            return self.get_ga4_overview_data(date_from=date_from, date_to=date_to)
+        if report_name == "ga4-impact":
+            return self.get_ga4_impact_data(date_from=date_from, date_to=date_to)
+        if report_name == "ga4-funnel":
+            return self.get_ga4_funnel_data(date_from=date_from, date_to=date_to)
+        if report_name == "ga4-timing":
+            return self.get_ga4_timing_data(date_from=date_from, date_to=date_to)
         if report_name == "auction":
             return self.get_auction_data(
                 date_from=date_from,

@@ -19,6 +19,22 @@ REPORT_PAGES = {
         "title": "High-Level Overview",
         "subtitle": "KPI trend, campaign mix, and competitive context.",
     },
+    "ga4-overview": {
+        "title": "GA4 Overview",
+        "subtitle": "Commerce KPIs, source mix, campaign mix, and product leaders from the GA4 historical export, enriched with ERP categories and GA4 brand signals.",
+    },
+    "ga4-impact": {
+        "title": "GA4 Impact",
+        "subtitle": "How source/medium and campaign shape products, categories, and brands.",
+    },
+    "ga4-funnel": {
+        "title": "GA4 Funnel",
+        "subtitle": "Views, add-to-cart, and purchase progression by channel and source.",
+    },
+    "ga4-timing": {
+        "title": "GA4 Timing",
+        "subtitle": "Hour-of-day performance and date-by-hour matrices from the GA4 export.",
+    },
     "auction": {
         "title": "Auction Insights",
         "subtitle": "Daily, weekly, and monthly auction-share tables from the source export.",
@@ -52,6 +68,9 @@ REPORT_PAGES = {
 app = FastAPI(title="Google Ads Signal Board")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
+SOURCE_LOCAL_REPORTS = {"auction", "ga4-overview", "ga4-impact", "ga4-funnel", "ga4-timing"}
+GA4_REPORTS = {"ga4-overview", "ga4-impact", "ga4-funnel", "ga4-timing"}
+
 
 @app.get("/", response_class=HTMLResponse)
 def hub(
@@ -69,6 +88,8 @@ def hub(
             "active_label": "Main hub",
             "report_name": None,
             "report_pages": REPORT_PAGES,
+            "is_source_local_report": False,
+            "is_ga4_report": False,
         },
     )
 
@@ -94,6 +115,8 @@ def report_page(
             "report_title": REPORT_PAGES[report_name]["title"],
             "report_subtitle": REPORT_PAGES[report_name]["subtitle"],
             "report_pages": REPORT_PAGES,
+            "is_source_local_report": report_name in SOURCE_LOCAL_REPORTS,
+            "is_ga4_report": report_name in GA4_REPORTS,
         },
     )
 

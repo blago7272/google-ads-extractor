@@ -798,6 +798,16 @@ body {
   text-align: right;
 }
 
+.heatmap-cell {
+  border-left: 1px solid rgba(30, 37, 30, 0.12);
+  border-right: 1px solid rgba(30, 37, 30, 0.12);
+  transition: background-color 0.18s ease;
+}
+
+.heatmap-cell.is-empty {
+  background: rgba(255, 251, 242, 0.84);
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -966,6 +976,36 @@ body {
 [data-table-shell="auctionMonthly"] .data-table td:nth-child(n+4) {
   width: 110px;
   white-space: nowrap;
+}
+
+[data-table-shell="ga4RevenueMatrix"] .data-table,
+[data-table-shell="ga4OrdersMatrix"] .data-table {
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 0.74rem;
+}
+
+[data-table-shell="ga4RevenueMatrix"] .data-table th,
+[data-table-shell="ga4RevenueMatrix"] .data-table td,
+[data-table-shell="ga4OrdersMatrix"] .data-table th,
+[data-table-shell="ga4OrdersMatrix"] .data-table td {
+  padding: 6px 6px;
+}
+
+[data-table-shell="ga4RevenueMatrix"] .data-table th:nth-child(1),
+[data-table-shell="ga4RevenueMatrix"] .data-table td:nth-child(1),
+[data-table-shell="ga4OrdersMatrix"] .data-table th:nth-child(1),
+[data-table-shell="ga4OrdersMatrix"] .data-table td:nth-child(1) {
+  width: 102px;
+  white-space: nowrap;
+}
+
+[data-table-shell="ga4RevenueMatrix"] .data-table th:nth-child(n+2),
+[data-table-shell="ga4RevenueMatrix"] .data-table td:nth-child(n+2),
+[data-table-shell="ga4OrdersMatrix"] .data-table th:nth-child(n+2),
+[data-table-shell="ga4OrdersMatrix"] .data-table td:nth-child(n+2) {
+  width: 48px;
+  text-align: center;
 }
 
 .data-table th button {

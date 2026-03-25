@@ -14,6 +14,10 @@ const state = {
   timingAdGroupSelection: [],
   timingAdGroupOptions: [],
   timingAdGroupSearch: "",
+  ga4TopProductsFilters: {
+    brand: { selection: [], options: [], search: "" },
+    category: { selection: [], options: [], search: "" },
+  },
   auctionFilters: {
     monthly: {
       account: { selection: [], options: [], search: "" },
@@ -54,6 +58,17 @@ const KPI_DEFS = [
   { key: "cpa_eur", label: "CPA (EUR)", formatter: formatMoney },
 ];
 
+const GA4_KPI_DEFS = [
+  { key: "revenue", label: "Revenue", formatter: formatMoney },
+  { key: "orders", label: "Orders", formatter: formatInteger },
+  { key: "aov", label: "AOV", formatter: formatMoney },
+  { key: "items_purchased", label: "Items purchased", formatter: formatInteger },
+  { key: "items_added_to_cart", label: "Added to cart", formatter: formatInteger },
+  { key: "items_viewed", label: "Items viewed", formatter: formatInteger },
+  { key: "view_to_order_rate", label: "View to order", formatter: formatPercent },
+  { key: "atc_to_order_rate", label: "ATC to order", formatter: formatPercent },
+];
+
 const CHART_METRICS = {
   conversion_value_eur: { key: "conversion_value_eur", label: "Conversion value", formatter: formatMoney },
   cost_eur: { key: "cost_eur", label: "Spend", formatter: formatMoney },
@@ -63,12 +78,19 @@ const CHART_METRICS = {
   conversion_rate: { key: "conversion_rate", label: "Conversion rate", formatter: formatPercent },
   clicks: { key: "clicks", label: "Clicks", formatter: formatInteger },
   impressions: { key: "impressions", label: "Impressions", formatter: formatInteger },
+  revenue: { key: "revenue", label: "Revenue", formatter: formatMoney },
+  orders: { key: "orders", label: "Orders", formatter: formatInteger },
+  items_purchased: { key: "items_purchased", label: "Items purchased", formatter: formatInteger },
+  items_added_to_cart: { key: "items_added_to_cart", label: "Added to cart", formatter: formatInteger },
+  items_viewed: { key: "items_viewed", label: "Items viewed", formatter: formatInteger },
+  aov: { key: "aov", label: "AOV", formatter: formatMoney },
   search_impr_share: { key: "search_impr_share", label: "Search IS", formatter: formatPercentPoint },
   search_overlap_rate: { key: "search_overlap_rate", label: "Overlap", formatter: formatPercentPoint },
   search_outranking_share: { key: "search_outranking_share", label: "Outranking", formatter: formatPercentPoint },
 };
 
 const CHART_TOOLTIP_KEYS = ["conversion_value_eur", "cost_eur", "cpc_eur", "roas", "conversions", "conversion_rate", "clicks", "impressions"];
+const GA4_CHART_TOOLTIP_KEYS = ["revenue", "orders", "items_purchased", "items_added_to_cart", "items_viewed", "aov"];
 
 const AUCTION_FILTER_DEFS = {
   monthly: {
@@ -188,6 +210,7 @@ const AUCTION_FILTER_DEFS = {
 };
 
 const MONEY_KEYS = new Set([
+  "aov",
   "campaign_budget_eur",
   "campaign_budget_original",
   "conversion_value_eur",
@@ -202,21 +225,27 @@ const MONEY_KEYS = new Set([
   "current_cost_eur",
   "previous_conversion_value_eur",
   "previous_cost_eur",
+  "revenue",
   "spend_delta_eur",
   "total_cost_eur",
   "value_delta_eur",
 ]);
 
-const INTEGER_KEYS = new Set(["clicks", "impressions", "quality_score"]);
+const INTEGER_KEYS = new Set(["clicks", "impressions", "items_added_to_cart", "items_purchased", "items_viewed", "orders", "quality_score"]);
 const DECIMAL_KEYS = new Set(["conversions", "current_conversions", "previous_conversions"]);
 const PERCENT_KEYS = new Set([
+  "atc_to_order_rate",
   "conversion_rate",
   "ctr",
   "impression_share",
+  "order_share",
   "overlap_rate",
   "outranking_share",
   "position_above_rate",
+  "revenue_share",
   "spend_share",
+  "view_to_atc_rate",
+  "view_to_order_rate",
   "value_share",
 ]);
 const RATIO_KEYS = new Set(["roas", "current_roas", "previous_roas"]);
@@ -653,6 +682,264 @@ const TABLE_CONFIG = {
     defaultSort: { key: "value_delta_eur", direction: "asc" },
     columns: buildDeltaColumns("Ad", { includeAdGroup: true, labelKey: "ad_label" }),
   },
+  ga4SourceSummary: {
+    searchInputId: "ga4-source-summary-search",
+    searchFields: ["channel_group", "sessionSourceMedium"],
+    containerId: "ga4-source-summary-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    topbarFilter: {
+      inputId: "ga4-source-summary-channel-filter",
+      key: "channel_group",
+      options: [
+        { value: "", label: "All channels" },
+        { value: "Google Ads", label: "Google Ads" },
+        { value: "Organic", label: "Organic" },
+        { value: "Direct", label: "Direct" },
+        { value: "Referral", label: "Referral" },
+        { value: "Email", label: "Email" },
+        { value: "Other", label: "Other" },
+      ],
+    },
+    columns: [
+      { key: "channel_group", label: "Channel" },
+      { key: "sessionSourceMedium", label: "Source / medium" },
+      { key: "revenue", label: "Revenue", format: formatMoney },
+      { key: "orders", label: "Orders", format: formatInteger },
+      { key: "items_purchased", label: "Items purchased", format: formatInteger },
+      { key: "items_added_to_cart", label: "Added to cart", format: formatInteger },
+      { key: "items_viewed", label: "Items viewed", format: formatInteger },
+      { key: "aov", label: "AOV", format: formatMoney },
+    ],
+  },
+  ga4CampaignSummary: {
+    searchInputId: "ga4-campaign-summary-search",
+    searchFields: ["channel_group", "sessionCampaignName"],
+    containerId: "ga4-campaign-summary-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    topbarFilter: {
+      inputId: "ga4-campaign-summary-channel-filter",
+      key: "channel_group",
+      options: [
+        { value: "", label: "All channels" },
+        { value: "Google Ads", label: "Google Ads" },
+        { value: "Organic", label: "Organic" },
+        { value: "Direct", label: "Direct" },
+        { value: "Referral", label: "Referral" },
+        { value: "Email", label: "Email" },
+        { value: "Other", label: "Other" },
+      ],
+    },
+    columns: [
+      { key: "channel_group", label: "Channel" },
+      { key: "sessionCampaignName", label: "Campaign" },
+      { key: "revenue", label: "Revenue", format: formatMoney },
+      { key: "orders", label: "Orders", format: formatInteger },
+      { key: "items_purchased", label: "Items purchased", format: formatInteger },
+      { key: "items_added_to_cart", label: "Added to cart", format: formatInteger },
+      { key: "items_viewed", label: "Items viewed", format: formatInteger },
+      { key: "aov", label: "AOV", format: formatMoney },
+    ],
+  },
+  ga4TopProducts: {
+    searchInputId: "ga4-top-products-search",
+    searchFields: ["item_name", "item_brand", "item_category"],
+    containerId: "ga4-top-products-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    columns: [
+      { key: "item_name", label: "Item" },
+      { key: "item_brand", label: "Brand" },
+      { key: "item_category", label: "Category" },
+      { key: "revenue", label: "Revenue", format: formatMoney },
+      { key: "orders", label: "Orders", format: formatInteger },
+      { key: "items_purchased", label: "Items purchased", format: formatInteger },
+      { key: "aov", label: "AOV", format: formatMoney },
+    ],
+  },
+  ga4ChannelMonthly: {
+    searchInputId: "ga4-channel-monthly-search",
+    searchFields: ["report_month", "channel_group"],
+    containerId: "ga4-channel-monthly-table",
+    defaultSort: { key: "report_month", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    columns: [
+      { key: "report_month", label: "Month", format: formatMonth },
+      { key: "channel_group", label: "Channel" },
+      { key: "revenue", label: "Revenue", format: formatMoney },
+      { key: "revenue_share", label: "Revenue share", format: formatPercent },
+      { key: "orders", label: "Orders", format: formatInteger },
+      { key: "order_share", label: "Order share", format: formatPercent },
+    ],
+  },
+  ga4ImpactSourceItem: {
+    searchInputId: "ga4-impact-source-item-search",
+    searchFields: ["source_medium", "item_name"],
+    containerId: "ga4-impact-source-item-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    columns: buildGa4ImpactColumns("source_medium", "Source / medium", "item_name", "Item"),
+  },
+  ga4ImpactCampaignItem: {
+    searchInputId: "ga4-impact-campaign-item-search",
+    searchFields: ["campaign_name", "item_name"],
+    containerId: "ga4-impact-campaign-item-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    columns: buildGa4ImpactColumns("campaign_name", "Campaign", "item_name", "Item"),
+  },
+  ga4ImpactSourceCategory: {
+    searchInputId: "ga4-impact-source-category-search",
+    searchFields: ["source_medium", "item_category"],
+    containerId: "ga4-impact-source-category-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    columns: buildGa4ImpactColumns("source_medium", "Source / medium", "item_category", "Category"),
+  },
+  ga4ImpactCampaignCategory: {
+    searchInputId: "ga4-impact-campaign-category-search",
+    searchFields: ["campaign_name", "item_category"],
+    containerId: "ga4-impact-campaign-category-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    columns: buildGa4ImpactColumns("campaign_name", "Campaign", "item_category", "Category"),
+  },
+  ga4ImpactSourceBrand: {
+    searchInputId: "ga4-impact-source-brand-search",
+    searchFields: ["source_medium", "item_brand"],
+    containerId: "ga4-impact-source-brand-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    columns: buildGa4ImpactColumns("source_medium", "Source / medium", "item_brand", "Brand"),
+  },
+  ga4ImpactCampaignBrand: {
+    searchInputId: "ga4-impact-campaign-brand-search",
+    searchFields: ["campaign_name", "item_brand"],
+    containerId: "ga4-impact-campaign-brand-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showFooterCount: true,
+    showTopMeta: false,
+    hideScrollButton: true,
+    hideToggleButton: true,
+    columns: buildGa4ImpactColumns("campaign_name", "Campaign", "item_brand", "Brand"),
+  },
+  ga4ChannelFunnel: {
+    searchInputId: "ga4-channel-funnel-search",
+    searchFields: ["channel_group"],
+    containerId: "ga4-channel-funnel-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    columns: buildGa4FunnelColumns("channel_group", "Channel"),
+  },
+  ga4SourceFunnel: {
+    searchInputId: "ga4-source-funnel-search",
+    searchFields: ["channel_group", "sessionSourceMedium"],
+    containerId: "ga4-source-funnel-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    columns: [
+      { key: "channel_group", label: "Channel" },
+      ...buildGa4FunnelColumns("sessionSourceMedium", "Source / medium"),
+    ],
+  },
+  ga4HourlySummary: {
+    searchInputId: "ga4-hourly-summary-search",
+    searchFields: ["report_hour"],
+    containerId: "ga4-hourly-summary-table",
+    defaultSort: { key: "report_hour", direction: "asc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    columns: [
+      { key: "report_hour", label: "Hour", format: formatHour },
+      { key: "revenue", label: "Revenue", format: formatMoney },
+      { key: "orders", label: "Orders", format: formatInteger },
+      { key: "items_added_to_cart", label: "Added to cart", format: formatInteger },
+      { key: "items_purchased", label: "Items purchased", format: formatInteger },
+      { key: "items_viewed", label: "Items viewed", format: formatInteger },
+      { key: "aov", label: "AOV", format: formatMoney },
+    ],
+  },
+  ga4DayWindowSummary: {
+    searchInputId: "ga4-day-window-search",
+    searchFields: ["period_group"],
+    containerId: "ga4-day-window-table",
+    defaultSort: { key: "revenue", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    columns: [
+      { key: "period_group", label: "Window" },
+      { key: "revenue", label: "Revenue", format: formatMoney },
+      { key: "orders", label: "Orders", format: formatInteger },
+      { key: "items_added_to_cart", label: "Added to cart", format: formatInteger },
+      { key: "items_purchased", label: "Items purchased", format: formatInteger },
+      { key: "items_viewed", label: "Items viewed", format: formatInteger },
+      { key: "aov", label: "AOV", format: formatMoney },
+    ],
+  },
+  ga4RevenueMatrix: {
+    searchInputId: null,
+    searchFields: ["report_date", "day_label"],
+    containerId: "ga4-revenue-matrix-table",
+    defaultSort: { key: "report_date", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    hideScrollButton: true,
+    columns: buildGa4MatrixColumns("Revenue"),
+  },
+  ga4OrdersMatrix: {
+    searchInputId: null,
+    searchFields: ["report_date", "day_label"],
+    containerId: "ga4-orders-matrix-table",
+    defaultSort: { key: "report_date", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showSummaryRow: false,
+    hideScrollButton: true,
+    columns: buildGa4MatrixColumns("Orders"),
+  },
   hubAlerts: {
     searchInputId: null,
     searchFields: ["report_date", "severity", "alert_message"],
@@ -726,6 +1013,45 @@ function buildDeltaColumns(primaryLabel, options = {}) {
   ];
 }
 
+function buildGa4ImpactColumns(driverKey, driverLabel, entityKey, entityLabel) {
+  return [
+    { key: driverKey, label: driverLabel },
+    { key: entityKey, label: entityLabel },
+    { key: "revenue", label: "Revenue", format: formatMoney },
+    { key: "orders", label: "Orders", format: formatInteger },
+    { key: "items_purchased", label: "Items purchased", format: formatInteger },
+    { key: "items_added_to_cart", label: "Added to cart", format: formatInteger },
+    { key: "items_viewed", label: "Items viewed", format: formatInteger },
+    { key: "aov", label: "AOV", format: formatMoney },
+  ];
+}
+
+function buildGa4FunnelColumns(primaryKey, primaryLabel) {
+  return [
+    { key: primaryKey, label: primaryLabel },
+    { key: "revenue", label: "Revenue", format: formatMoney },
+    { key: "orders", label: "Orders", format: formatInteger },
+    { key: "items_viewed", label: "Items viewed", format: formatInteger },
+    { key: "items_added_to_cart", label: "Added to cart", format: formatInteger },
+    { key: "items_purchased", label: "Items purchased", format: formatInteger },
+    { key: "view_to_atc_rate", label: "View → ATC", format: formatPercent },
+    { key: "view_to_order_rate", label: "View → order", format: formatPercent },
+    { key: "atc_to_order_rate", label: "ATC → order", format: formatPercent },
+  ];
+}
+
+function buildGa4MatrixColumns(metricLabel) {
+  return [
+    { key: "day_label", label: "Date" },
+    ...Array.from({ length: 24 }, (_, hour) => ({
+      key: `h${String(hour).padStart(2, "0")}`,
+      label: `${String(hour).padStart(2, "0")}:00`,
+      format: metricLabel === "Orders" ? formatInteger : formatMoney,
+      heatmap: true,
+    })),
+  ];
+}
+
 function bindFilterEvents() {
   document.getElementById("filters-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -794,6 +1120,9 @@ function bindPageSpecificEvents() {
   [
     "auction-monthly-metric-select",
     "auction-weekly-metric-select",
+    "ga4-overview-trend-grain",
+    "ga4-overview-top-compare-metric",
+    "ga4-overview-bottom-compare-metric",
     "hub-trend-grain",
     "hub-top-primary-metric",
     "hub-top-secondary-metric",
@@ -810,10 +1139,12 @@ function bindPageSpecificEvents() {
     "overview-bottom-compare-metric",
   ].forEach((id) => {
     const input = document.getElementById(id);
-    if (input && input.dataset.bound !== "true") {
+  if (input && input.dataset.bound !== "true") {
       input.addEventListener("change", () => {
         if (REPORT_KIND === "auction" && state.currentPayload) {
           renderAuctionCharts(state.currentPayload);
+        } else if (REPORT_KIND === "ga4-overview" && state.currentPayload) {
+          renderGa4OverviewCharts(state.currentPayload);
         } else if (PAGE_KIND === "hub" && state.currentPayload) {
           renderHubTrendCharts(state.currentPayload);
         } else if (REPORT_KIND === "overview" && state.currentPayload) {
@@ -827,6 +1158,7 @@ function bindPageSpecificEvents() {
   bindOverviewCampaignFilterEvents();
   bindTimingCampaignFilterEvents();
   bindTimingAdGroupFilterEvents();
+  bindGa4TopProductsFilterEvents();
   bindAuctionFilterEvents();
 }
 
@@ -1280,6 +1612,211 @@ function getSelectedTimingAdGroups() {
   return Array.isArray(state.timingAdGroupSelection) ? state.timingAdGroupSelection : [];
 }
 
+function bindGa4TopProductsFilterEvents() {
+  bindGa4TopProductsFilterControl("brand");
+  bindGa4TopProductsFilterControl("category");
+}
+
+function getGa4TopProductsFilterDef(filterKey) {
+  return {
+    brand: {
+      field: "item_brand",
+      label: "brand",
+      pluralLabel: "brands",
+      emptyLabel: "All brands",
+      toggleId: "ga4-top-products-brand-filter-toggle",
+      panelId: "ga4-top-products-brand-filter-panel",
+      searchId: "ga4-top-products-brand-filter-search",
+      optionsId: "ga4-top-products-brand-filter-options",
+      clearId: "ga4-top-products-brand-filter-clear",
+      closeId: "ga4-top-products-brand-filter-close",
+    },
+    category: {
+      field: "item_category",
+      label: "category",
+      pluralLabel: "categories",
+      emptyLabel: "All categories",
+      toggleId: "ga4-top-products-category-filter-toggle",
+      panelId: "ga4-top-products-category-filter-panel",
+      searchId: "ga4-top-products-category-filter-search",
+      optionsId: "ga4-top-products-category-filter-options",
+      clearId: "ga4-top-products-category-filter-clear",
+      closeId: "ga4-top-products-category-filter-close",
+    },
+  }[filterKey];
+}
+
+function getSelectedGa4TopProductsValues(filterKey) {
+  const filterState = state.ga4TopProductsFilters?.[filterKey];
+  return Array.isArray(filterState?.selection) ? filterState.selection : [];
+}
+
+function bindGa4TopProductsFilterControl(filterKey) {
+  const def = getGa4TopProductsFilterDef(filterKey);
+  const toggle = document.getElementById(def.toggleId);
+  const panel = document.getElementById(def.panelId);
+  const searchInput = document.getElementById(def.searchId);
+  const clearButton = document.getElementById(def.clearId);
+  const closeButton = document.getElementById(def.closeId);
+  const optionsContainer = document.getElementById(def.optionsId);
+
+  if (!toggle || !panel || !searchInput || !clearButton || !closeButton || !optionsContainer) {
+    return;
+  }
+
+  const selectionSignature = () => normalizeSelectionSignature(getSelectedGa4TopProductsValues(filterKey));
+  const closePanel = (applySelection = false) => {
+    const shouldRerender = applySelection && panel.dataset.selectionSignature !== selectionSignature();
+    panel.classList.add("is-hidden");
+    toggle.classList.remove("is-open");
+    if (shouldRerender) {
+      panel.dataset.selectionSignature = selectionSignature();
+      renderTable("ga4TopProducts", state.tableData.get("ga4TopProducts") || []);
+    }
+  };
+
+  if (toggle.dataset.bound !== "true") {
+    toggle.addEventListener("click", () => {
+      const isOpening = panel.classList.contains("is-hidden");
+      if (isOpening) {
+        panel.dataset.selectionSignature = selectionSignature();
+        panel.classList.remove("is-hidden");
+        toggle.classList.add("is-open");
+        searchInput.focus();
+      } else {
+        closePanel(true);
+      }
+    });
+    toggle.dataset.bound = "true";
+  }
+
+  if (searchInput.dataset.bound !== "true") {
+    searchInput.addEventListener("input", () => {
+      state.ga4TopProductsFilters[filterKey].search = searchInput.value.trim();
+      renderGa4TopProductsFilterOptions(filterKey);
+    });
+    searchInput.dataset.bound = "true";
+  }
+
+  if (clearButton.dataset.bound !== "true") {
+    clearButton.addEventListener("click", () => {
+      state.ga4TopProductsFilters[filterKey].selection = [];
+      state.ga4TopProductsFilters[filterKey].search = "";
+      searchInput.value = "";
+      renderGa4TopProductsFilterSelector(filterKey, state.tableData.get("ga4TopProducts") || []);
+      renderTable("ga4TopProducts", state.tableData.get("ga4TopProducts") || []);
+    });
+    clearButton.dataset.bound = "true";
+  }
+
+  if (closeButton.dataset.bound !== "true") {
+    closeButton.addEventListener("click", () => {
+      closePanel(true);
+    });
+    closeButton.dataset.bound = "true";
+  }
+
+  if (optionsContainer.dataset.bound !== "true") {
+    optionsContainer.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") {
+        return;
+      }
+      const selection = getSelectedGa4TopProductsValues(filterKey);
+      if (target.checked) {
+        state.ga4TopProductsFilters[filterKey].selection = [...new Set([...selection, target.value])];
+      } else {
+        state.ga4TopProductsFilters[filterKey].selection = selection.filter((value) => value !== target.value);
+      }
+      renderGa4TopProductsFilterToggleLabel(filterKey);
+    });
+    optionsContainer.dataset.bound = "true";
+  }
+
+  if (panel.dataset.boundOutside !== "true") {
+    document.addEventListener("click", (event) => {
+      if (panel.classList.contains("is-hidden")) {
+        return;
+      }
+      if (panel.contains(event.target) || toggle.contains(event.target)) {
+        return;
+      }
+      closePanel(true);
+    });
+    panel.dataset.boundOutside = "true";
+  }
+}
+
+function renderGa4TopProductsFilters(rows) {
+  renderGa4TopProductsFilterSelector("brand", rows);
+  renderGa4TopProductsFilterSelector("category", rows);
+}
+
+function renderGa4TopProductsFilterSelector(filterKey, rows) {
+  const def = getGa4TopProductsFilterDef(filterKey);
+  const toggle = document.getElementById(def.toggleId);
+  const panel = document.getElementById(def.panelId);
+  const searchInput = document.getElementById(def.searchId);
+  if (!toggle || !panel || !searchInput) {
+    return;
+  }
+
+  const revenueByValue = new Map();
+  (rows || []).forEach((row) => {
+    const value = String(row?.[def.field] ?? "").trim();
+    if (!value) {
+      return;
+    }
+    revenueByValue.set(value, (revenueByValue.get(value) || 0) + Number(row.revenue || 0));
+  });
+  const sortedOptions = [...revenueByValue.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], undefined, { sensitivity: "base" }))
+    .map(([value]) => value);
+  const selectedValues = getSelectedGa4TopProductsValues(filterKey).filter((value) => revenueByValue.has(value));
+  state.ga4TopProductsFilters[filterKey].selection = selectedValues;
+  state.ga4TopProductsFilters[filterKey].options = [...new Set([...sortedOptions, ...selectedValues])];
+  searchInput.value = state.ga4TopProductsFilters[filterKey].search;
+  panel.dataset.selectionSignature = normalizeSelectionSignature(selectedValues);
+  renderGa4TopProductsFilterToggleLabel(filterKey);
+  renderGa4TopProductsFilterOptions(filterKey);
+}
+
+function renderGa4TopProductsFilterToggleLabel(filterKey) {
+  const def = getGa4TopProductsFilterDef(filterKey);
+  const toggle = document.getElementById(def.toggleId);
+  if (!toggle) {
+    return;
+  }
+  const count = getSelectedGa4TopProductsValues(filterKey).length;
+  toggle.textContent = count ? `${count} ${def.label}${count === 1 ? "" : "s"} selected` : def.emptyLabel;
+}
+
+function renderGa4TopProductsFilterOptions(filterKey) {
+  const def = getGa4TopProductsFilterDef(filterKey);
+  const container = document.getElementById(def.optionsId);
+  if (!container) {
+    return;
+  }
+  const query = state.ga4TopProductsFilters[filterKey].search || "";
+  let options = state.ga4TopProductsFilters[filterKey].options || [];
+  if (query) {
+    options = options.filter((value) => value.toLowerCase().includes(query.toLowerCase()));
+  }
+
+  if (!options.length) {
+    container.innerHTML = `<div class="empty-state">No ${def.pluralLabel} match the current filter.</div>`;
+    return;
+  }
+
+  const selected = new Set(getSelectedGa4TopProductsValues(filterKey));
+  container.innerHTML = options.map((value) => `
+    <label class="campaign-filter-option">
+      <input type="checkbox" value="${escapeHtml(value)}"${selected.has(value) ? " checked" : ""}>
+      <span>${escapeHtml(value)}</span>
+    </label>
+  `).join("");
+}
+
 function bindAuctionFilterEvents() {
   Object.entries(AUCTION_FILTER_DEFS).forEach(([groupKey, groupDefs]) => {
     Object.keys(groupDefs).forEach((filterKey) => {
@@ -1617,6 +2154,28 @@ function showLoadingState() {
     "auction-daily-table",
     "auction-weekly-table",
     "auction-monthly-table",
+    "ga4-overview-insights",
+    "ga4-overview-trend-chart",
+    "ga4-overview-secondary-chart",
+    "ga4-source-summary-table",
+    "ga4-campaign-summary-table",
+    "ga4-top-products-table",
+    "ga4-channel-monthly-table",
+    "ga4-impact-source-item-table",
+    "ga4-impact-campaign-item-table",
+    "ga4-impact-source-category-table",
+    "ga4-impact-campaign-category-table",
+    "ga4-impact-source-brand-table",
+    "ga4-impact-campaign-brand-table",
+    "ga4-channel-funnel-table",
+    "ga4-source-funnel-table",
+    "ga4-timing-highlights",
+    "ga4-hourly-revenue-chart",
+    "ga4-hourly-orders-chart",
+    "ga4-hourly-summary-table",
+    "ga4-day-window-table",
+    "ga4-revenue-matrix-table",
+    "ga4-orders-matrix-table",
     "ad-winners-table",
     "ad-losers-table",
   ].forEach((id) => {
@@ -1750,8 +2309,11 @@ async function refreshCurrentPage() {
   const payload = await fetchJson(endpoint);
   state.currentPayload = payload;
 
+  if (["auction", "ga4-overview", "ga4-impact", "ga4-funnel", "ga4-timing"].includes(REPORT_KIND)) {
+    syncSourceLocalScopeInputs(payload.scope || {});
+  }
+
   if (REPORT_KIND === "auction") {
-    syncAuctionScopeInputs(payload.scope || {});
     renderScope(payload.scope || {}, payload.summary || {});
     renderNote("auction-source-note", payload.source_note || "");
     resetTableStates([
@@ -1764,10 +2326,30 @@ async function refreshCurrentPage() {
   }
 
   renderScope(payload.scope, payload.summary);
-  renderKpis(payload.summary, payload.previous_summary);
+  renderKpis(payload.summary, payload.previous_summary, REPORT_KIND.startsWith("ga4-") ? GA4_KPI_DEFS : KPI_DEFS);
 
   if (PAGE_KIND === "hub") {
     renderHub(payload);
+    return;
+  }
+
+  if (REPORT_KIND === "ga4-overview") {
+    renderGa4Overview(payload);
+    return;
+  }
+
+  if (REPORT_KIND === "ga4-impact") {
+    renderGa4Impact(payload);
+    return;
+  }
+
+  if (REPORT_KIND === "ga4-funnel") {
+    renderGa4Funnel(payload);
+    return;
+  }
+
+  if (REPORT_KIND === "ga4-timing") {
+    renderGa4Timing(payload);
     return;
   }
 
@@ -1897,7 +2479,7 @@ function renderScope(scope, summary) {
   document.getElementById("coverage-badge").textContent = `${start} to ${end}`;
 }
 
-function syncAuctionScopeInputs(scope) {
+function syncSourceLocalScopeInputs(scope) {
   const dateFromInput = document.getElementById("date-from-input");
   const dateToInput = document.getElementById("date-to-input");
   if (!dateFromInput || !dateToInput) {
@@ -1912,12 +2494,12 @@ function syncAuctionScopeInputs(scope) {
   updateReportLinks();
 }
 
-function renderKpis(summary, previousSummary) {
+function renderKpis(summary, previousSummary, defs = KPI_DEFS) {
   const container = document.getElementById("kpi-grid");
   if (!container) {
     return;
   }
-  container.innerHTML = KPI_DEFS.map((definition) => {
+  container.innerHTML = defs.map((definition) => {
     const currentValue = summary?.[definition.key];
     const previousValue = previousSummary?.[definition.key];
     const delta = buildDelta(currentValue, previousValue);
@@ -1955,6 +2537,58 @@ function renderAuctionPage(payload) {
   renderAuctionFilterSelectors(payload);
   renderAuctionCharts(payload);
   renderAuctionTables(payload);
+}
+
+function renderGa4Overview(payload) {
+  renderNote("ga4-overview-note", payload.source_note || "");
+  renderInsights(payload.insights || [], "ga4-overview-insights");
+  renderGa4OverviewCharts(payload);
+  renderTable("ga4SourceSummary", payload.source_summary || []);
+  renderTable("ga4CampaignSummary", payload.campaign_summary || []);
+  renderGa4TopProductsFilters(payload.top_products || []);
+  renderTable("ga4TopProducts", payload.top_products || []);
+  renderTable("ga4ChannelMonthly", payload.channel_monthly || []);
+}
+
+function renderGa4Impact(payload) {
+  renderNote("ga4-impact-note", payload.source_note || "");
+  renderTable("ga4ImpactSourceItem", payload.source_item_impact || []);
+  renderTable("ga4ImpactCampaignItem", payload.campaign_item_impact || []);
+  renderTable("ga4ImpactSourceCategory", payload.source_category_impact || []);
+  renderTable("ga4ImpactCampaignCategory", payload.campaign_category_impact || []);
+  renderTable("ga4ImpactSourceBrand", payload.source_brand_impact || []);
+  renderTable("ga4ImpactCampaignBrand", payload.campaign_brand_impact || []);
+}
+
+function renderGa4Funnel(payload) {
+  renderNote("ga4-funnel-note", payload.funnel_note || "");
+  renderTable("ga4ChannelFunnel", payload.channel_funnel || []);
+  renderTable("ga4SourceFunnel", payload.source_funnel || []);
+}
+
+function renderGa4Timing(payload) {
+  renderNote("ga4-timing-note", payload.timing_note || "");
+  renderInsights(payload.timing_highlights || [], "ga4-timing-highlights");
+  renderBarChart("ga4-hourly-revenue-chart", payload.hourly_summary || [], {
+    labelKey: "report_hour",
+    valueKey: "revenue",
+    valueLabel: "Revenue",
+    valueFormatter: formatMoney,
+    tooltipKeys: GA4_CHART_TOOLTIP_KEYS,
+    labelFormatter: (value) => `${String(value).padStart(2, "0")}:00`,
+  });
+  renderBarChart("ga4-hourly-orders-chart", payload.hourly_summary || [], {
+    labelKey: "report_hour",
+    valueKey: "orders",
+    valueLabel: "Orders",
+    valueFormatter: formatInteger,
+    tooltipKeys: GA4_CHART_TOOLTIP_KEYS,
+    labelFormatter: (value) => `${String(value).padStart(2, "0")}:00`,
+  });
+  renderTable("ga4HourlySummary", payload.hourly_summary || []);
+  renderTable("ga4DayWindowSummary", payload.day_window_summary || []);
+  renderTable("ga4RevenueMatrix", payload.revenue_matrix || []);
+  renderTable("ga4OrdersMatrix", payload.orders_matrix || []);
 }
 
 function renderAuctionInsights(payload) {
@@ -2265,6 +2899,38 @@ function renderOverviewTrendCharts(payload) {
   });
 }
 
+function renderGa4OverviewCharts(payload) {
+  const grain = document.getElementById("ga4-overview-trend-grain")?.value || "day";
+  const currentRows = aggregateGa4TrendRows(payload?.trend || [], grain);
+  const previousRows = aggregateGa4TrendRows(payload?.previous_trend || [], grain);
+  renderMetricTrendChart(
+    "ga4-overview-trend-chart",
+    currentRows,
+    ["revenue", "orders"],
+    {
+      compareMetricKey: getTrendCompareMetricFromMode(
+        "revenue",
+        "orders",
+        document.getElementById("ga4-overview-top-compare-metric")?.value || "",
+      ),
+      previousRows,
+    },
+  );
+  renderMetricTrendChart(
+    "ga4-overview-secondary-chart",
+    currentRows,
+    ["items_added_to_cart", "items_purchased"],
+    {
+      compareMetricKey: getTrendCompareMetricFromMode(
+        "items_added_to_cart",
+        "items_purchased",
+        document.getElementById("ga4-overview-bottom-compare-metric")?.value || "",
+      ),
+      previousRows,
+    },
+  );
+}
+
 function renderControlledTrendCharts(payload, config) {
   const grain = document.getElementById(config.grainId)?.value || "day";
   const currentRows = aggregateTrendRows(payload?.trend || [], grain);
@@ -2306,11 +2972,19 @@ function getTrendMetricKeys(primaryId, secondaryId) {
 
 function getTrendCompareMetric(primaryId, secondaryId, compareId) {
   const mode = document.getElementById(compareId)?.value || "";
+  return getTrendCompareMetricFromMode(
+    document.getElementById(primaryId)?.value || null,
+    document.getElementById(secondaryId)?.value || null,
+    mode,
+  );
+}
+
+function getTrendCompareMetricFromMode(primaryKey, secondaryKey, mode) {
   if (mode === "primary") {
-    return document.getElementById(primaryId)?.value || null;
+    return primaryKey || null;
   }
   if (mode === "secondary") {
-    return document.getElementById(secondaryId)?.value || null;
+    return secondaryKey || null;
   }
   return null;
 }
@@ -2615,7 +3289,9 @@ function renderTable(name, rows) {
   const metaLabel = expanded || !isCollapsible
     ? `${formatInteger(sortedRows.length)} filtered rows`
     : `Showing first ${formatInteger(collapseThreshold)} of ${formatInteger(sortedRows.length)} filtered rows`;
-  const toggleButtonHtml = isCollapsible ? `<button type="button" class="table-toggle-button" data-table-toggle="${name}">${expanded ? "Show first 10" : "Expand all"}</button>` : "";
+  const toggleButtonHtml = isCollapsible && !config.hideToggleButton
+    ? `<button type="button" class="table-toggle-button" data-table-toggle="${name}">${expanded ? "Show first 10" : "Expand all"}</button>`
+    : "";
   const tableShellClass = expanded || !isCollapsible ? "table-shell is-expanded" : "table-shell is-collapsed";
   const visibleRowsStyle = `--visible-rows:${collapseThreshold};`;
   const topMetaHtml = config.showTopMeta === false ? "" : `<div class="table-meta">${metaLabel}</div>`;
@@ -2624,6 +3300,7 @@ function renderTable(name, rows) {
     ? `<div class="table-footer-meta">${formatInteger(sortedRows.length)} filtered rows</div>`
     : "";
   const summaryRowHtml = config.showSummaryRow === false ? "" : buildSummaryRow(name, filteredRows, config);
+  const heatmapScale = buildHeatmapScale(config, sortedRows);
 
   container.innerHTML = `
     ${hasTopbarContent ? `
@@ -2652,7 +3329,7 @@ function renderTable(name, rows) {
           ${summaryRowHtml}
           ${sortedRows.map((row) => `
             <tr>
-              ${config.columns.map((column) => `<td>${formatCell(row[column.key], column.format)}</td>`).join("")}
+              ${config.columns.map((column) => renderTableCell(column, row, heatmapScale)).join("")}
             </tr>
           `).join("")}
         </tbody>
@@ -2663,6 +3340,47 @@ function renderTable(name, rows) {
 
   state.tables.set(name, { ...tableState, expanded });
   bindTableInteractions(name);
+}
+
+function renderTableCell(column, row, heatmapScale) {
+  const value = row[column.key];
+  const content = formatCell(value, column.format);
+  if (!column.heatmap) {
+    return `<td>${content}</td>`;
+  }
+  const style = buildHeatmapCellStyle(value, heatmapScale);
+  const className = style ? "heatmap-cell" : "heatmap-cell is-empty";
+  return `<td class="${className}"${style ? ` style="${style}"` : ""}>${content}</td>`;
+}
+
+function buildHeatmapScale(config, rows) {
+  if (!config.columns.some((column) => column.heatmap)) {
+    return null;
+  }
+  const values = rows.flatMap((row) => config.columns
+    .filter((column) => column.heatmap)
+    .map((column) => Number(row[column.key]))
+    .filter((value) => Number.isFinite(value) && value > 0));
+  if (!values.length) {
+    return null;
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return { min, max };
+}
+
+function buildHeatmapCellStyle(value, scale) {
+  const numericValue = Number(value);
+  if (!scale || !Number.isFinite(numericValue) || numericValue <= 0) {
+    return "";
+  }
+  const span = Math.max(scale.max - scale.min, 1);
+  const ratio = Math.max(0, Math.min(1, (numericValue - scale.min) / span));
+  const hue = 132;
+  const saturation = 44 + ratio * 24;
+  const lightness = 96 - ratio * 34;
+  const borderAlpha = 0.08 + ratio * 0.18;
+  return `background-color: hsl(${hue}deg ${saturation}% ${lightness}%); border-color: rgba(34, 84, 52, ${borderAlpha.toFixed(2)});`;
 }
 
 function resetTableStates(names) {
@@ -2772,6 +3490,19 @@ function filterRowsForTable(name, rows) {
     const selectedValue = document.getElementById(config.topbarFilter.inputId)?.value || "";
     if (selectedValue) {
       filteredRows = filteredRows.filter((row) => String(row[config.topbarFilter.key] ?? "").toLowerCase() === selectedValue.toLowerCase());
+    }
+  }
+
+  if (name === "ga4TopProducts") {
+    const selectedBrands = getSelectedGa4TopProductsValues("brand");
+    if (selectedBrands.length) {
+      const selectedSet = new Set(selectedBrands);
+      filteredRows = filteredRows.filter((row) => selectedSet.has(String(row.item_brand ?? "")));
+    }
+    const selectedCategories = getSelectedGa4TopProductsValues("category");
+    if (selectedCategories.length) {
+      const selectedSet = new Set(selectedCategories);
+      filteredRows = filteredRows.filter((row) => selectedSet.has(String(row.item_category ?? "")));
     }
   }
 
@@ -3199,6 +3930,61 @@ function aggregateTrendRows(rows, grain) {
     });
 }
 
+function aggregateGa4TrendRows(rows, grain) {
+  if (!Array.isArray(rows) || !rows.length) {
+    return [];
+  }
+  if (grain === "day") {
+    return rows.map((row) => ({
+      ...row,
+      report_date_start: row.report_date,
+      report_date_end: row.report_date,
+      x_axis_label: formatShortDate(row.report_date),
+      hover_label: formatDate(row.report_date),
+    }));
+  }
+
+  const buckets = new Map();
+  rows.forEach((row) => {
+    const bucketKey = trendBucketKey(row.report_date, grain);
+    const current = buckets.get(bucketKey) || {
+      report_date: bucketKey,
+      report_date_start: row.report_date,
+      report_date_end: row.report_date,
+      revenue: 0,
+      orders: 0,
+      items_purchased: 0,
+      items_added_to_cart: 0,
+      items_viewed: 0,
+    };
+    current.report_date_start = current.report_date_start < row.report_date ? current.report_date_start : row.report_date;
+    current.report_date_end = current.report_date_end > row.report_date ? current.report_date_end : row.report_date;
+    current.revenue += Number(row.revenue || 0);
+    current.orders += Number(row.orders || 0);
+    current.items_purchased += Number(row.items_purchased || 0);
+    current.items_added_to_cart += Number(row.items_added_to_cart || 0);
+    current.items_viewed += Number(row.items_viewed || 0);
+    buckets.set(bucketKey, current);
+  });
+
+  return [...buckets.values()]
+    .sort((left, right) => String(left.report_date).localeCompare(String(right.report_date)))
+    .map((bucket) => {
+      const isoWeekParts = grain === "week" ? getIsoWeekParts(bucket.report_date_start) : null;
+      const enrichedBucket = {
+        ...bucket,
+        iso_week: isoWeekParts?.isoWeek,
+        iso_week_year: isoWeekParts?.isoYear,
+        aov: bucket.orders ? bucket.revenue / bucket.orders : 0,
+      };
+      return {
+        ...enrichedBucket,
+        x_axis_label: formatTrendBucketAxisLabel(enrichedBucket, grain),
+        hover_label: formatTrendBucketHoverLabel(enrichedBucket, grain),
+      };
+    });
+}
+
 function aggregateAuctionTrendRows(rows, grain) {
   if (!Array.isArray(rows) || !rows.length) {
     return [];
@@ -3420,6 +4206,17 @@ function metricLabel(key) {
     roas: "ROAS",
     cpa_eur: "CPA",
     cpc_eur: "CPC",
+    revenue: "Revenue",
+    orders: "Orders",
+    aov: "AOV",
+    items_purchased: "Items purchased",
+    items_added_to_cart: "Added to cart",
+    items_viewed: "Items viewed",
+    revenue_share: "Revenue share",
+    order_share: "Order share",
+    view_to_atc_rate: "View to ATC",
+    view_to_order_rate: "View to order",
+    atc_to_order_rate: "ATC to order",
     current_cost_eur: "Current spend",
     previous_cost_eur: "Previous spend",
     current_conversions: "Current conversions",

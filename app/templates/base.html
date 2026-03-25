@@ -13,22 +13,22 @@
     <div class="page-shell">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Ads-only reporting</p>
+          <p class="eyebrow">{% if is_ga4_report %}GA4 ecommerce reporting{% elif report_name == "auction" %}Auction source reporting{% else %}Ads reporting{% endif %}</p>
           <h1>{{ page_title }}</h1>
           <p class="hero-text">{{ page_subtitle }}</p>
         </div>
         <div class="hero-meta">
           <div class="meta-card">
             <span class="meta-label">Data source</span>
-            <strong>{% if report_name == "auction" %}BigQuery source tables{% else %}BigQuery marts{% endif %}</strong>
+            <strong>{% if is_source_local_report %}BigQuery source tables{% else %}BigQuery marts{% endif %}</strong>
             <span id="coverage-badge" class="badge badge-muted">Loading coverage</span>
           </div>
           <div class="meta-card">
             <span class="meta-label">Current page</span>
             <strong>{{ active_label }}</strong>
             <span class="meta-helper">
-              {% if report_name == "auction" %}
-                This page uses its own source-local auction filters below.
+              {% if is_source_local_report %}
+                This page uses its own source-local logic and keeps client/account filters read-only.
               {% else %}
                 Shared filters stay active across the whole report pack.
               {% endif %}
@@ -55,11 +55,11 @@
         <form id="filters-form" class="filters-grid">
           <label>
             <span>Client</span>
-            <select id="client-select" name="client_id"{% if report_name == "auction" %} disabled{% endif %}></select>
+            <select id="client-select" name="client_id"{% if is_source_local_report %} disabled{% endif %}></select>
           </label>
           <label>
             <span>Account</span>
-            <select id="account-select" name="account_id"{% if report_name == "auction" %} disabled{% endif %}></select>
+            <select id="account-select" name="account_id"{% if is_source_local_report %} disabled{% endif %}></select>
           </label>
           <label>
             <span>Date from</span>
