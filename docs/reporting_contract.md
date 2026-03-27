@@ -305,6 +305,8 @@ Required fields:
 - `timezone`
 - `currency`
 - `is_active`
+- `has_auction_insights` — boolean, default false; controls whether the reporting
+  app expects auction insights data for this account
 
 Current pilot account:
 
@@ -336,10 +338,66 @@ Current config dependency:
 
 - `cfg_exchange_rates`
 
+Exchange rate source:
+
+- ECB (European Central Bank) Statistical Data Warehouse
+- Endpoint: `https://data-api.ecb.europa.eu/service/data/EXR/D.{currency}.EUR.SP00.A`
+- No authentication required
+- Published every TARGET2 business day at approximately 16:00 CET
+- Historical data available from 1999-01-04
+- Covers all major currencies including USD, GBP, CAD, and 30+ others
+
+Exchange rate cadence:
+
+- daily rates fetched from the ECB SDMX API
+- automated via `scripts/fetch_ecb_exchange_rates.py`
+- supports backfill with `--start-date` and `--end-date` parameters
+- fixed-peg currencies (BGN) remain as static seed rows and are not overwritten
+
+Exchange rate update flow:
+
+- the script fetches daily ECB rates and appends them to `cfg_exchange_rates.csv`
+- `dbt seed --full-refresh` loads the updated seed into BigQuery
+- `dbt run` rebuilds marts with the new rates
+- the script can be run on-demand for backfills or scheduled as part of the daily pipeline
+
 Open questions:
 
-- whether exchange rates should be daily or monthly in phase 1
 - whether the UI should default to native currency or EUR
+
+## Auction Insights Availability
+
+Status:
+
+- optional per client
+
+Rules:
+
+- auction insights data is not available via the Google Ads API or standard
+  BigQuery transfer
+- each client's auction insights availability is controlled by the
+  `has_auction_insights` flag in `cfg_accounts`
+- when `has_auction_insights` is false, the auction insights report page
+  displays a notice explaining the data source is not configured
+- data is loaded manually or via client-specific external tables
+
+## Access Control
+
+Status:
+
+- approved direction, implementation pending
+
+Design document:
+
+- `docs/auth_design.md`
+
+Summary:
+
+- Google OAuth 2.0 authentication
+- user-to-client mapping via `cfg_app_users` BigQuery table
+- server-side `client_id` and `account_id` enforcement
+- admin role sees all clients with switcher
+- viewer role sees only granted clients and accounts
 
 ## Report Pages
 
