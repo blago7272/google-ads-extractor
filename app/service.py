@@ -315,6 +315,8 @@ select
   a.account_name,
   a.timezone,
   a.currency,
+  a.has_auction_insights,
+  a.has_ga4,
   w.min_report_date,
   w.max_report_date
 from active_accounts a
