@@ -1,2 +1,2 @@
-client_id,account_id,account_name,timezone,currency,is_active,has_auction_insights,notes
-sexwell,1200697994,Sexwell.bg (EUR),Europe/Sofia,EUR,true,true,Initial pilot account
+client_id,account_id,account_name,timezone,currency,is_active,has_auction_insights,has_ga4,notes
+sexwell,1200697994,Sexwell.bg (EUR),Europe/Sofia,EUR,true,true,true,Initial pilot account

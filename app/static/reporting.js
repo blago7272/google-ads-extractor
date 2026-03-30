@@ -1087,6 +1087,7 @@ function bindFilterEvents() {
     state.timingAdGroupSearch = "";
     resetAuctionFilters();
     syncAccountOptions();
+    syncFeatureFlags();
     updateReportLinks();
   });
 
@@ -1098,6 +1099,7 @@ function bindFilterEvents() {
     state.timingAdGroupSelection = [];
     state.timingAdGroupSearch = "";
     resetAuctionFilters();
+    syncFeatureFlags();
     updateReportLinks();
   });
   document.getElementById("date-from-input").addEventListener("change", updateReportLinks);
@@ -2206,6 +2208,7 @@ function populateFilters(options) {
   }
   state.overviewCampaignSelection = urlFilters.campaign_names || [];
   state.overviewCampaignSearch = "";
+  syncFeatureFlags();
   updateReportLinks();
 }
 
@@ -2225,6 +2228,32 @@ function applyFilterDefaults(defaults) {
   document.getElementById("client-select").value = defaults.client_id || "";
   document.getElementById("date-from-input").value = defaults.date_from || "";
   document.getElementById("date-to-input").value = defaults.date_to || "";
+}
+
+function syncFeatureFlags() {
+  const clientId = document.getElementById("client-select").value;
+  const accountId = document.getElementById("account-select").value;
+  const accounts = state.options?.accounts || [];
+
+  // Determine which feature flags are active for the current selection.
+  // If a specific account is selected, use that account's flags.
+  // If "All accounts" within a client, a feature is enabled if ANY account in that client has it.
+  // If "All clients", a feature is enabled if ANY account has it.
+  const relevantAccounts = accounts.filter((a) => {
+    if (accountId) return a.account_id === accountId;
+    if (clientId) return a.client_id === clientId;
+    return true;
+  });
+
+  const activeFeatures = {
+    has_ga4: relevantAccounts.some((a) => a.has_ga4),
+    has_auction_insights: relevantAccounts.some((a) => a.has_auction_insights),
+  };
+
+  document.querySelectorAll("[data-feature]").forEach((link) => {
+    const feature = link.dataset.feature;
+    link.style.display = activeFeatures[feature] ? "" : "none";
+  });
 }
 
 function syncAccountOptions() {
