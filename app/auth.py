@@ -110,7 +110,7 @@ def lookup_user_grants(
     Returns a UserSession if the user has active grants, None otherwise.
     """
     client = bigquery.Client(project=settings.project_id)
-    table = f"`{settings.project_id}.{settings.cfg_dataset}.cfg_app_users`"
+    table = f"`{settings.project_id}.{settings.auth_cfg_dataset}.cfg_app_users`"
 
     sql = f"""
     SELECT client_id, account_id, role
