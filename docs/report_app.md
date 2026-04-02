@@ -136,3 +136,9 @@ Open `http://127.0.0.1:8000`.
 - weekday and hour benchmarks versus the previous window
 - CSV export endpoints
 - Cloud Run service packaging for the app layer
+
+## Hosting Reference
+
+Stable hosted deployment, access control, and subdomain setup are defined in:
+
+- `docs/report_hosting_contract.md`
