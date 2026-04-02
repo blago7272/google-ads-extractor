@@ -1,3 +1,71 @@
 client_id,account_id,account_name,timezone,currency,is_active,has_auction_insights,has_ga4,notes
 sexwell,1200697994,Sexwell.bg (EUR),Europe/Sofia,EUR,true,true,true,Initial pilot account
 matraci.bg,4848659150,Matraci (EUR),Europe/Sofia,EUR,true,false,false,Second client
+idconsult,1170835525,SE - Stencil Ease - Youtube,Europe/Sofia,EUR,false,false,false,Inactive — last data 2024-06
+idconsult,1241447241,Zoomagazin.eu EUR - IDC,Europe/Sofia,EUR,true,false,false,
+idconsult,1290364539,Dermal Lase - EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,1322244819,Dermallase.com,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,1403928956,GIROTTI - France,Europe/Sofia,EUR,true,false,false,
+idconsult,1489337477,Rent College Pads,Europe/Sofia,EUR,true,false,false,
+idconsult,1742576972,Bravite.com,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-08
+idconsult,2091100064,ZooMagazin.BG - Paused,Europe/Sofia,EUR,false,false,false,Inactive — last data 2024-10
+idconsult,2121686293,Avidmarketing.co,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-02
+idconsult,2209509711,Atiles Flooring,Europe/Sofia,EUR,false,false,false,Inactive — last data 2021-06
+idconsult,2368016315,Диском ЕООД,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,2415006639,tez-tour.com/bg_ar,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,2679149301,MV3 - Corporate Account,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-08
+idconsult,2716228335,SE - Designer Stencils,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-12
+idconsult,3317731390,Onesleep GR,Europe/Sofia,EUR,true,false,false,
+idconsult,3634318107,Toplease.bg,Europe/Sofia,EUR,true,false,false,
+idconsult,3651122354,Matcha.bg,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,3831220411,Zoomagazin.eu - IDC,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,3911507987,LowCostCars,Europe/Sofia,EUR,true,false,false,
+idconsult,3997552345,SmileCredit.bg---EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,4125761958,Sofia AirPark,Europe/Sofia,EUR,true,false,false,
+idconsult,4151214925,Toprentacar - RO,Europe/Sofia,EUR,true,false,false,
+idconsult,4225655970,Abrites,Europe/Sofia,EUR,true,false,false,
+idconsult,4251401862,COCOSOLIS RO,Europe/Sofia,EUR,true,false,false,
+idconsult,4450767011,Adapt RO Eur,Europe/Sofia,EUR,true,false,false,
+idconsult,4450825619,Aerosus - USA,Europe/Sofia,EUR,true,false,false,
+idconsult,4532197439,Balkan eCommerce Summit,Europe/Sofia,EUR,true,false,false,
+idconsult,4866322944,[EUR] Sleepy.bg,Europe/Sofia,EUR,true,false,false,
+idconsult,5003762119,GIROTTI UK,Europe/Sofia,EUR,true,false,false,
+idconsult,5023326225,SmileCredit.net,Europe/Sofia,EUR,false,false,false,Inactive — last data 2024-06
+idconsult,5164187795,Hansel-and-Gretel,Europe/Sofia,EUR,false,false,false,Inactive — last data 2024-10
+idconsult,5168566988,*Europa EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,5173940096,NH1,Europe/Sofia,EUR,false,false,false,Inactive — last data 2024-10
+idconsult,5216994417,Adapt BG EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,5304022952,Onesleep RS,Europe/Sofia,EUR,true,false,false,
+idconsult,5454405833,Паркинг Летище София,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,5594159525,Klear Lending AD (EUR),Europe/Sofia,EUR,true,false,false,
+idconsult,5746874754,Onesleep RO,Europe/Sofia,EUR,true,false,false,
+idconsult,5779127949,Brayshaw Financial,Europe/Sofia,EUR,false,false,false,Inactive — last data 2024-10
+idconsult,5841489543,ONEX TOUR LTD,Europe/Sofia,EUR,true,false,false,
+idconsult,5861433372,Tiger Technology,Europe/Sofia,EUR,true,false,false,
+idconsult,6261961732,SmileCredit.bg,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,6274837895,GIROTTI - Germany,Europe/Sofia,EUR,true,false,false,
+idconsult,6301999348,Badinka.com_f,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,6356089719,Malko zaiche EURO,Europe/Sofia,EUR,true,false,false,
+idconsult,6582616598,Outletcars,Europe/Sofia,EUR,true,false,false,
+idconsult,6616950693,Dali Vino,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,6651498454,TF--Display & Video,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-10
+idconsult,6961513844,SE - Confection Couture Stencils,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,7098886294,GIROTTI International,Europe/Sofia,EUR,true,false,false,
+idconsult,7294419319,Hyperproof,Europe/Sofia,EUR,true,false,false,
+idconsult,7727859012,"Mongoose Research, Inc",Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-01
+idconsult,7782189325,TF--Search,Europe/Sofia,EUR,false,false,false,Inactive — last data 2026-02
+idconsult,7925236643,Диском ЕООД,Europe/Sofia,EUR,true,false,false,
+idconsult,7937707726,MV3 Marketing,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-10
+idconsult,8283227085,Aerosus,Europe/Sofia,EUR,true,false,false,
+idconsult,8394432568,Boulevard BG,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,8427406614,TopRentaCar,Europe/Sofia,EUR,true,false,false,
+idconsult,8751125335,Ma Baker EURO,Europe/Sofia,EUR,true,false,false,
+idconsult,8844926586,DaliVino EURO,Europe/Sofia,EUR,true,false,false,
+idconsult,8997920602,Moby-bg.com,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,9063936603,Gong,Europe/Sofia,EUR,false,false,false,Inactive — last data 2022-12
+idconsult,9168751417,Podiatry Group of Georgia,Europe/Sofia,EUR,false,false,false,Inactive — last data 2026-01
+idconsult,9261121747,BoulevardBG,Europe/Sofia,EUR,true,false,false,
+idconsult,9508783605,Balkan eCommerce-- 950-878-3605,Europe/Sofia,EUR,false,false,false,Inactive — last data 2023-12
+idconsult,9575525625,Moby EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,9853573521,Malkozaiche.com,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-09
+idconsult,9900722644,DAVID,Europe/Sofia,EUR,false,false,false,Inactive — last data 2023-12

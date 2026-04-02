@@ -21,7 +21,7 @@ freshness as (
         ) as hours_since_last_data,
         case
             when l.last_data_date is null then 'backfilling'
-            when timestamp_diff(current_timestamp(), timestamp(l.last_data_date), hour) > 72 then 'error'
+            when timestamp_diff(current_timestamp(), timestamp(l.last_data_date), hour) > 168 then 'error'
             when timestamp_diff(current_timestamp(), timestamp(l.last_data_date), hour) > 36 then 'stale'
             else 'ok'
         end as freshness_status,
