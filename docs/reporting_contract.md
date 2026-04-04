@@ -23,30 +23,38 @@ Already reflected in the contract:
 - search terms now remain date-filterable at daily grain
 - ad-level reporting now exists through `mart_ads_ad_performance_daily`
 - mart schemas are now enforced through dbt contracts in `gads_reporting_mart`
+- data freshness is a first-class metadata output via `mart_data_freshness`
+- application queries enforce `client_id` filtering through OAuth auth middleware
+- ECB exchange rates are fetched daily and backfilled automatically
+- multi-client support is live with 70 accounts across 3 clients
+- per-client feature flags (`has_ga4`, `has_auction_insights`) control nav visibility
+- Telegram notification bot provides daily health summaries and interactive commands
 
 Agreed direction, implementation pending:
 
 - keyword reporting should separate daily fact storage from audit rollups
-- data freshness should become a first-class metadata output
-- application queries must always enforce `client_id` filtering
 
-Still open, with recommended resolution:
+Resolved (previously open):
 
-- exchange-rate cadence and source
-  Recommended resolution: use a monthly exchange-rate seed in phase 1, plus fixed mappings for pegged currencies where appropriate; move to a daily external feed before scaling volatile non-EUR accounts
-- UI default currency
-  Recommended resolution: use native currency by default on single-account views and EUR by default on cross-account or client-rollup views
-- whether RSA asset-level reporting belongs in the first ad-level release
-  Recommended resolution: defer RSA asset-level reporting from the first ad-level release
-- whether row-level security is needed beyond the application layer
-  Recommended resolution: defer until direct BigQuery or BI-tool access is introduced
-- final environment and dataset naming strategy for dev, staging, and prod
-  Recommended resolution: handle this in a separate infrastructure design and use explicit per-environment dataset names rather than hidden suffix concatenation
+- exchange-rate cadence: daily ECB feed implemented via `scripts/fetch_ecb_rates.py`
+- UI default currency: native currency on single-account views, EUR on cross-account rollups
+- RSA asset-level reporting: deferred from first ad-level release
+- row-level security: deferred; application-level `client_id` filtering is enforced
+- environment and dataset naming: dev/stage/prod targets defined in `profiles.yml`, auth always reads from prod config
+
+Still open:
+
+- final production deployment to Cloud Run (see `docs/report_hosting_contract.md`)
+- CI/CD pipeline tooling selection
+- seed promotion path documentation
 
 Current design documents:
 
 - `docs/infrastructure_design.md`
 - `docs/operations_design.md`
+- `docs/auth_design.md`
+- `docs/report_hosting_contract.md`
+- `docs/telegram_notification_contract.md`
 
 ## Proposal Disposition
 
@@ -856,18 +864,18 @@ Grain:
 
 Status:
 
-- agreed, implementation pending
+- implemented
 
 Operational expectation:
 
 - standard reporting latency is T-1
 - new-account backfills may take 2-3 days
 
-Planned metadata mart:
+Metadata mart:
 
 - `mart_data_freshness`
 
-Planned outputs:
+Outputs:
 
 - `client_id`
 - `account_id`
@@ -875,10 +883,12 @@ Planned outputs:
 - `freshness_status`
 - `checked_at`
 
-Planned SLA thresholds:
+SLA thresholds:
 
-- warn after 36 hours
-- error after 72 hours
+- ok: data within 36 hours
+- stale: data 36-168 hours old
+- error: data older than 168 hours (7 days)
+- backfilling: no data yet for account
 
 Implementation note:
 
@@ -944,6 +954,53 @@ Contract note:
 
 - the verified build now includes dual-currency marts, ad-level reporting, FX staging helpers, and enforced mart contracts
 - some pass-2 contract additions above are agreed but not yet implemented in SQL
+
+## Telegram Notification Service
+
+Status:
+
+- implemented
+
+Bot:
+
+- `@GAdsNotifierBot`
+
+Capabilities:
+
+- daily health summary push at 08:00 Sofia time
+- interactive commands: `/status`, `/freshness`, `/detail`, `/help`, `/inactive`
+- admin commands: `/activate`, `/deactivate`
+- severity filtering on alerts (high-only default, `/detail <id> all` for all)
+- alert pagination (20 per page with inline keyboard navigation)
+- user access scoped by `cfg_app_users.telegram_chat_id`
+
+User management:
+
+- Telegram chat IDs stored in `cfg_app_users` alongside web access grants
+- admins see all accounts; viewers see only their assigned accounts
+- unregistered users receive a polite rejection with contact information
+
+## Multi-Client And Feature Flags
+
+Status:
+
+- implemented
+
+Current clients:
+
+- `sexwell` (1 account, has_ga4=true, has_auction_insights=true)
+- `matraci.bg` (1 account, has_ga4=false, has_auction_insights=false)
+- `idconsult` (68 accounts, has_ga4=false, has_auction_insights=false)
+
+Feature flags in `cfg_accounts`:
+
+- `has_ga4`: controls visibility of GA4 report pages in the web app
+- `has_auction_insights`: controls visibility of auction insights page
+
+Flag behavior:
+
+- navigation items are hidden when the flag is false for the selected client
+- the API returns empty data gracefully when the backing data does not exist
 
 ## Review Questions For The Team
 
