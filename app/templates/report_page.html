@@ -678,7 +678,13 @@
           <p class="section-kicker">Search terms</p>
           <h2>Terms with the most spend in range</h2>
         </div>
-        <input id="search-terms-search" class="table-search" type="search" placeholder="Search terms">
+        <div class="table-search-inline-controls">
+          <input id="search-terms-search" class="table-search table-search--narrow" type="search" placeholder="Search terms">
+          <label class="checkbox-inline" for="search-terms-search-exclude">
+            <input id="search-terms-search-exclude" type="checkbox">
+            <span>Exclude</span>
+          </label>
+        </div>
       </div>
       <div class="metric-filter-grid">
         <label class="metric-filter">

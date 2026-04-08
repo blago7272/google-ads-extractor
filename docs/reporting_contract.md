@@ -191,6 +191,7 @@ The reporting layer must:
 - keep client-specific behavior in config, not copied SQL
 - expose stable marts for an HTML reporting application
 - be testable and contract-driven before UI work continues
+- default report tables to compact mode: first `10` rows visible, internal scroll for longer result sets, and explicit expansion only on demand
 
 ## Current Scope
 
@@ -466,6 +467,8 @@ Contract direction:
 
 - the audit mart may remain a rollup mart for a configured lookback window
 - daily keyword analysis should not depend on the audit mart alone
+- the report layer should support direct filtering by `audit_reason`
+- the report layer should show a filtered-row count for the current keyword table result set
 
 ### 4. Search Terms Explorer
 

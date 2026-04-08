@@ -30,7 +30,7 @@ The app is responsible for:
 - `High-Level Overview`
   KPI row, executive status blocks, trend curve, campaign explorer, and auction snapshot.
 - `Keyword and Query Audit`
-  Keyword issues, search terms, keyword-specific alerts, regex filtering, and numeric search-term filters.
+  Keyword issues, search terms, keyword-specific alerts, regex filtering, issue-type filtering, and numeric search-term filters.
 - `Timing Analysis`
   Hour-of-day, day-of-week, daypart summary, ad-group timing profile, budget pacing, and switchable timing metrics.
 - `Action Queue`
@@ -59,12 +59,18 @@ The current app structure intentionally pulls from the original workbook pattern
 
 The GA4 scope is now documented separately in `docs/ga4_reporting_contract.md`. Items still deferred are the blended Ads + GA4 sheets and any landing-page/session-based analysis not present in the current GA4 source.
 
+Persistent help-note content is documented in `docs/report_help_contract.md`.
+
+Pending implementation work is tracked in `docs/report_backlog_contract.md`.
+
 ## Usability Refinements
 
 The current app layer also includes:
 
+- compact table mode by default across reports: first `10` rows visible, internal scroll for longer result sets, and `Expand all` only when needed
 - filtered summary rows above all table bodies
 - regex search on the keyword-audit table
+- issue-type dropdown filtering and footer row counts on the keyword-audit table
 - search-term threshold filters for conversions, spend, and ROAS
 - keyword-page alerts narrowed to `keyword_issue` items
 - timing-chart metric switches for conversion value, spend, ROAS, and conversions

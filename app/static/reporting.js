@@ -295,7 +295,6 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     columns: [
       { key: "bucket_date", label: "Date", format: formatDate },
       { key: "campaign_name", label: "Campaign" },
@@ -314,7 +313,6 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     columns: [
       { key: "bucket_date", label: "Week start", format: formatDate },
       { key: "campaign_name", label: "Campaign" },
@@ -333,7 +331,6 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     columns: [
       { key: "bucket_date", label: "Month", format: formatMonth },
       { key: "campaign_name", label: "Campaign" },
@@ -349,6 +346,23 @@ const TABLE_CONFIG = {
     searchMode: "regex",
     containerId: "keywords-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
+    showTopMeta: false,
+    showFooterCount: true,
+    topbarFilters: [
+      {
+        inputId: "keywords-issue-filter",
+        key: "audit_reason",
+        options: [
+          { value: "", label: "All issues" },
+          { value: "low_qs", label: "Low QS" },
+          { value: "intent_or_offer", label: "Intent / offer" },
+          { value: "low_volume", label: "Low volume" },
+          { value: "scale_but_fix_qs", label: "Scale / fix QS" },
+          { value: "ok", label: "OK" },
+        ],
+      },
+    ],
     columns: [
       { key: "audit_reason", label: "Issue", format: formatPill },
       { key: "keyword_text", label: "Keyword" },
@@ -363,8 +377,10 @@ const TABLE_CONFIG = {
   },
   searchTerms: {
     searchInputId: "search-terms-search",
+    searchExcludeInputId: "search-terms-search-exclude",
     searchFields: ["search_term", "campaign_name", "ad_group_name", "search_term_status", "search_term_match_type"],
     extraFilterInputIds: [
+      "search-terms-search-exclude",
       "search-terms-conversions-operator",
       "search-terms-conversions-value",
       "search-terms-spend-operator",
@@ -397,7 +413,6 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     topbarFilter: {
       inputId: "alerts-severity-filter",
       key: "severity",
@@ -423,7 +438,6 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     topbarFilter: {
       inputId: "keyword-alert-severity-filter",
       key: "severity",
@@ -459,7 +473,6 @@ const TABLE_CONFIG = {
     searchFields: ["campaign_name", "ad_group_name", "daypart"],
     containerId: "daypart-groups-table",
     defaultSort: { key: "cost_eur", direction: "desc" },
-    hideScrollButton: true,
     columns: [
       { key: "campaign_name", label: "Campaign" },
       { key: "ad_group_name", label: "Ad group" },
@@ -476,7 +489,6 @@ const TABLE_CONFIG = {
     searchFields: ["report_date", "campaign_name", "budget_exhausted_flag"],
     containerId: "budget-table",
     defaultSort: { key: "report_date", direction: "desc" },
-    hideScrollButton: true,
     topbarFilter: {
       inputId: "budget-flag-filter",
       key: "budget_exhausted_flag",
@@ -501,7 +513,6 @@ const TABLE_CONFIG = {
     defaultSort: { key: "cost_eur", direction: "desc" },
     showSummaryRow: false,
     showTopMeta: false,
-    hideScrollButton: true,
     columns: [
       { key: "period_group", label: "Group" },
       { key: "cost_eur", label: "Spend", format: formatMoney },
@@ -520,7 +531,6 @@ const TABLE_CONFIG = {
     defaultSort: { key: "cost_eur", direction: "desc" },
     showSummaryRow: false,
     showTopMeta: false,
-    hideScrollButton: true,
     columns: [
       { key: "period_group", label: "Group" },
       { key: "cost_eur", label: "Spend", format: formatMoney },
@@ -691,7 +701,6 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     topbarFilter: {
       inputId: "ga4-source-summary-channel-filter",
@@ -726,7 +735,6 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     topbarFilter: {
       inputId: "ga4-campaign-summary-channel-filter",
@@ -761,7 +769,6 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     columns: [
       { key: "item_name", label: "Item" },
@@ -782,7 +789,6 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     columns: [
       { key: "report_month", label: "Month", format: formatMonth },
@@ -801,7 +807,6 @@ const TABLE_CONFIG = {
     collapseThreshold: DEFAULT_VISIBLE_ROWS,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     columns: buildGa4ImpactColumns("source_medium", "Source / medium", "item_name", "Item"),
   },
@@ -813,7 +818,6 @@ const TABLE_CONFIG = {
     collapseThreshold: DEFAULT_VISIBLE_ROWS,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     columns: buildGa4ImpactColumns("campaign_name", "Campaign", "item_name", "Item"),
   },
@@ -825,7 +829,6 @@ const TABLE_CONFIG = {
     collapseThreshold: DEFAULT_VISIBLE_ROWS,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     columns: buildGa4ImpactColumns("source_medium", "Source / medium", "item_category", "Category"),
   },
@@ -837,7 +840,6 @@ const TABLE_CONFIG = {
     collapseThreshold: DEFAULT_VISIBLE_ROWS,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     columns: buildGa4ImpactColumns("campaign_name", "Campaign", "item_category", "Category"),
   },
@@ -849,7 +851,6 @@ const TABLE_CONFIG = {
     collapseThreshold: DEFAULT_VISIBLE_ROWS,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     columns: buildGa4ImpactColumns("source_medium", "Source / medium", "item_brand", "Brand"),
   },
@@ -861,7 +862,6 @@ const TABLE_CONFIG = {
     collapseThreshold: DEFAULT_VISIBLE_ROWS,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
     hideToggleButton: true,
     columns: buildGa4ImpactColumns("campaign_name", "Campaign", "item_brand", "Brand"),
   },
@@ -927,7 +927,6 @@ const TABLE_CONFIG = {
     defaultSort: { key: "report_date", direction: "desc" },
     collapseThreshold: DEFAULT_VISIBLE_ROWS,
     showSummaryRow: false,
-    hideScrollButton: true,
     columns: buildGa4MatrixColumns("Revenue"),
   },
   ga4OrdersMatrix: {
@@ -937,31 +936,47 @@ const TABLE_CONFIG = {
     defaultSort: { key: "report_date", direction: "desc" },
     collapseThreshold: DEFAULT_VISIBLE_ROWS,
     showSummaryRow: false,
-    hideScrollButton: true,
     columns: buildGa4MatrixColumns("Orders"),
   },
   hubAlerts: {
     searchInputId: null,
-    searchFields: ["report_date", "severity", "alert_message"],
+    searchFields: ["report_date", "severity", "alert_category", "alert_message"],
     containerId: "hub-alerts-list",
     defaultSort: { key: "report_date", direction: "desc" },
+    collapseThreshold: DEFAULT_VISIBLE_ROWS,
     showSummaryRow: false,
     showFooterCount: true,
     showTopMeta: false,
-    hideScrollButton: true,
-    topbarFilter: {
-      inputId: "hub-alert-severity-filter",
-      key: "severity",
-      options: [
-        { value: "", label: "All severities" },
-        { value: "high", label: "High only" },
-        { value: "medium", label: "Medium only" },
-        { value: "low", label: "Low only" },
-      ],
-    },
+    topbarFilters: [
+      {
+        inputId: "hub-alert-severity-filter",
+        key: "severity",
+        options: [
+          { value: "", label: "All severities" },
+          { value: "high", label: "High only" },
+          { value: "medium", label: "Medium only" },
+          { value: "low", label: "Low only" },
+        ],
+      },
+      {
+        inputId: "hub-alert-category-filter",
+        key: "alert_category",
+        options: [
+          { value: "", label: "All categories" },
+          { value: "performance", label: "Performance" },
+          { value: "budget", label: "Budget / pacing" },
+          { value: "intent_offer", label: "Intent / offer" },
+          { value: "quality_score", label: "Quality score" },
+          { value: "low_volume", label: "Low volume" },
+          { value: "scale_opportunity", label: "Scale / fix QS" },
+          { value: "keyword_other", label: "Other keyword issues" },
+        ],
+      },
+    ],
     columns: [
       { key: "report_date", label: "Date", format: formatDate },
       { key: "severity", label: "Severity", format: formatPill },
+      { key: "alert_category_label", label: "Category" },
       { key: "alert_message", label: "Message", format: formatAlertMessage },
     ],
   },
@@ -2497,8 +2512,48 @@ function renderHub(payload) {
   renderInsights(payload.management_conclusions || [], "conclusions-grid");
   renderStatusCards(payload.status_cards || [], "status-card-grid");
   renderHubTrendCharts(payload);
-  renderTable("hubAlerts", payload.top_alerts || []);
+  renderTable("hubAlerts", enrichHubAlerts(payload.top_alerts || []));
   renderReportCards(payload.report_cards || []);
+}
+
+function enrichHubAlerts(rows) {
+  return rows.map((row) => {
+    const { category, label } = deriveAlertCategory(row);
+    return {
+      ...row,
+      alert_category: category,
+      alert_category_label: label,
+    };
+  });
+}
+
+function deriveAlertCategory(row) {
+  const alertType = String(row.alert_type || "").toLowerCase();
+  const message = String(row.alert_message || "").toLowerCase();
+
+  if (alertType === "conversion_drop") {
+    return { category: "performance", label: "Performance" };
+  }
+  if (alertType === "budget_exhausted") {
+    return { category: "budget", label: "Budget / pacing" };
+  }
+  if (alertType === "keyword_issue") {
+    if (message.includes("intent_or_offer")) {
+      return { category: "intent_offer", label: "Intent / offer" };
+    }
+    if (message.includes("low_qs")) {
+      return { category: "quality_score", label: "Quality score" };
+    }
+    if (message.includes("low_volume")) {
+      return { category: "low_volume", label: "Low volume" };
+    }
+    if (message.includes("scale_but_fix_qs")) {
+      return { category: "scale_opportunity", label: "Scale / fix QS" };
+    }
+    return { category: "keyword_other", label: "Other keyword issues" };
+  }
+
+  return { category: "other", label: "Other" };
 }
 
 function renderScope(scope, summary) {
@@ -3278,18 +3333,17 @@ function renderTable(name, rows) {
     expanded: false,
   };
   const { filteredRows, filterError } = filterRowsForTable(name, rows);
-  const topbarFilterValue = config.topbarFilter ? document.getElementById(config.topbarFilter.inputId)?.value || "" : "";
-  const topbarFilterHtml = config.topbarFilter
-    ? `
-      <select class="table-filter-select" id="${config.topbarFilter.inputId}" data-table-filter="${name}" aria-label="Filter table rows">
-        ${config.topbarFilter.options.map((option) => `
-          <option value="${escapeHtml(option.value)}"${option.value === topbarFilterValue ? " selected" : ""}>${escapeHtml(option.label)}</option>
+  const topbarFilters = config.topbarFilters || (config.topbarFilter ? [config.topbarFilter] : []);
+  const topbarFilterHtml = topbarFilters.map((filter) => {
+    const selectedValue = document.getElementById(filter.inputId)?.value || "";
+    return `
+      <select class="table-filter-select" id="${filter.inputId}" data-table-filter="${name}" aria-label="Filter table rows">
+        ${filter.options.map((option) => `
+          <option value="${escapeHtml(option.value)}"${option.value === selectedValue ? " selected" : ""}>${escapeHtml(option.label)}</option>
         `).join("")}
       </select>
-    `
-    : "";
-  const scrollButtonHtml = config.hideScrollButton ? "" : `<button type="button" class="table-toggle-button" data-table-scroll="${name}">Scroll rows</button>`;
-
+    `;
+  }).join("");
   if (filterError) {
     container.innerHTML = `<div class="empty-state">${escapeHtml(filterError)}</div>`;
     return;
@@ -3298,14 +3352,13 @@ function renderTable(name, rows) {
   const sortedRows = [...filteredRows].sort((left, right) => compareRows(left, right, tableState.sortKey, tableState.direction));
   if (!sortedRows.length) {
     const emptyTopMetaHtml = config.showTopMeta === false ? "" : '<div class="table-meta">0 filtered rows</div>';
-    const hasEmptyTopbarContent = Boolean(emptyTopMetaHtml || topbarFilterHtml || scrollButtonHtml);
+    const hasEmptyTopbarContent = Boolean(emptyTopMetaHtml || topbarFilterHtml);
     container.innerHTML = `
       ${hasEmptyTopbarContent ? `
       <div class="table-topbar">
         ${emptyTopMetaHtml}
         <div class="table-actions">
           ${topbarFilterHtml}
-          ${scrollButtonHtml}
         </div>
       </div>` : ""}
       <div class="empty-state">No rows for the selected range.</div>
@@ -3326,7 +3379,7 @@ function renderTable(name, rows) {
   const tableShellClass = expanded || !isCollapsible ? "table-shell is-expanded" : "table-shell is-collapsed";
   const visibleRowsStyle = `--visible-rows:${collapseThreshold};`;
   const topMetaHtml = config.showTopMeta === false ? "" : `<div class="table-meta">${metaLabel}</div>`;
-  const hasTopbarContent = Boolean(topMetaHtml || topbarFilterHtml || scrollButtonHtml || toggleButtonHtml);
+  const hasTopbarContent = Boolean(topMetaHtml || topbarFilterHtml || toggleButtonHtml);
   const footerHtml = config.showFooterCount
     ? `<div class="table-footer-meta">${formatInteger(sortedRows.length)} filtered rows</div>`
     : "";
@@ -3339,7 +3392,6 @@ function renderTable(name, rows) {
       ${topMetaHtml}
       <div class="table-actions">
         ${topbarFilterHtml}
-        ${scrollButtonHtml}
         ${toggleButtonHtml}
       </div>
     </div>` : ""}
@@ -3454,21 +3506,6 @@ function bindTableInteractions(name) {
     button.dataset.bound = "true";
   });
 
-  document.querySelectorAll(`button[data-table-scroll="${name}"]`).forEach((button) => {
-    if (button.dataset.bound === "true") {
-      return;
-    }
-    button.addEventListener("click", () => {
-      const shell = document.querySelector(`[data-table-shell="${name}"]`);
-      if (!shell) {
-        return;
-      }
-      shell.focus({ preventScroll: true });
-      shell.scrollBy({ top: shell.clientHeight * 0.75, behavior: "smooth" });
-    });
-    button.dataset.bound = "true";
-  });
-
   document.querySelectorAll(`select[data-table-filter="${name}"]`).forEach((select) => {
     if (select.dataset.bound === "true") {
       return;
@@ -3500,6 +3537,7 @@ function filterRowsForTable(name, rows) {
   const config = TABLE_CONFIG[name];
   let filteredRows = [...rows];
   const query = config.searchInputId ? document.getElementById(config.searchInputId)?.value.trim() || "" : "";
+  const excludeSearch = config.searchExcludeInputId ? Boolean(document.getElementById(config.searchExcludeInputId)?.checked) : false;
 
   if (query) {
     if (config.searchMode === "regex") {
@@ -3507,22 +3545,29 @@ function filterRowsForTable(name, rows) {
       if (!pattern) {
         return { filteredRows: [], filterError: "The filter is not a valid regular expression." };
       }
-      filteredRows = filteredRows.filter((row) => pattern.test(getRowSearchText(row, config)));
+      filteredRows = filteredRows.filter((row) => {
+        const matched = pattern.test(getRowSearchText(row, config));
+        return excludeSearch ? !matched : matched;
+      });
     } else {
       clearInputError(config.searchInputId);
       const normalizedQuery = query.toLowerCase();
-      filteredRows = filteredRows.filter((row) => getRowSearchText(row, config).toLowerCase().includes(normalizedQuery));
+      filteredRows = filteredRows.filter((row) => {
+        const matched = getRowSearchText(row, config).toLowerCase().includes(normalizedQuery);
+        return excludeSearch ? !matched : matched;
+      });
     }
   } else {
     clearInputError(config.searchInputId);
   }
 
-  if (config.topbarFilter) {
-    const selectedValue = document.getElementById(config.topbarFilter.inputId)?.value || "";
+  const topbarFilters = config.topbarFilters || (config.topbarFilter ? [config.topbarFilter] : []);
+  topbarFilters.forEach((filter) => {
+    const selectedValue = document.getElementById(filter.inputId)?.value || "";
     if (selectedValue) {
-      filteredRows = filteredRows.filter((row) => String(row[config.topbarFilter.key] ?? "").toLowerCase() === selectedValue.toLowerCase());
+      filteredRows = filteredRows.filter((row) => String(row[filter.key] ?? "").toLowerCase() === selectedValue.toLowerCase());
     }
-  }
+  });
 
   if (name === "ga4TopProducts") {
     const selectedBrands = getSelectedGa4TopProductsValues("brand");
