@@ -1074,6 +1074,7 @@ function bindFilterEvents() {
     if (state.options.defaults.account_id) {
       document.getElementById("account-select").value = state.options.defaults.account_id;
     }
+    syncFeatureFlags();
     updateReportLinks();
     await refreshCurrentPage();
   });
@@ -1087,6 +1088,7 @@ function bindFilterEvents() {
     state.timingAdGroupSearch = "";
     resetAuctionFilters();
     syncAccountOptions();
+    syncFeatureFlags();
     updateReportLinks();
   });
 
@@ -1098,6 +1100,7 @@ function bindFilterEvents() {
     state.timingAdGroupSelection = [];
     state.timingAdGroupSearch = "";
     resetAuctionFilters();
+    syncFeatureFlags();
     updateReportLinks();
   });
   document.getElementById("date-from-input").addEventListener("change", updateReportLinks);
@@ -2206,6 +2209,7 @@ function populateFilters(options) {
   }
   state.overviewCampaignSelection = urlFilters.campaign_names || [];
   state.overviewCampaignSearch = "";
+  syncFeatureFlags();
   updateReportLinks();
 }
 
@@ -2225,6 +2229,33 @@ function applyFilterDefaults(defaults) {
   document.getElementById("client-select").value = defaults.client_id || "";
   document.getElementById("date-from-input").value = defaults.date_from || "";
   document.getElementById("date-to-input").value = defaults.date_to || "";
+}
+
+function syncFeatureFlags() {
+  const clientSelect = document.getElementById("client-select");
+  const accountSelect = document.getElementById("account-select");
+  if (!clientSelect || !accountSelect) {
+    return;
+  }
+
+  const clientId = clientSelect.value;
+  const accountId = accountSelect.value;
+  const accounts = state.options?.accounts || [];
+  const relevantAccounts = accounts.filter((account) => {
+    if (accountId) return account.account_id === accountId;
+    if (clientId) return account.client_id === clientId;
+    return true;
+  });
+
+  const activeFeatures = {
+    has_ga4: relevantAccounts.some((account) => account.has_ga4),
+    has_auction_insights: relevantAccounts.some((account) => account.has_auction_insights),
+  };
+
+  document.querySelectorAll("[data-feature]").forEach((link) => {
+    const feature = link.dataset.feature;
+    link.style.display = activeFeatures[feature] ? "" : "none";
+  });
 }
 
 function syncAccountOptions() {

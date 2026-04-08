@@ -50,6 +50,8 @@
             class="nav-link{% if report_name == key %} is-active{% endif %}"
             data-report-link
             data-report-name="{{ key }}"
+            {% if key in ['ga4-overview', 'ga4-impact', 'ga4-funnel', 'ga4-timing'] %}data-feature="has_ga4"{% endif %}
+            {% if key == 'auction' %}data-feature="has_auction_insights"{% endif %}
             href="/reports/{{ key }}"
           >
             {{ page.title }}

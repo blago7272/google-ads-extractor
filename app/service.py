@@ -295,7 +295,9 @@ with active_accounts as (
     cast(account_id as string) as account_id,
     account_name,
     timezone,
-    currency
+    currency,
+    coalesce(has_auction_insights, false) as has_auction_insights,
+    coalesce(has_ga4, false) as has_ga4
   from {self.cfg_table('cfg_accounts')}
   where is_active = true
 ),
@@ -313,6 +315,8 @@ select
   a.account_name,
   a.timezone,
   a.currency,
+  a.has_auction_insights,
+  a.has_ga4,
   w.min_report_date,
   w.max_report_date
 from active_accounts a

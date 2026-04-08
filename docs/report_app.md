@@ -21,6 +21,7 @@ The app is responsible for:
 - client-side sorting
 - client-side text search
 - visual layout
+- page visibility based on account feature flags from `cfg_accounts`
 
 ## Implemented Views
 
@@ -78,7 +79,7 @@ The current app layer also includes:
 - `GET /healthz`
   lightweight app health check
 - `GET /api/options`
-  active accounts and global date bounds
+  active accounts, global date bounds, and account-level feature flags
 - `GET /api/hub`
   bundled management-hub payload for the selected scope
 - `GET /api/reports/{report_name}`
@@ -101,6 +102,21 @@ The current app layer also includes:
 - `experimental-clients.sexwell_analyses.gads--impression_share--weekly`
 - `experimental-clients.sexwell_analyses.gads--impression_share--monthly`
 - `experimental-clients.sexwell_analyses.GA4-345365542--historical`
+
+## Feature Flags
+
+Page visibility is controlled from `cfg_accounts`.
+
+- `has_ga4`
+  controls whether GA4 report pages appear in the navigation for the selected scope
+- `has_auction_insights`
+  controls whether the auction insights page appears in the navigation for the selected scope
+
+Rules:
+
+- if a specific account is selected, the app uses that account's flags
+- if a client is selected with no specific account, the app enables a feature when any active account under that client has it
+- if no client or account is selected, the app enables a feature when any active account in the current options payload has it
 
 ## Performance
 

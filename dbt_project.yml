@@ -39,6 +39,8 @@ seeds:
         timezone: string
         currency: string
         is_active: boolean
+        has_auction_insights: boolean
+        has_ga4: boolean
         notes: string
     cfg_account_groups:
       +column_types:

@@ -23,6 +23,7 @@ Already reflected in the contract:
 - search terms now remain date-filterable at daily grain
 - ad-level reporting now exists through `mart_ads_ad_performance_daily`
 - mart schemas are now enforced through dbt contracts in `gads_reporting_mart`
+- account-level feature flags exist in `cfg_accounts` for GA4 and auction insights visibility
 
 Agreed direction, implementation pending:
 
@@ -244,11 +245,13 @@ Objects:
 - `cfg_thresholds`
 - `cfg_exchange_rates`
 - `cfg_segments`
+- `cfg_app_users`
 
 Purpose:
 
 - define which accounts are managed
 - define active accounts
+- define whether optional report packs should be visible for each account
 - define thresholds and labels used by the marts
 - define manual business segmentation such as `Brand`, `Generic`, `Competitor`, or `Retargeting`
 
@@ -305,11 +308,23 @@ Required fields:
 - `timezone`
 - `currency`
 - `is_active`
+- `has_auction_insights`
+- `has_ga4`
+- `notes`
 
-Current pilot account:
+Feature-flag meanings:
+
+- `has_ga4`
+  whether the selected account participates in the standalone GA4 report pack
+- `has_auction_insights`
+  whether the selected account participates in the standalone auction insights report
+
+Current active accounts:
 
 - `1200697994`
 - `Sexwell.bg (EUR)`
+- `4848659150`
+- `Matraci (EUR)`
 
 ## Currency Contract
 
