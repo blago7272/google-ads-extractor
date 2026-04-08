@@ -30,6 +30,40 @@ body {
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
 }
 
+.user-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.user-bar-email {
+  font-weight: 500;
+}
+
+.badge-admin {
+  background: var(--support);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.user-bar-logout {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.user-bar-logout:hover {
+  text-decoration: underline;
+}
+
 .page-shell {
   max-width: 1440px;
   margin: 0 auto;

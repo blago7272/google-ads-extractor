@@ -11,6 +11,12 @@
   </head>
   <body data-page-kind="{{ page_kind }}" data-report-kind="{{ report_name or '' }}">
     <div class="page-shell">
+      {% if user_email %}
+      <div class="user-bar">
+        <span class="user-bar-email">{{ user_email }}{% if is_admin %} <span class="badge badge-admin">admin</span>{% endif %}</span>
+        <a href="/auth/logout" class="user-bar-logout">Sign out</a>
+      </div>
+      {% endif %}
       <header class="hero">
         <div class="hero-copy">
           <p class="eyebrow">{% if is_ga4_report %}GA4 ecommerce reporting{% elif report_name == "auction" %}Auction source reporting{% else %}Ads reporting{% endif %}</p>
