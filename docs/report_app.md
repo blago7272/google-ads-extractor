@@ -32,7 +32,7 @@ The app is responsible for:
 - `Keyword and Query Audit`
   Keyword issues, search terms, keyword-specific alerts, regex filtering, issue-type filtering, and numeric search-term filters.
 - `Timing Analysis`
-  Hour-of-day, day-of-week, daypart summary, ad-group timing profile, budget pacing, and switchable timing metrics.
+  Hour-of-day, day-of-week, date-by-hour timing matrix, daypart summary, ad-group timing profile, budget pacing, and switchable timing metrics.
 - `Action Queue`
   Consolidated alerts and budget flags.
 - `GA4 Overview`
@@ -74,6 +74,7 @@ The current app layer also includes:
 - search-term threshold filters for conversions, spend, and ROAS
 - keyword-page alerts narrowed to `keyword_issue` items
 - timing-chart metric switches for conversion value, spend, ROAS, and conversions
+- timing date-by-hour matrix with a separate recent-window selector, defaulting to `7` days and extending with internal scroll
 - explicit explanation text for budget-exhaustion flags
 
 ## API Surface

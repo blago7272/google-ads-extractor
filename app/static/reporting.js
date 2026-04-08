@@ -89,6 +89,17 @@ const CHART_METRICS = {
   search_outranking_share: { key: "search_outranking_share", label: "Outranking", formatter: formatPercentPoint },
 };
 
+const TIMING_MATRIX_METRICS = {
+  impressions: { key: "impressions", label: "Impressions", formatter: formatInteger },
+  clicks: { key: "clicks", label: "Clicks", formatter: formatInteger },
+  cost_eur: { key: "cost_eur", label: "Spend", formatter: formatMoney },
+  conversion_value_eur: { key: "conversion_value_eur", label: "Conversion value", formatter: formatMoney },
+  roas: { key: "roas", label: "ROAS", formatter: formatRatio },
+  conversions: { key: "conversions", label: "Conversions", formatter: formatDecimal },
+  conversion_rate: { key: "conversion_rate", label: "Conversion rate", formatter: formatPercent },
+  ctr: { key: "ctr", label: "CTR", formatter: formatPercent },
+};
+
 const CHART_TOOLTIP_KEYS = ["conversion_value_eur", "cost_eur", "cpc_eur", "roas", "conversions", "conversion_rate", "clicks", "impressions"];
 const GA4_CHART_TOOLTIP_KEYS = ["revenue", "orders", "items_purchased", "items_added_to_cart", "items_viewed", "aov"];
 
@@ -938,6 +949,17 @@ const TABLE_CONFIG = {
     showSummaryRow: false,
     columns: buildGa4MatrixColumns("Orders"),
   },
+  timingHourMatrix: {
+    searchInputId: null,
+    searchFields: ["report_date", "day_label"],
+    containerId: "timing-hour-matrix-table",
+    defaultSort: { key: "report_date", direction: "desc" },
+    collapseThreshold: 7,
+    showSummaryRow: false,
+    showTopMeta: false,
+    hideToggleButton: true,
+    columns: buildTimingMatrixColumns("conversion_value_eur"),
+  },
   hubAlerts: {
     searchInputId: null,
     searchFields: ["report_date", "severity", "alert_category", "alert_message"],
@@ -1067,6 +1089,19 @@ function buildGa4MatrixColumns(metricLabel) {
   ];
 }
 
+function buildTimingMatrixColumns(metricKey) {
+  const metric = TIMING_MATRIX_METRICS[metricKey] || TIMING_MATRIX_METRICS.conversion_value_eur;
+  return [
+    { key: "day_label", label: "Date", format: formatTimingMatrixDateLabel },
+    ...Array.from({ length: 24 }, (_, hour) => ({
+      key: `h${String(hour).padStart(2, "0")}`,
+      label: String(hour),
+      format: metric.formatter,
+      heatmap: true,
+    })),
+  ];
+}
+
 function bindFilterEvents() {
   document.getElementById("filters-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1129,11 +1164,30 @@ function bindPageSpecificEvents() {
       input.addEventListener("change", () => {
         if (REPORT_KIND === "timing" && state.currentPayload) {
           renderTimingCharts(state.currentPayload);
+          renderTimingMatrix(state.currentPayload);
         }
       });
       input.dataset.bound = "true";
     }
   });
+
+  const timingMatrixSelect = document.getElementById("timing-matrix-metric-select");
+  if (timingMatrixSelect && timingMatrixSelect.dataset.bound !== "true") {
+    timingMatrixSelect.addEventListener("change", () => {
+      if (REPORT_KIND === "timing" && state.currentPayload) {
+        renderTimingMatrix(state.currentPayload);
+      }
+    });
+    timingMatrixSelect.dataset.bound = "true";
+  }
+
+  const timingMatrixDaysSelect = document.getElementById("timing-matrix-days-select");
+  if (timingMatrixDaysSelect && timingMatrixDaysSelect.dataset.bound !== "true") {
+    timingMatrixDaysSelect.addEventListener("change", () => {
+      refreshTimingMatrixOnly().catch(renderGlobalError);
+    });
+    timingMatrixDaysSelect.dataset.bound = "true";
+  }
 
   [
     "auction-monthly-metric-select",
@@ -2156,6 +2210,7 @@ function showLoadingState() {
     "conclusions-grid",
     "status-card-grid",
     "timing-highlights",
+    "timing-hour-matrix-table",
     "hour-chart",
     "weekday-chart",
     "weekpart-table",
@@ -2325,6 +2380,12 @@ function currentApiQuery() {
   if (campaignRegex) {
     params.set("campaign_regex", campaignRegex);
   }
+  if (REPORT_KIND === "timing") {
+    const timingMatrixDays = document.getElementById("timing-matrix-days-select")?.value;
+    if (timingMatrixDays) {
+      params.set("timing_matrix_days", timingMatrixDays);
+    }
+  }
   return params;
 }
 
@@ -2421,6 +2482,7 @@ async function refreshCurrentPage() {
     renderInsights(payload.timing_highlights || [], "timing-highlights");
     renderNote("budget-definition-note", payload.budget_flags_definition);
     renderTimingCharts(payload);
+    renderTimingMatrix(payload);
     renderTimingCampaignSelector(payload.daypart_ad_groups || []);
     renderTimingAdGroupSelector(payload.daypart_ad_groups || []);
     renderTable("weekpartComparison", payload.weekpart_comparison || []);
@@ -2471,6 +2533,26 @@ async function refreshCurrentPage() {
     renderTable("alerts", payload.alerts || []);
     renderTable("budgetFlags", payload.budget_flags || []);
   }
+}
+
+async function refreshTimingMatrixOnly() {
+  if (REPORT_KIND !== "timing" || !validatePageFilters()) {
+    return;
+  }
+
+  const container = document.getElementById("timing-hour-matrix-table");
+  if (container) {
+    container.innerHTML = '<div class="loading-state">Loading data</div>';
+  }
+
+  const params = currentApiQuery();
+  const payload = await fetchJson(`/api/reports/timing?${params.toString()}`);
+  state.currentPayload = {
+    ...(state.currentPayload || {}),
+    timing_matrices: payload.timing_matrices || {},
+    timing_matrix_scope: payload.timing_matrix_scope || null,
+  };
+  renderTimingMatrix(state.currentPayload);
 }
 
 function validatePageFilters() {
@@ -3254,6 +3336,30 @@ function renderTimingCharts(payload) {
     tooltipKeys: CHART_TOOLTIP_KEYS,
     labelFormatter: shortWeekday,
   });
+}
+
+function renderTimingMatrix(payload) {
+  const metricKey = document.getElementById("timing-matrix-metric-select")?.value || "conversion_value_eur";
+  const selectedDays = Number(document.getElementById("timing-matrix-days-select")?.value || 7);
+  const metric = TIMING_MATRIX_METRICS[metricKey] || TIMING_MATRIX_METRICS.conversion_value_eur;
+  const title = document.getElementById("timing-matrix-title");
+  const note = document.getElementById("timing-matrix-note");
+  const rows = payload.timing_matrices?.[metric.key] || [];
+
+  if (title) {
+    title.textContent = `${metric.label} by date and hour`;
+  }
+  if (note) {
+    const scope = payload.timing_matrix_scope || {};
+    const requestedDays = Number(scope.matrix_requested_days || selectedDays || 7);
+    const resolvedDays = Number(scope.matrix_resolved_days ?? rows.length ?? 0);
+    note.textContent = scope.matrix_date_from && scope.matrix_date_to
+      ? `Shows ${resolvedDays} complete ${resolvedDays === 1 ? "day" : "days"} in scope, from ${formatDate(scope.matrix_date_from)} to ${formatDate(scope.matrix_date_to)}. Selected matrix window: ${requestedDays} days.`
+      : `No complete days are available in scope for the selected ${requestedDays}-day matrix window.`;
+  }
+
+  TABLE_CONFIG.timingHourMatrix.columns = buildTimingMatrixColumns(metric.key);
+  renderTable("timingHourMatrix", rows);
 }
 
 function renderBarChart(containerId, rows, options) {
@@ -4383,6 +4489,18 @@ function formatDate(value) {
     return "—";
   }
   return dateFormat.format(new Date(`${value}T00:00:00`));
+}
+
+function formatTimingMatrixDateLabel(value) {
+  if (!value) {
+    return "—";
+  }
+  const text = String(value);
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})\s+([A-Za-z]{3})$/);
+  if (!match) {
+    return escapeHtml(text);
+  }
+  return `<span class="matrix-date-label"><span>${escapeHtml(match[1])}</span><small>${escapeHtml(match[2])}</small></span>`;
 }
 
 function formatMonth(value) {

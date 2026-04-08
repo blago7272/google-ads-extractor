@@ -665,6 +665,22 @@ body {
   width: 100%;
 }
 
+.timing-matrix-controls {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.timing-matrix-days-control {
+  min-width: 144px;
+}
+
+.timing-matrix-metric-control {
+  min-width: 196px;
+}
+
 .panel h2 {
   font-size: 1.75rem;
 }
@@ -921,6 +937,52 @@ body {
   min-width: 0;
   table-layout: fixed;
   font-size: 0.92rem;
+}
+
+[data-table-shell="timingHourMatrix"] .data-table {
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 0.84rem;
+}
+
+[data-table-shell="timingHourMatrix"] .data-table th,
+[data-table-shell="timingHourMatrix"] .data-table td {
+  padding: 9px 6px;
+}
+
+[data-table-shell="timingHourMatrix"] .data-table thead th {
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+[data-table-shell="timingHourMatrix"] .data-table thead th:first-child,
+[data-table-shell="timingHourMatrix"] .data-table td:first-child {
+  width: 118px;
+  min-width: 118px;
+  text-align: left;
+}
+
+[data-table-shell="timingHourMatrix"] .data-table thead th:not(:first-child),
+[data-table-shell="timingHourMatrix"] .data-table td:not(:first-child) {
+  width: 34px;
+  min-width: 34px;
+  text-align: center;
+}
+
+[data-table-shell="timingHourMatrix"] .data-table td.heatmap-cell,
+[data-table-shell="timingHourMatrix"] .data-table td.heatmap-cell.is-empty {
+  font-size: 0.76rem;
+}
+
+.matrix-date-label {
+  display: inline-grid;
+  gap: 2px;
+  line-height: 1.1;
+}
+
+.matrix-date-label small {
+  font-size: 0.74rem;
+  color: var(--muted);
 }
 
 [data-table-shell="hubAlerts"] .data-table th,
@@ -1252,6 +1314,11 @@ body {
   .panel-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .timing-matrix-controls {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .campaign-filter-panel {

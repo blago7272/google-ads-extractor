@@ -207,6 +207,7 @@ Included now:
 - search terms explorer
 - budget exhaustion
 - ad group daypart profile
+- date-by-hour timing matrix with a separate recent-window selector, defaulting to `7` days and using internal scroll for longer windows
 - alerts
 - optional auction insights placeholder
 

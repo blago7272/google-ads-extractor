@@ -800,6 +800,124 @@ order by report_hour
 
         return self._cached_query_result("hour_of_day", self._scope_cache_key(scope), load_hour_of_day)
 
+    def _normalize_timing_matrix_days(self, matrix_days: int | None) -> int:
+        if matrix_days is None:
+            return 7
+        return max(1, min(int(matrix_days), 90))
+
+    def _timing_matrix_date_bounds(self, scope: ScopeFilters, matrix_days: int) -> tuple[date, date] | None:
+        capped_to = min(scope.date_to, date.today() - timedelta(days=1))
+
+        def load_max_date() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  max(report_date) as max_report_date
+from {self.mart_table('mart_ads_hourly_performance_daily')}
+where report_date between @date_from and @date_to
+  and (@client_id is null or client_id = @client_id)
+  and (@account_id is null or account_id = @account_id)
+"""
+            parameters = [
+                bigquery.ScalarQueryParameter("date_from", "DATE", scope.date_from),
+                bigquery.ScalarQueryParameter("date_to", "DATE", capped_to),
+                bigquery.ScalarQueryParameter("client_id", "STRING", scope.client_id),
+                bigquery.ScalarQueryParameter("account_id", "STRING", scope.account_id),
+            ]
+            return self._run_query(sql, parameters=parameters)
+
+        rows = self._cached_query_result(
+            "timing_matrix_bounds",
+            (*self._scope_cache_key(scope), capped_to.isoformat()),
+            load_max_date,
+        )
+        max_report_date = rows[0].get("max_report_date") if rows else None
+        if not max_report_date:
+            return None
+        if isinstance(max_report_date, str):
+            max_report_date = date.fromisoformat(max_report_date)
+        matrix_to = min(max_report_date, capped_to)
+        matrix_from = max(scope.date_from, matrix_to - timedelta(days=max(matrix_days - 1, 0)))
+        return matrix_from, matrix_to
+
+    def _timing_matrix_query(
+        self,
+        scope: ScopeFilters,
+        metric: str,
+        matrix_days: int,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+        bounds = self._timing_matrix_date_bounds(scope, matrix_days)
+        if not bounds:
+            return [], {
+                "matrix_requested_days": matrix_days,
+                "matrix_resolved_days": 0,
+            }
+        matrix_from, matrix_to = bounds
+        metric_sql = {
+            "impressions": "sum(impressions)",
+            "clicks": "sum(clicks)",
+            "cost_eur": "sum(cost_eur)",
+            "conversion_value_eur": "sum(conversion_value_eur)",
+            "roas": "safe_divide(sum(conversion_value_eur), sum(cost_eur))",
+            "conversions": "sum(conversions)",
+            "conversion_rate": "safe_divide(sum(conversions), sum(clicks))",
+            "ctr": "safe_divide(sum(clicks), sum(impressions))",
+        }[metric]
+
+        def load_rows() -> list[dict[str, Any]]:
+            pivot_columns = ",\n  ".join(
+                [
+                    f"max(if(s.report_hour = {hour}, s.metric_value, null)) as h{hour:02d}"
+                    for hour in range(24)
+                ]
+            )
+            sql = f"""
+with dates as (
+  select day
+  from unnest(generate_date_array(@date_from, @date_to)) as day
+),
+scoped as (
+  select
+    report_date,
+    report_hour,
+    {metric_sql} as metric_value
+  from {self.mart_table('mart_ads_hourly_performance_daily')}
+  where report_date between @date_from and @date_to
+    and (@client_id is null or client_id = @client_id)
+    and (@account_id is null or account_id = @account_id)
+  group by report_date, report_hour
+)
+select
+  d.day as report_date,
+  format_date('%Y-%m-%d %a', d.day) as day_label,
+  {pivot_columns}
+from dates d
+left join scoped s
+  on s.report_date = d.day
+group by report_date, day_label
+order by report_date desc
+"""
+            parameters = [
+                bigquery.ScalarQueryParameter("date_from", "DATE", matrix_from),
+                bigquery.ScalarQueryParameter("date_to", "DATE", matrix_to),
+                bigquery.ScalarQueryParameter("client_id", "STRING", scope.client_id),
+                bigquery.ScalarQueryParameter("account_id", "STRING", scope.account_id),
+            ]
+            return self._run_query(sql, parameters=parameters)
+
+        return (
+            self._cached_query_result(
+                f"timing_matrix_{metric}",
+                (*self._scope_cache_key(scope), metric, matrix_days, matrix_from.isoformat(), matrix_to.isoformat()),
+                load_rows,
+            ),
+            {
+                "matrix_date_from": matrix_from.isoformat(),
+                "matrix_date_to": matrix_to.isoformat(),
+                "matrix_requested_days": matrix_days,
+                "matrix_resolved_days": (matrix_to - matrix_from).days + 1,
+            },
+        )
+
     def _weekday_profile_query(self, scope: ScopeFilters) -> list[dict[str, Any]]:
         def load_weekday_profile() -> list[dict[str, Any]]:
             sql = f"""
@@ -2370,6 +2488,7 @@ limit 160
         account_id: str | None,
         date_from: date | None,
         date_to: date | None,
+        timing_matrix_days: int | None = None,
     ) -> dict[str, Any]:
         scope = self.resolve_scope(
             client_id=client_id,
@@ -2377,15 +2496,35 @@ limit 160
             date_from=date_from,
             date_to=date_to,
         )
+        resolved_matrix_days = self._normalize_timing_matrix_days(timing_matrix_days)
         hour_of_day = self._hour_of_day_query(scope)
         weekday_profile = self._weekday_profile_query(scope)
         budget_rows = self._budget_query(scope)
+        timing_matrix_metrics = [
+            "impressions",
+            "clicks",
+            "cost_eur",
+            "conversion_value_eur",
+            "roas",
+            "conversions",
+            "conversion_rate",
+            "ctr",
+        ]
+        timing_matrices: dict[str, list[dict[str, Any]]] = {}
+        timing_matrix_scope = None
+        for metric in timing_matrix_metrics:
+            matrix_rows, matrix_scope = self._timing_matrix_query(scope, metric, resolved_matrix_days)
+            timing_matrices[metric] = matrix_rows
+            if timing_matrix_scope is None:
+                timing_matrix_scope = matrix_scope
         return {
             "scope": self._scope_payload(scope),
             "summary": self._summary_query(scope)[0],
             "previous_summary": self._summary_query(scope, previous=True)[0],
             "hour_of_day": hour_of_day,
             "weekday_profile": weekday_profile,
+            "timing_matrices": timing_matrices,
+            "timing_matrix_scope": timing_matrix_scope,
             "weekpart_comparison": self._weekpart_comparison_query(scope),
             "day_window_comparison": self._day_window_comparison_query(scope),
             "daypart": self._daypart_query(scope),
@@ -2670,6 +2809,7 @@ limit 160
         date_from: date | None,
         date_to: date | None,
         campaign_regex: str | None = None,
+        timing_matrix_days: int | None = None,
     ) -> dict[str, Any]:
         if report_name == "overview":
             return self.get_overview_data(
@@ -2695,7 +2835,13 @@ limit 160
         if report_name == "keywords":
             return self.get_keywords_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
         if report_name == "timing":
-            return self.get_timing_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
+            return self.get_timing_data(
+                client_id=client_id,
+                account_id=account_id,
+                date_from=date_from,
+                date_to=date_to,
+                timing_matrix_days=timing_matrix_days,
+            )
         if report_name == "alerts":
             return self.get_alerts_data(client_id=client_id, account_id=account_id, date_from=date_from, date_to=date_to)
         if report_name == "efficiency":

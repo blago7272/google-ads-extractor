@@ -334,6 +334,7 @@ def report_data(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     campaign_regex: str | None = Query(default=None),
+    timing_matrix_days: int | None = Query(default=None, ge=1, le=90),
     service: BigQueryReportingService = Depends(get_reporting_service),
 ) -> dict[str, object]:
     client_id, account_id = _enforce_scope(request, client_id, account_id)
@@ -345,6 +346,7 @@ def report_data(
             date_from=date_from,
             date_to=date_to,
             campaign_regex=campaign_regex,
+            timing_matrix_days=timing_matrix_days,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
