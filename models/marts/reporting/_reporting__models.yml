@@ -667,6 +667,35 @@ models:
         data_type: string
         tests: [not_null]
 
+  - name: mart_data_freshness
+    description: Data freshness metadata mart showing the last available data date per account and whether it is current, stale, or backfilling.
+    columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
+      - name: account_id
+        data_type: string
+        tests: [not_null, unique]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: last_data_date
+        data_type: date
+        tests: [not_null]
+      - name: hours_since_last_data
+        data_type: int64
+        tests: [not_null]
+      - name: freshness_status
+        data_type: string
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ok', 'stale', 'error', 'backfilling']
+      - name: checked_at
+        data_type: timestamp
+        tests: [not_null]
+
   - name: mart_ads_ad_performance_daily
     description: Daily ad-level performance mart for ad explorer and creative review.
     columns:
