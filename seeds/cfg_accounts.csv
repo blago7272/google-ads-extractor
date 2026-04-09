@@ -1,3 +1,95 @@
 client_id,account_id,account_name,timezone,currency,is_active,has_auction_insights,has_ga4,notes
-sexwell,1200697994,Sexwell.bg (EUR),Europe/Sofia,EUR,true,true,true,Initial pilot account
+external,2696190839,Агри Гейт Медия ООД,Europe/Sofia,EUR,false,false,false,
+idconsult,5168566988,*Europa EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,4866322944,[EUR] Sleepy.bg,Europe/Sofia,EUR,true,false,false,
+idconsult,4225655970,Abrites,Europe/Sofia,EUR,true,false,false,
+idconsult,5216994417,Adapt BG EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,4450767011,Adapt RO Eur,Europe/Sofia,EUR,true,false,false,
+idconsult,8283227085,Aerosus,Europe/Berlin,EUR,true,false,false,
+idconsult,4450825619,Aerosus - USA,America/Chicago,EUR,true,false,false,
+idconsult,6301999348,Badinka.com_f,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,4532197439,Balkan eCommerce Summit,Europe/Sofia,EUR,true,false,false,
+idconsult,6707195129,Balkan eCommerce Summit,Europe/Sofia,BGN,false,false,false,
+idconsult,9508783605,Balkan eCommerce-- 950-878-3605,Europe/Sofia,BGN,false,false,false,Inactive — last data 2023-12
+idconsult,8394432568,Boulevard BG,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,9261121747,BoulevardBG,Europe/Sofia,EUR,true,false,false,
+idconsult,1742576972,Bravite.com,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-08
+idconsult,4251401862,COCOSOLIS RO,Europe/Sofia,EUR,true,false,false,
+idconsult,6616950693,Dali Vino,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,8844926586,DaliVino EURO,Europe/Sofia,EUR,true,false,false,
+idconsult,9900722644,DAVID,Europe/Sofia,BGN,false,false,false,Inactive — last data 2023-12
+idconsult,8371360580,Derma-Act EU,Europe/Sofia,EUR,true,false,false,
+idconsult,9618533366,Derma-Act Greece (New),Europe/Sofia,EUR,false,false,false,
+idconsult,1290364539,Dermal Lase - EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,1322244819,Dermallase.com,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,2520459846,Dr. Kadurina,Europe/Sofia,EUR,false,false,false,
+idconsult,1403928956,GIROTTI - France,Europe/Paris,EUR,true,false,false,
+idconsult,6274837895,GIROTTI - Germany,Europe/Berlin,EUR,true,false,false,
+idconsult,7098886294,GIROTTI International,America/New_York,USD,true,false,false,
+idconsult,5003762119,GIROTTI UK,Europe/London,GBP,true,false,false,
+idconsult,9063936603,Gong,Europe/Sofia,BGN,false,false,false,Inactive — last data 2022-12
+idconsult,5164187795,Hansel-and-Gretel,Europe/Sofia,BGN,false,false,false,Inactive — last data 2024-10
+idconsult,7294419319,Hyperproof,America/Los_Angeles,USD,true,false,false,
+idconsult,2555194460,Liposculptingsolutions.com,America/Los_Angeles,USD,false,false,false,
+idconsult,3911507987,LowCostCars,Europe/Sofia,EUR,true,false,false,
+idconsult,8751125335,Ma Baker EURO,Europe/Sofia,EUR,true,false,false,
+idconsult,5278723791,Mabaker.bg,Europe/Sofia,BGN,false,false,false,
+idconsult,6356089719,Malko zaiche EURO,Europe/Sofia,EUR,true,false,false,
+idconsult,9853573521,Malkozaiche.com,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,3651122354,Matcha.bg,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,9575525625,Moby EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,8997920602,Moby-bg.com,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,5173940096,NH1,Europe/Sofia,BGN,false,false,false,Inactive — last data 2024-10
+idconsult,6069169254,Onesleep CY,Asia/Nicosia,EUR,true,false,false,
+idconsult,3317731390,Onesleep GR,Europe/Sofia,EUR,true,false,false,
+idconsult,5746874754,Onesleep RO,Europe/Bucharest,RON,true,false,false,
+idconsult,5304022952,Onesleep RS,Europe/Belgrade,EUR,true,false,false,
+idconsult,5841489543,ONEX TOUR LTD,Europe/Sofia,EUR,true,false,false,
+idconsult,6582616598,Outletcars,Europe/Sofia,EUR,true,false,false,
+idconsult,1489337477,Rent College Pads,America/Chicago,USD,true,false,false,
+idconsult,3997552345,SmileCredit.bg---EUR,Europe/Sofia,EUR,true,false,false,
+idconsult,4125761958,Sofia AirPark,Europe/Sofia,EUR,true,false,false,
+idconsult,2415006639,tez-tour.com/bg_ar,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,6651498454,TF--Display & Video,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-10
+idconsult,7782189325,TF--Search,Europe/Sofia,EUR,false,false,false,Inactive — last data 2026-02
+idconsult,5861433372,Tiger Technology,Europe/Sofia,USD,true,false,false,
+idconsult,3634318107,Toplease.bg,Europe/Sofia,EUR,true,false,false,
+idconsult,8427406614,TopRentaCar,Europe/Sofia,EUR,true,false,false,
+idconsult,4151214925,Toprentacar - RO,Europe/Sofia,EUR,true,false,false,
+idconsult,8546938162,Tradeify FX LLC,America/New_York,USD,false,false,false,
+idconsult,2091100064,ZooMagazin.BG - Paused,Europe/Sofia,BGN,false,false,false,Inactive — last data 2024-10
+idconsult,3831220411,Zoomagazin.eu - IDC,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,1241447241,Zoomagazin.eu EUR - IDC,Europe/Sofia,EUR,true,false,false,
+idconsult,2368016315,Диском ЕООД,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,7925236643,Диском ЕООД,Europe/Sofia,EUR,true,false,false,
+idconsult,5454405833,Паркинг Летище София,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+idconsult,9425269756,Сексуел ЕООД,Europe/Sofia,EUR,false,false,false,
+idconsult,9305577321,Тез Тур България Euro,Europe/Sofia,EUR,false,false,false,
+ITF,6950436860,Get Cash,Europe/Sofia,BGN,false,false,false,
+ITF,7892158249,ImaPari,Europe/Sofia,BGN,false,false,false,
+ITF,5594159525,Klear Lending AD (EUR),Europe/Sofia,EUR,true,false,false,
+ITF,6261961732,SmileCredit.bg,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
+ITF,5023326225,SmileCredit.net,Europe/Sofia,BGN,false,false,false,Inactive — last data 2024-06
 matraci.bg,4848659150,Matraci (EUR),Europe/Sofia,EUR,true,false,false,Second client
+MV3,2209509711,Atiles Flooring,America/New_York,USD,false,false,false,Inactive — last data 2021-06
+MV3,2121686293,Avidmarketing.co,America/New_York,USD,false,false,false,Inactive — last data 2025-02
+MV3,5779127949,Brayshaw Financial,America/Los_Angeles,USD,false,false,false,Inactive — last data 2024-10
+MV3,4464542954,CF Promos,America/New_York,USD,false,false,false,
+MV3,3936101605,Hoodie Flags,America/Los_Angeles,USD,false,false,false,
+MV3,3970248349,Laguna Lawn Service,America/New_York,USD,false,false,false,
+MV3,7727859012,"Mongoose Research, Inc",America/New_York,USD,false,false,false,Inactive — last data 2025-01
+MV3,2679149301,MV3 - Corporate Account,America/New_York,USD,false,false,false,Inactive — last data 2025-08
+MV3,7937707726,MV3 Marketing,America/New_York,USD,false,false,false,Inactive — last data 2025-10
+MV3,9936603447,mv3imprints.com,America/New_York,USD,false,false,false,
+MV3,6969147545,MyTime-Sandbox,America/Los_Angeles,USD,false,false,false,
+MV3,4732946011,Omnitec.io,America/New_York,USD,false,false,false,
+MV3,2071194395,Onncore,America/Los_Angeles,USD,false,false,false,
+MV3,5682542801,Pay2Amigos,America/Mexico_City,MXN,false,false,false,
+MV3,9168751417,Podiatry Group of Georgia,America/New_York,USD,false,false,false,Inactive — last data 2026-01
+MV3,6498392035,Proexist,America/Los_Angeles,USD,false,false,false,
+MV3,6961513844,SE - Confection Couture Stencils,America/New_York,USD,false,false,false,Inactive — last data 2025-09
+MV3,2716228335,SE - Designer Stencils,America/Coral_Harbour,USD,false,false,false,Inactive — last data 2025-12
+MV3,3663068405,SE - My Crafty Stencils,America/New_York,USD,false,false,false,
+MV3,1170835525,SE - Stencil Ease - Youtube,America/New_York,USD,false,false,false,Inactive — last data 2024-06
+MV3,8468171737,Wildwood Flooring,America/New_York,USD,false,false,false,
+sexwell,1200697994,Sexwell.bg (EUR),Europe/Sofia,EUR,true,true,true,Initial pilot account

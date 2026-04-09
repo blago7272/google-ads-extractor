@@ -45,13 +45,6 @@ This is not a decision log. Approved design decisions belong in the main contrac
   area: `hosting`
   description: Re-validate the hosted app runtime and confirm the deployed service entrypoint and protected URL are review-ready.
 
-### Account Registry
-
-- id: `cfg_accounts.curated_expansion`
-  status: `deferred`
-  area: `config`
-  description: Expand `cfg_accounts` beyond the current active accounts only after timezone, currency, and feature flags are curated account by account.
-
 ## Change Rules
 
 - Add an item here when implementation is agreed but not completed.

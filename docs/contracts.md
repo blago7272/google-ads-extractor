@@ -25,6 +25,12 @@ Required fields:
 - `timezone`
 - `currency`
 - `is_active`
+- `has_auction_insights`
+- `has_ga4`
+
+Optional fields:
+
+- `notes`
 
 ### `cfg_account_groups`
 
