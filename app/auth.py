@@ -48,7 +48,7 @@ def build_google_auth_url(settings: ReportingAppSettings) -> tuple[str, str]:
         "client_id": settings.oauth_client_id,
         "redirect_uri": settings.oauth_redirect_uri,
         "response_type": "code",
-        "scope": "openid email profile",
+        "scope": "openid email",
         "access_type": "offline",
         "state": state,
         "prompt": "select_account",
