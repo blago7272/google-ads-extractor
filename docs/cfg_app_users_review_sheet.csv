@@ -1,0 +1,8 @@
+email,role,client_id,account_id,is_active,action,notes
+biordanov@gmail.com,viewer,ITF,__all__,true,keep,all ITF accounts
+biordanov@gmail.com,viewer,matraci.bg,4848659150,true,keep,one specific Matraci account
+biordanov@gmail.com,viewer,sexwell,__all__,true,keep,all Sexwell accounts
+blago@idconsult.bg,admin,__all__,__all__,true,keep,full admin access
+deni@idconsult.bg,admin,__all__,__all__,true,keep,full admin access
+kalina@idconsult.bg,admin,__all__,__all__,true,keep,full admin access
+vlado@idconsult.bg,admin,__all__,__all__,true,keep,full admin access

@@ -67,6 +67,26 @@ Required fields:
 - `valid_from`
 - `eur_exchange_rate`
 
+### `cfg_app_users`
+
+Grain:
+
+- one row per user access grant
+
+Required fields:
+
+- `email`
+- `client_id`
+- `account_id`
+- `role`
+- `is_active`
+
+Rules:
+
+- maintained directly in BigQuery, not as a dbt seed
+- `account_id='__all__'` grants access to all accounts within the given `client_id`
+- `role='admin'` uses `__all__/__all__` and bypasses client/account scoping in the UI
+
 ## Staging Contracts
 
 ### `stg_account_stats_daily`
