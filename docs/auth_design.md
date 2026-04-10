@@ -14,8 +14,11 @@ client data, and enforces access isolation at the application layer.
 Google OAuth 2.0 via Google ID tokens.
 
 - Users click "Sign in with Google" on the app.
+- The login redirect issues a short-lived, httpOnly OAuth `state` cookie.
 - The app receives a Google ID token, verifies it server-side, and extracts
   the user's email address.
+- The OAuth callback must validate the returned `state` value against the
+  cookie before issuing an application session.
 - No passwords are stored or managed by the application.
 - Session is maintained via a signed cookie.
 
@@ -24,6 +27,8 @@ Google OAuth 2.0 via Google ID tokens.
 - Duration: 24 hours.
 - After expiry, the user must re-authenticate.
 - Logout clears the session cookie immediately.
+- The transient OAuth `state` cookie expires after a short interval and is
+  cleared after callback success, mismatch, or restart.
 
 ## User-To-Client Mapping
 

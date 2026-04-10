@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from datetime import date
+from urllib.parse import parse_qs, urlparse
 
 from fastapi.testclient import TestClient
 
+import app.main as main_module
+from app.auth import UserSession
 from app.main import app
 from app.service import get_reporting_service, resolve_date_window
+from app.settings import ReportingAppSettings, get_settings
 
 
 class FakeReportingService:
@@ -404,6 +408,16 @@ def setup_function() -> None:
 
 def teardown_function() -> None:
     app.dependency_overrides.clear()
+    client.cookies.clear()
+
+
+def _auth_test_settings() -> ReportingAppSettings:
+    return ReportingAppSettings(
+        oauth_client_id="test-client-id",
+        oauth_client_secret="test-client-secret",
+        oauth_redirect_uri="http://testserver/auth/callback",
+        session_secret_key="test-session-secret",
+    )
 
 
 def test_index_renders_hub_shell() -> None:
@@ -502,6 +516,55 @@ def test_filter_options_endpoint_works() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["defaults"]["account_id"] == "1200697994"
+
+
+def test_auth_login_sets_state_cookie() -> None:
+    app.dependency_overrides[get_settings] = _auth_test_settings
+
+    response = client.get("/auth/login", follow_redirects=False)
+
+    assert response.status_code == 307
+    state_cookie = response.cookies.get("oauth_state")
+    assert state_cookie
+    redirect_state = parse_qs(urlparse(response.headers["location"]).query)["state"][0]
+    assert redirect_state == state_cookie
+
+
+def test_auth_callback_rejects_state_mismatch() -> None:
+    app.dependency_overrides[get_settings] = _auth_test_settings
+    client.cookies.set("oauth_state", "expected-state")
+
+    response = client.get("/auth/callback?code=test-code&state=wrong-state", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/auth/login"
+
+
+def test_auth_callback_sets_session_on_matching_state(monkeypatch) -> None:
+    app.dependency_overrides[get_settings] = _auth_test_settings
+    client.cookies.set("oauth_state", "expected-state")
+
+    monkeypatch.setattr(
+        main_module,
+        "exchange_code_for_id_token",
+        lambda code, settings: {"email": "viewer@example.com"},
+    )
+    monkeypatch.setattr(
+        main_module,
+        "lookup_user_grants",
+        lambda email, settings: UserSession(
+            email=email,
+            role="viewer",
+            allowed_clients=["sexwell"],
+            allowed_accounts={"sexwell": ["__all__"]},
+        ),
+    )
+
+    response = client.get("/auth/callback?code=test-code&state=expected-state", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["location"] == "/"
+    assert response.cookies.get("session")
 
 
 def test_dashboard_endpoint_accepts_campaign_regex() -> None:

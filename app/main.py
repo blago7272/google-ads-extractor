@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from datetime import date
 from pathlib import Path
 
@@ -84,6 +85,8 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 SOURCE_LOCAL_REPORTS = {"auction", "ga4-overview", "ga4-impact", "ga4-funnel", "ga4-timing"}
 GA4_REPORTS = {"ga4-overview", "ga4-impact", "ga4-funnel", "ga4-timing"}
 SESSION_COOKIE_NAME = "session"
+OAUTH_STATE_COOKIE_NAME = "oauth_state"
+OAUTH_STATE_MAX_AGE_SECONDS = 600
 PUBLIC_PATHS = {"/auth/login", "/auth/callback", "/auth/denied", "/healthz"}
 
 
@@ -135,32 +138,65 @@ def _base_context(request: Request, settings: ReportingAppSettings, **extra) -> 
     return context
 
 
+def _set_oauth_state_cookie(response: RedirectResponse, request: Request, state: str) -> None:
+    response.set_cookie(
+        key=OAUTH_STATE_COOKIE_NAME,
+        value=state,
+        max_age=OAUTH_STATE_MAX_AGE_SECONDS,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+        path="/auth/callback",
+    )
+
+
+def _clear_oauth_state_cookie(response: RedirectResponse) -> None:
+    response.delete_cookie(OAUTH_STATE_COOKIE_NAME, path="/auth/callback")
+
+
 @app.get("/auth/login")
-def auth_login(settings: ReportingAppSettings = Depends(get_settings)):
-    auth_url, _state = build_google_auth_url(settings)
-    return RedirectResponse(url=auth_url)
+def auth_login(request: Request, settings: ReportingAppSettings = Depends(get_settings)):
+    auth_url, state = build_google_auth_url(settings)
+    response = RedirectResponse(url=auth_url)
+    _set_oauth_state_cookie(response, request, state)
+    return response
 
 
 @app.get("/auth/callback")
 def auth_callback(
     request: Request,
     code: str = Query(default=""),
+    state: str = Query(default=""),
     settings: ReportingAppSettings = Depends(get_settings),
 ):
+    expected_state = request.cookies.get(OAUTH_STATE_COOKIE_NAME, "")
+    if not state or not expected_state or not secrets.compare_digest(state, expected_state):
+        response = RedirectResponse(url="/auth/login")
+        _clear_oauth_state_cookie(response)
+        return response
+
     if not code:
-        return RedirectResponse(url="/auth/login")
+        response = RedirectResponse(url="/auth/login")
+        _clear_oauth_state_cookie(response)
+        return response
 
     try:
         id_info = exchange_code_for_id_token(code, settings)
         email = id_info.get("email", "").lower()
         if not email:
-            return RedirectResponse(url="/auth/denied")
+            response = RedirectResponse(url="/auth/denied")
+            _clear_oauth_state_cookie(response)
+            return response
         user = lookup_user_grants(email, settings)
         if user is None:
-            return RedirectResponse(url=f"/auth/denied?email={email}")
+            response = RedirectResponse(url=f"/auth/denied?email={email}")
+            _clear_oauth_state_cookie(response)
+            return response
     except Exception:
         logger.exception("OAuth login failed")
-        return RedirectResponse(url="/auth/login")
+        response = RedirectResponse(url="/auth/login")
+        _clear_oauth_state_cookie(response)
+        return response
 
     serializer = create_session_serializer(settings.session_secret_key)
     cookie_value = encode_session(user, serializer)
@@ -174,6 +210,7 @@ def auth_callback(
         samesite="lax",
         secure=request.url.scheme == "https",
     )
+    _clear_oauth_state_cookie(response)
     return response
 
 
