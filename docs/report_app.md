@@ -76,6 +76,7 @@ The current app layer also includes:
 - timing-chart metric switches for conversion value, spend, ROAS, and conversions
 - timing date-by-hour matrix with a separate recent-window selector, defaulting to `7` days and extending with internal scroll
 - explicit explanation text for budget-exhaustion flags
+- shared reporting-freshness badge and warning banner for the selected account
 
 ## API Surface
 
@@ -89,6 +90,8 @@ The current app layer also includes:
   active accounts, global date bounds, and account-level feature flags
 - `GET /api/hub`
   bundled management-hub payload for the selected scope
+- `GET /api/freshness`
+  lightweight freshness payload for the currently selected account
 - `GET /api/reports/{report_name}`
   report-specific payload for the selected scope
 - `GET /api/dashboard`
@@ -104,6 +107,7 @@ The current app layer also includes:
 - `mart_ads_budget_exhaustion`
 - `mart_ads_adgroup_daypart`
 - `mart_ads_alerts`
+- `mart_data_freshness`
 - `mart_ads_auction_insights_monthly`
 - `experimental-clients.sexwell_analyses.gads--impression_share--daily`
 - `experimental-clients.sexwell_analyses.gads--impression_share--weekly`
@@ -136,6 +140,8 @@ Relevant environment knobs:
 
 - `REPORTING_OPTIONS_CACHE_TTL_SECONDS`
   default `3600`
+- `REPORTING_FRESHNESS_CACHE_TTL_SECONDS`
+  default `300`
 - `REPORTING_QUERY_CACHE_TTL_SECONDS`
   default `900`
 - `REPORTING_QUERY_CACHE_MAX_ENTRIES`

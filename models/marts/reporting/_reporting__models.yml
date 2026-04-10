@@ -668,7 +668,7 @@ models:
         tests: [not_null]
 
   - name: mart_data_freshness
-    description: Data freshness metadata mart showing the last available data date per account and whether it is current, stale, or backfilling.
+    description: Data freshness metadata mart showing the last available data date per active account and whether it is ok, stale, error, or backfilling.
     columns:
       - name: client_id
         data_type: string
@@ -681,10 +681,8 @@ models:
         tests: [not_null]
       - name: last_data_date
         data_type: date
-        tests: [not_null]
       - name: hours_since_last_data
         data_type: int64
-        tests: [not_null]
       - name: freshness_status
         data_type: string
         tests:

@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/reporting.css">
   </head>
-  <body data-page-kind="{{ page_kind }}" data-report-kind="{{ report_name or '' }}">
+  <body data-page-kind="{{ page_kind }}" data-report-kind="{{ report_name or '' }}" data-source-local-report="{{ 'true' if is_source_local_report else 'false' }}">
     <div class="page-shell">
       {% if user_email %}
       <div class="user-bar">
@@ -39,6 +39,11 @@
                 Shared filters stay active across the whole report pack.
               {% endif %}
             </span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Reporting freshness</span>
+            <span id="freshness-badge" class="badge badge-muted">Loading freshness</span>
+            <span id="freshness-detail" class="meta-helper">Checking the selected account.</span>
           </div>
         </div>
       </header>
@@ -97,6 +102,11 @@
           <span class="status-label">Scope</span>
           <strong id="scope-label">Loading</strong>
         </div>
+      </section>
+
+      <section id="freshness-banner" class="freshness-banner is-hidden" aria-live="polite">
+        <strong id="freshness-banner-title"></strong>
+        <span id="freshness-banner-detail"></span>
       </section>
 
       {% block content %}{% endblock %}

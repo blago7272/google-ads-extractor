@@ -39,6 +39,31 @@ class FakeReportingService:
             },
         }
 
+    def get_freshness_data(self, *, client_id: str | None, account_id: str | None) -> dict[str, object]:
+        if not account_id:
+            return {
+                "scope_type": "unscoped",
+                "client_id": client_id,
+                "account_id": None,
+                "account_name": None,
+                "freshness_status": None,
+                "last_data_date": None,
+                "hours_since_last_data": None,
+                "checked_at": None,
+                "message": "Select an account to see reporting freshness.",
+            }
+        return {
+            "scope_type": "account",
+            "client_id": "sexwell",
+            "account_id": account_id,
+            "account_name": "Sexwell.bg (EUR)",
+            "freshness_status": "stale",
+            "last_data_date": "2026-03-22",
+            "hours_since_last_data": 44,
+            "checked_at": "2026-03-23T08:15:00+00:00",
+            "message": None,
+        }
+
     def _scope(self) -> dict[str, str]:
         return {
             "client_id": "sexwell",
@@ -424,6 +449,7 @@ def test_index_renders_hub_shell() -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert "Google Ads Signal Board" in response.text
+    assert "Reporting freshness" in response.text
     assert "Detailed reports" in response.text
     assert "Time grain" in response.text
     assert "Top primary" in response.text
@@ -516,6 +542,14 @@ def test_filter_options_endpoint_works() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["defaults"]["account_id"] == "1200697994"
+
+
+def test_freshness_endpoint_works() -> None:
+    response = client.get("/api/freshness", params={"client_id": "sexwell", "account_id": "1200697994"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["freshness_status"] == "stale"
+    assert payload["last_data_date"] == "2026-03-22"
 
 
 def test_auth_login_sets_state_cookie() -> None:

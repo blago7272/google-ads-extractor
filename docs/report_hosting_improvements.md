@@ -121,7 +121,7 @@ The reporting app reads marts built by the `reporting-release-orchestrator`. The
 Requirements:
 
 - the app should expose a staleness indicator (e.g., last-refresh timestamp visible in the UI or via an API endpoint)
-- define acceptable staleness threshold (e.g., data older than 24h triggers a warning)
+- define acceptable staleness threshold (phase-1 baseline: stale after 36h, error after 72h)
 - if the orchestrator fails, the app should degrade gracefully rather than show broken or empty reports
 
 ## Session and Timeout Behavior

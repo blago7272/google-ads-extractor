@@ -96,6 +96,8 @@ Comment:
 
 - implement a freshness metadata mart
 - do not rely only on standard dbt source freshness if wildcarded source shapes make that brittle
+- use `ok / stale / error / backfilling` as the user-facing freshness states
+- use `36h` as the stale threshold and `72h` as the error threshold
 
 ### 5. Client Data Access And Isolation
 
@@ -842,6 +844,13 @@ Planned SLA thresholds:
 
 - warn after 36 hours
 - error after 72 hours
+
+Planned UI surface:
+
+- show reporting freshness for the selected account in the shared page shell
+- show `last_data_date` next to the freshness badge
+- show a warning banner for `stale`, `error`, and `backfilling`
+- if no account is selected, show a neutral prompt to select one
 
 Implementation note:
 

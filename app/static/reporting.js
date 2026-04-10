@@ -5,6 +5,7 @@ const state = {
   tables: new Map(),
   tableData: new Map(),
   currentPayload: null,
+  currentFreshness: null,
   overviewCampaignSelection: [],
   overviewCampaignOptions: [],
   overviewCampaignSearch: "",
@@ -39,6 +40,7 @@ const state = {
 
 const PAGE_KIND = document.body.dataset.pageKind;
 const REPORT_KIND = document.body.dataset.reportKind;
+const IS_SOURCE_LOCAL_REPORT = document.body.dataset.sourceLocalReport === "true";
 
 const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const moneyFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
@@ -2409,12 +2411,16 @@ async function refreshCurrentPage() {
   updateReportLinks();
   showLoadingState();
 
+  const freshnessPromise = fetchFreshness(currentFilterQuery());
   const params = currentApiQuery();
   const endpoint = PAGE_KIND === "hub"
     ? `/api/hub?${params.toString()}`
     : `/api/reports/${REPORT_KIND}?${params.toString()}`;
   const payload = await fetchJson(endpoint);
+  const freshness = await freshnessPromise;
   state.currentPayload = payload;
+  state.currentFreshness = freshness;
+  renderFreshness(freshness);
 
   if (["auction", "ga4-overview", "ga4-impact", "ga4-funnel", "ga4-timing"].includes(REPORT_KIND)) {
     syncSourceLocalScopeInputs(payload.scope || {});
@@ -2590,6 +2596,16 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function fetchFreshness(params) {
+  const query = params.toString();
+  const endpoint = query ? `/api/freshness?${query}` : "/api/freshness";
+  try {
+    return await fetchJson(endpoint);
+  } catch (_error) {
+    return null;
+  }
+}
+
 function renderHub(payload) {
   renderInsights(payload.management_conclusions || [], "conclusions-grid");
   renderStatusCards(payload.status_cards || [], "status-card-grid");
@@ -2645,6 +2661,89 @@ function renderScope(scope, summary) {
   const start = summary.report_date_start ? formatDate(summary.report_date_start) : formatDate(scope.date_from);
   const end = summary.report_date_end ? formatDate(summary.report_date_end) : formatDate(scope.date_to);
   document.getElementById("coverage-badge").textContent = `${start} to ${end}`;
+}
+
+function renderFreshness(freshness) {
+  const badge = document.getElementById("freshness-badge");
+  const detail = document.getElementById("freshness-detail");
+  const banner = document.getElementById("freshness-banner");
+  const bannerTitle = document.getElementById("freshness-banner-title");
+  const bannerDetail = document.getElementById("freshness-banner-detail");
+
+  if (!badge || !detail || !banner || !bannerTitle || !bannerDetail) {
+    return;
+  }
+
+  if (!freshness) {
+    badge.className = "badge badge-muted";
+    badge.textContent = "Freshness unavailable";
+    detail.textContent = "Reporting freshness could not be loaded.";
+    banner.className = "freshness-banner is-hidden";
+    bannerTitle.textContent = "";
+    bannerDetail.textContent = "";
+    return;
+  }
+
+  if (freshness.scope_type === "unscoped") {
+    badge.className = "badge badge-muted";
+    badge.textContent = "Select an account";
+    detail.textContent = "Freshness is shown for the selected account only.";
+    banner.className = "freshness-banner is-hidden";
+    bannerTitle.textContent = "";
+    bannerDetail.textContent = "";
+    return;
+  }
+
+  const status = String(freshness.freshness_status || "").toLowerCase();
+  const statusLabel = {
+    ok: "OK",
+    stale: "Stale",
+    error: "Error",
+    backfilling: "Backfilling",
+  }[status] || "Unknown";
+
+  badge.className = `badge badge-${status || "muted"}`;
+  badge.textContent = statusLabel;
+
+  const detailParts = [];
+  if (freshness.last_data_date) {
+    detailParts.push(`Last data date ${formatDate(freshness.last_data_date)}`);
+  } else {
+    detailParts.push("No report data is available yet.");
+  }
+  if (freshness.hours_since_last_data != null) {
+    detailParts.push(`${formatInteger(freshness.hours_since_last_data)} hours since last data`);
+  }
+  if (IS_SOURCE_LOCAL_REPORT) {
+    detailParts.push("Based on Ads reporting mart freshness.");
+  }
+  detail.textContent = detailParts.join(" · ");
+
+  if (status === "ok") {
+    banner.className = "freshness-banner is-hidden";
+    bannerTitle.textContent = "";
+    bannerDetail.textContent = "";
+    return;
+  }
+
+  banner.className = `freshness-banner ${status}`;
+  if (status === "stale") {
+    bannerTitle.textContent = "Reporting data is stale";
+    bannerDetail.textContent = freshness.last_data_date
+      ? `The selected account last has reporting data on ${formatDate(freshness.last_data_date)}. The page is still usable, but the numbers are older than expected.`
+      : "The selected account is older than expected and should be checked.";
+    return;
+  }
+  if (status === "error") {
+    bannerTitle.textContent = "Reporting freshness needs attention";
+    bannerDetail.textContent = freshness.last_data_date
+      ? `The selected account last has reporting data on ${formatDate(freshness.last_data_date)}. This is beyond the error threshold and likely indicates a pipeline issue.`
+      : "Freshness is in an error state for the selected account.";
+    return;
+  }
+
+  bannerTitle.textContent = "Reporting data is still being prepared";
+  bannerDetail.textContent = "This account is active, but report data is not available yet. The initial backfill or onboarding process may still be running.";
 }
 
 function syncSourceLocalScopeInputs(scope) {

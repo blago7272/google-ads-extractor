@@ -129,6 +129,10 @@ class BigQueryReportingService:
             ttl_seconds=settings.options_cache_ttl_seconds,
             max_entries=4,
         )
+        self.freshness_cache = TtlCache(
+            ttl_seconds=settings.freshness_cache_ttl_seconds,
+            max_entries=32,
+        )
         self.query_cache = TtlCache(
             ttl_seconds=settings.query_cache_ttl_seconds,
             max_entries=settings.query_cache_max_entries,
@@ -367,6 +371,67 @@ order by a.client_id, a.account_name
             }
 
         return self.options_cache.get_or_set(("filter_options",), load_options)
+
+    def get_freshness_data(
+        self,
+        *,
+        client_id: str | None,
+        account_id: str | None,
+    ) -> dict[str, Any]:
+        if not account_id:
+            return {
+                "scope_type": "unscoped",
+                "client_id": client_id,
+                "account_id": None,
+                "account_name": None,
+                "freshness_status": None,
+                "last_data_date": None,
+                "hours_since_last_data": None,
+                "checked_at": None,
+                "message": "Select an account to see reporting freshness.",
+            }
+
+        def load_freshness() -> dict[str, Any]:
+            sql = f"""
+select
+  client_id,
+  account_id,
+  account_name,
+  last_data_date,
+  hours_since_last_data,
+  freshness_status,
+  checked_at
+from {self.mart_table('mart_data_freshness')}
+where account_id = @account_id
+  and (@client_id is null or client_id = @client_id)
+limit 1
+"""
+            rows = self._run_query(
+                sql,
+                parameters=[
+                    bigquery.ScalarQueryParameter("account_id", "STRING", account_id),
+                    bigquery.ScalarQueryParameter("client_id", "STRING", client_id),
+                ],
+            )
+            if not rows:
+                return {
+                    "scope_type": "account",
+                    "client_id": client_id,
+                    "account_id": account_id,
+                    "account_name": None,
+                    "freshness_status": "backfilling",
+                    "last_data_date": None,
+                    "hours_since_last_data": None,
+                    "checked_at": None,
+                    "message": "Freshness is not available yet for this account.",
+                }
+
+            row = rows[0]
+            row["scope_type"] = "account"
+            row["message"] = None
+            return row
+
+        return self.freshness_cache.get_or_set(("freshness", client_id, account_id), load_freshness)
 
     def resolve_scope(
         self,

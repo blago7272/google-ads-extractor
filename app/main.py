@@ -348,6 +348,20 @@ def filter_options(
     return filtered
 
 
+@app.get("/api/freshness")
+def freshness_data(
+    request: Request,
+    client_id: str | None = Query(default=None),
+    account_id: str | None = Query(default=None),
+    service: BigQueryReportingService = Depends(get_reporting_service),
+) -> dict[str, object]:
+    client_id, account_id = _enforce_scope(request, client_id, account_id)
+    try:
+        return service.get_freshness_data(client_id=client_id, account_id=account_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/api/hub")
 def hub_data(
     request: Request,

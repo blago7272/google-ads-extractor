@@ -255,7 +255,8 @@ Data freshness requirements:
 
 Freshness baseline for phase 1:
 
-- warning threshold: data older than `24h`
+- stale threshold: data older than `36h`
+- error threshold: data older than `72h`
 
 ## Recommended First Production Rollout
 

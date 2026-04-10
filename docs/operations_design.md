@@ -165,9 +165,10 @@ select
     day
   ) as days_lag,
   case
-    when r.last_raw_date >= date_sub(current_date(a.account_timezone), interval 1 day) then 'healthy'
-    when r.last_raw_date is null then 'error'
-    else 'error'
+    when r.last_raw_date is null then 'backfilling'
+    when timestamp_diff(current_timestamp(), timestamp(r.last_raw_date), hour) > 72 then 'error'
+    when timestamp_diff(current_timestamp(), timestamp(r.last_raw_date), hour) > 36 then 'stale'
+    else 'ok'
   end as freshness_status,
   current_timestamp() as checked_at
 from active_accounts a
@@ -192,15 +193,17 @@ Recommended freshness outputs by account:
 
 Recommended freshness states:
 
-- `healthy`
-- `warning`
+- `ok`
+- `stale`
 - `error`
+- `backfilling`
 
 Recommended thresholds:
 
-- `healthy`: up to `36h`
-- `warning`: more than `36h`
+- `ok`: up to `36h`
+- `stale`: more than `36h`
 - `error`: more than `72h`
+- `backfilling`: no mart data yet for the active account
 
 Recommended checks:
 

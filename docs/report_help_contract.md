@@ -57,6 +57,16 @@ The help layer should:
 - text:
   A pacing heuristic means the report is inferring that a campaign may have stopped serving too early in the day from its spend pattern. It is an investigation signal, not proof of a hard budget cap.
 
+### Global App Shell
+
+#### Note ID: `global.reporting_freshness.status_meaning`
+
+- report: `all`
+- panel: `Reporting freshness`
+- title: `What the freshness status means`
+- text:
+  `OK` means reporting data is recent enough, `Stale` means data exists but is older than expected, `Error` means the data is well beyond the allowed delay, and `Backfilling` means the account is active but report data is not available yet.
+
 ## Change Rules
 
 - Add help entries here before introducing new persistent help text in the UI.

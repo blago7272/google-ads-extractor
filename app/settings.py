@@ -14,6 +14,7 @@ class ReportingAppSettings:
     default_window_days: int = int(os.getenv("REPORTING_DEFAULT_WINDOW_DAYS", "30"))
     app_title: str = os.getenv("REPORTING_APP_TITLE", "Google Ads Signal Board")
     options_cache_ttl_seconds: int = int(os.getenv("REPORTING_OPTIONS_CACHE_TTL_SECONDS", "3600"))
+    freshness_cache_ttl_seconds: int = int(os.getenv("REPORTING_FRESHNESS_CACHE_TTL_SECONDS", "300"))
     query_cache_ttl_seconds: int = int(os.getenv("REPORTING_QUERY_CACHE_TTL_SECONDS", "900"))
     query_cache_max_entries: int = int(os.getenv("REPORTING_QUERY_CACHE_MAX_ENTRIES", "256"))
     oauth_client_id: str = os.getenv("OAUTH_CLIENT_ID", "")

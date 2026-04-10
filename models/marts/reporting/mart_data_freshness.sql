@@ -13,15 +13,14 @@ freshness as (
         a.client_id,
         cast(a.account_id as string) as account_id,
         a.account_name,
-        coalesce(l.last_data_date, date('1970-01-01')) as last_data_date,
-        timestamp_diff(
-            current_timestamp(),
-            timestamp(coalesce(l.last_data_date, date('1970-01-01'))),
-            hour
-        ) as hours_since_last_data,
+        l.last_data_date as last_data_date,
+        case
+            when l.last_data_date is null then null
+            else timestamp_diff(current_timestamp(), timestamp(l.last_data_date), hour)
+        end as hours_since_last_data,
         case
             when l.last_data_date is null then 'backfilling'
-            when timestamp_diff(current_timestamp(), timestamp(l.last_data_date), hour) > 168 then 'error'
+            when timestamp_diff(current_timestamp(), timestamp(l.last_data_date), hour) > 72 then 'error'
             when timestamp_diff(current_timestamp(), timestamp(l.last_data_date), hour) > 36 then 'stale'
             else 'ok'
         end as freshness_status,
