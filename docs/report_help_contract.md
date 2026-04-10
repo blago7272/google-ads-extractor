@@ -59,13 +59,13 @@ The help layer should:
 
 ### Global App Shell
 
-#### Note ID: `global.date_filters.calendar_presets`
+#### Note ID: `global.date_filters.presets`
 
 - report: `all`
 - panel: `Date filters`
-- title: `How calendar presets work`
+- title: `How date presets work`
 - text:
-  `Current month`, `Past month`, and `Year-to-date` are anchored to the latest available report date in the current scope, not to future calendar dates with no data.
+  Rolling presets like `Last 7 days`, `Last 14 days`, and `Last 30 days`, plus calendar presets like `Current month`, `Past month`, and `Year-to-date`, are all anchored to the latest available report date in the current scope, not to future calendar dates with no data.
 
 #### Note ID: `global.reporting_freshness.status_meaning`
 

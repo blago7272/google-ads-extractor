@@ -451,6 +451,9 @@ def test_index_renders_hub_shell() -> None:
     assert "Google Ads Signal Board" in response.text
     assert "Reporting freshness" in response.text
     assert "Date preset" in response.text
+    assert "Last 7 days" in response.text
+    assert "Last 14 days" in response.text
+    assert "Last 30 days" in response.text
     assert "Current month" in response.text
     assert "Past month" in response.text
     assert "Year-to-date" in response.text

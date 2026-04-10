@@ -1115,7 +1115,16 @@ function getDatePresetRange(preset) {
   let start;
   let end;
 
-  if (preset === "current_month") {
+  if (preset === "last_7_days") {
+    start = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate() - 6));
+    end = anchor;
+  } else if (preset === "last_14_days") {
+    start = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate() - 13));
+    end = anchor;
+  } else if (preset === "last_30_days") {
+    start = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate() - 29));
+    end = anchor;
+  } else if (preset === "current_month") {
     start = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
     end = anchor;
   } else if (preset === "past_month") {
@@ -1169,7 +1178,7 @@ function detectDatePreset(dateFrom, dateTo) {
     return DATE_PRESET_CUSTOM;
   }
 
-  const presetKeys = ["current_month", "past_month", "ytd"];
+  const presetKeys = ["last_7_days", "last_14_days", "last_30_days", "current_month", "past_month", "ytd"];
   for (const preset of presetKeys) {
     const range = getDatePresetRange(preset);
     if (range && range.date_from === dateFrom && range.date_to === dateTo) {
