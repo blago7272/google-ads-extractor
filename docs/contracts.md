@@ -87,7 +87,8 @@ Rules:
 - `account_id='__all__'` grants access to all accounts within the given `client_id`
 - `role='admin'` uses `__all__/__all__` and bypasses client/account scoping in the UI
 - OAuth session issuance must validate the callback `state` against a
-  short-lived, httpOnly cookie before granting access
+  short-lived, httpOnly cookie, marked `Secure` on HTTPS, before granting
+  access
 
 ## Staging Contracts
 

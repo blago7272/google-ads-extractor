@@ -14,13 +14,14 @@ client data, and enforces access isolation at the application layer.
 Google OAuth 2.0 via Google ID tokens.
 
 - Users click "Sign in with Google" on the app.
-- The login redirect issues a short-lived, httpOnly OAuth `state` cookie.
+- The login redirect issues a short-lived, httpOnly OAuth `state` cookie,
+  marked `Secure` on HTTPS.
 - The app receives a Google ID token, verifies it server-side, and extracts
   the user's email address.
 - The OAuth callback must validate the returned `state` value against the
   cookie before issuing an application session.
 - No passwords are stored or managed by the application.
-- Session is maintained via a signed cookie.
+- Session is maintained via a signed cookie, marked `Secure` on HTTPS.
 
 ## Session
 

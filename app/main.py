@@ -138,6 +138,13 @@ def _base_context(request: Request, settings: ReportingAppSettings, **extra) -> 
     return context
 
 
+def _request_uses_https(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    if forwarded_proto:
+        return forwarded_proto.split(",")[0].strip().lower() == "https"
+    return request.url.scheme == "https"
+
+
 def _set_oauth_state_cookie(response: RedirectResponse, request: Request, state: str) -> None:
     response.set_cookie(
         key=OAUTH_STATE_COOKIE_NAME,
@@ -145,7 +152,7 @@ def _set_oauth_state_cookie(response: RedirectResponse, request: Request, state:
         max_age=OAUTH_STATE_MAX_AGE_SECONDS,
         httponly=True,
         samesite="lax",
-        secure=request.url.scheme == "https",
+        secure=_request_uses_https(request),
         path="/auth/callback",
     )
 
@@ -208,7 +215,7 @@ def auth_callback(
         max_age=settings.session_max_age_seconds,
         httponly=True,
         samesite="lax",
-        secure=request.url.scheme == "https",
+        secure=_request_uses_https(request),
     )
     _clear_oauth_state_cookie(response)
     return response

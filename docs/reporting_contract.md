@@ -292,7 +292,7 @@ Purpose:
 - Application queries must always filter by `client_id`.
 - Cost and value metrics must preserve original account currency semantics before any reporting-currency conversion.
 - Hosted OAuth callbacks must validate `state` against a short-lived,
-  httpOnly cookie before issuing an app session.
+  httpOnly cookie, marked `Secure` on HTTPS, before issuing an app session.
 
 ## Managed Account Contract
 

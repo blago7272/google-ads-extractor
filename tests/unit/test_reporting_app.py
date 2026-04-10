@@ -567,6 +567,46 @@ def test_auth_callback_sets_session_on_matching_state(monkeypatch) -> None:
     assert response.cookies.get("session")
 
 
+def test_auth_login_marks_state_cookie_secure_for_forwarded_https() -> None:
+    app.dependency_overrides[get_settings] = _auth_test_settings
+
+    response = client.get("/auth/login", headers={"x-forwarded-proto": "https"}, follow_redirects=False)
+
+    assert response.status_code == 307
+    assert "Secure" in response.headers["set-cookie"]
+
+
+def test_auth_callback_marks_session_cookie_secure_for_forwarded_https(monkeypatch) -> None:
+    app.dependency_overrides[get_settings] = _auth_test_settings
+    client.cookies.set("oauth_state", "expected-state")
+
+    monkeypatch.setattr(
+        main_module,
+        "exchange_code_for_id_token",
+        lambda code, settings: {"email": "viewer@example.com"},
+    )
+    monkeypatch.setattr(
+        main_module,
+        "lookup_user_grants",
+        lambda email, settings: UserSession(
+            email=email,
+            role="viewer",
+            allowed_clients=["sexwell"],
+            allowed_accounts={"sexwell": ["__all__"]},
+        ),
+    )
+
+    response = client.get(
+        "/auth/callback?code=test-code&state=expected-state",
+        headers={"x-forwarded-proto": "https"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert "session=" in response.headers["set-cookie"]
+    assert "Secure" in response.headers["set-cookie"]
+
+
 def test_dashboard_endpoint_accepts_campaign_regex() -> None:
     response = client.get(
         "/api/dashboard",
