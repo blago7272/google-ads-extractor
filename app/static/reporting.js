@@ -41,13 +41,14 @@ const state = {
 const PAGE_KIND = document.body.dataset.pageKind;
 const REPORT_KIND = document.body.dataset.reportKind;
 const IS_SOURCE_LOCAL_REPORT = document.body.dataset.sourceLocalReport === "true";
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_PRESET_CUSTOM = "custom";
 
 const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const moneyFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const moneyPreciseFormat = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const decimalFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const decimalFixedFormat = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const dateFormat = new Intl.DateTimeFormat("en-GB", { year: "numeric", month: "short", day: "numeric" });
 
 const KPI_DEFS = [
   { key: "cost_eur", label: "Spend (EUR)", formatter: formatMoney },
@@ -1104,6 +1105,119 @@ function buildTimingMatrixColumns(metricKey) {
   ];
 }
 
+function getDatePresetRange(preset) {
+  const anchorIso = getDatePresetAnchor();
+  if (!anchorIso) {
+    return null;
+  }
+
+  const anchor = parseIsoDate(anchorIso);
+  let start;
+  let end;
+
+  if (preset === "current_month") {
+    start = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
+    end = anchor;
+  } else if (preset === "past_month") {
+    start = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - 1, 1));
+    end = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 0));
+  } else if (preset === "ytd") {
+    start = new Date(Date.UTC(anchor.getUTCFullYear(), 0, 1));
+    end = anchor;
+  } else {
+    return null;
+  }
+
+  return {
+    date_from: toIsoDate(start),
+    date_to: toIsoDate(end),
+  };
+}
+
+function getDatePresetAnchor() {
+  const options = state.options;
+  if (!options) {
+    return null;
+  }
+
+  const clientId = document.getElementById("client-select")?.value || "";
+  const accountId = document.getElementById("account-select")?.value || "";
+  const accounts = options.accounts || [];
+  let relevantAccounts = accounts;
+
+  if (accountId) {
+    relevantAccounts = accounts.filter((account) => account.account_id === accountId);
+  } else if (clientId) {
+    relevantAccounts = accounts.filter((account) => account.client_id === clientId);
+  }
+
+  const scopedMaxDate = relevantAccounts.reduce((latest, account) => {
+    if (!account.max_report_date) {
+      return latest;
+    }
+    if (!latest || account.max_report_date > latest) {
+      return account.max_report_date;
+    }
+    return latest;
+  }, "");
+
+  return scopedMaxDate || options.date_bounds?.max_report_date || options.defaults?.date_to || null;
+}
+
+function detectDatePreset(dateFrom, dateTo) {
+  if (!isIsoDateString(dateFrom) || !isIsoDateString(dateTo)) {
+    return DATE_PRESET_CUSTOM;
+  }
+
+  const presetKeys = ["current_month", "past_month", "ytd"];
+  for (const preset of presetKeys) {
+    const range = getDatePresetRange(preset);
+    if (range && range.date_from === dateFrom && range.date_to === dateTo) {
+      return preset;
+    }
+  }
+  return DATE_PRESET_CUSTOM;
+}
+
+function syncDatePresetSelection() {
+  const presetSelect = document.getElementById("date-preset-select");
+  const dateFromInput = document.getElementById("date-from-input");
+  const dateToInput = document.getElementById("date-to-input");
+  if (!presetSelect || !dateFromInput || !dateToInput) {
+    return;
+  }
+  presetSelect.value = detectDatePreset(dateFromInput.value.trim(), dateToInput.value.trim());
+}
+
+function applyDatePreset(preset, options = {}) {
+  const dateFromInput = document.getElementById("date-from-input");
+  const dateToInput = document.getElementById("date-to-input");
+  const presetSelect = document.getElementById("date-preset-select");
+  if (!dateFromInput || !dateToInput || !presetSelect) {
+    return false;
+  }
+
+  if (!preset || preset === DATE_PRESET_CUSTOM) {
+    presetSelect.value = DATE_PRESET_CUSTOM;
+    return false;
+  }
+
+  const range = getDatePresetRange(preset);
+  if (!range) {
+    presetSelect.value = DATE_PRESET_CUSTOM;
+    return false;
+  }
+
+  dateFromInput.value = range.date_from;
+  dateToInput.value = range.date_to;
+  clearValidatedInputError("date-from-input");
+  clearValidatedInputError("date-to-input");
+  if (options.syncSelection !== false) {
+    presetSelect.value = preset;
+  }
+  return true;
+}
+
 function bindFilterEvents() {
   document.getElementById("filters-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1127,6 +1241,7 @@ function bindFilterEvents() {
       document.getElementById("account-select").value = state.options.defaults.account_id;
     }
     syncFeatureFlags();
+    syncDatePresetSelection();
     updateReportLinks();
     await refreshCurrentPage();
   });
@@ -1141,6 +1256,8 @@ function bindFilterEvents() {
     resetAuctionFilters();
     syncAccountOptions();
     syncFeatureFlags();
+    applyDatePreset(document.getElementById("date-preset-select")?.value || DATE_PRESET_CUSTOM, { syncSelection: false });
+    syncDatePresetSelection();
     updateReportLinks();
   });
 
@@ -1153,10 +1270,24 @@ function bindFilterEvents() {
     state.timingAdGroupSearch = "";
     resetAuctionFilters();
     syncFeatureFlags();
+    applyDatePreset(document.getElementById("date-preset-select")?.value || DATE_PRESET_CUSTOM, { syncSelection: false });
+    syncDatePresetSelection();
     updateReportLinks();
   });
-  document.getElementById("date-from-input").addEventListener("change", updateReportLinks);
-  document.getElementById("date-to-input").addEventListener("change", updateReportLinks);
+  document.getElementById("date-preset-select").addEventListener("change", () => {
+    if (applyDatePreset(document.getElementById("date-preset-select").value)) {
+      updateReportLinks();
+      return;
+    }
+    updateReportLinks();
+  });
+  ["date-from-input", "date-to-input"].forEach((inputId) => {
+    document.getElementById(inputId).addEventListener("change", () => {
+      clearValidatedInputError(inputId);
+      syncDatePresetSelection();
+      updateReportLinks();
+    });
+  });
 }
 
 function bindPageSpecificEvents() {
@@ -2282,6 +2413,7 @@ function populateFilters(options) {
   state.overviewCampaignSelection = urlFilters.campaign_names || [];
   state.overviewCampaignSearch = "";
   syncFeatureFlags();
+  syncDatePresetSelection();
   updateReportLinks();
 }
 
@@ -2354,18 +2486,18 @@ function currentFilterQuery() {
   const params = new URLSearchParams();
   const clientId = document.getElementById("client-select").value;
   const accountId = document.getElementById("account-select").value;
-  const dateFrom = document.getElementById("date-from-input").value;
-  const dateTo = document.getElementById("date-to-input").value;
+  const dateFrom = document.getElementById("date-from-input").value.trim();
+  const dateTo = document.getElementById("date-to-input").value.trim();
   if (clientId) {
     params.set("client_id", clientId);
   }
   if (accountId) {
     params.set("account_id", accountId);
   }
-  if (dateFrom) {
+  if (isIsoDateString(dateFrom)) {
     params.set("date_from", dateFrom);
   }
-  if (dateTo) {
+  if (isIsoDateString(dateTo)) {
     params.set("date_to", dateTo);
   }
   const selectedCampaigns = REPORT_KIND === "overview" ? getSelectedOverviewCampaigns() : [];
@@ -2562,6 +2694,34 @@ async function refreshTimingMatrixOnly() {
 }
 
 function validatePageFilters() {
+  const dateFromInput = document.getElementById("date-from-input");
+  const dateToInput = document.getElementById("date-to-input");
+  const dateFromValue = dateFromInput?.value.trim() || "";
+  const dateToValue = dateToInput?.value.trim() || "";
+
+  if (dateFromInput) {
+    dateFromInput.value = dateFromValue;
+  }
+  if (dateToInput) {
+    dateToInput.value = dateToValue;
+  }
+
+  if (!validateIsoDateInput("date-from-input", "Date from")) {
+    return false;
+  }
+  if (!validateIsoDateInput("date-to-input", "Date to")) {
+    return false;
+  }
+  if (dateFromValue && dateToValue && dateFromValue > dateToValue) {
+    const input = document.getElementById("date-to-input");
+    if (input) {
+      input.classList.add("is-invalid");
+      input.setCustomValidity("Date to must be on or after Date from.");
+      input.reportValidity();
+    }
+    return false;
+  }
+
   const campaignRegexInput = document.getElementById("campaign-regex-input");
   if (!campaignRegexInput) {
     return true;
@@ -2758,6 +2918,7 @@ function syncSourceLocalScopeInputs(scope) {
   if (scope.date_to && dateToInput.value !== scope.date_to) {
     dateToInput.value = scope.date_to;
   }
+  syncDatePresetSelection();
   updateReportLinks();
 }
 
@@ -4368,11 +4529,44 @@ function toIsoDate(dateValue) {
   return dateValue.toISOString().slice(0, 10);
 }
 
-function formatShortDate(value) {
-  if (!value) {
-    return "—";
+function isIsoDateString(value) {
+  if (!value || !ISO_DATE_RE.test(String(value))) {
+    return false;
   }
-  return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return toIsoDate(parseIsoDate(value)) === String(value);
+}
+
+function validateIsoDateInput(inputId, label) {
+  const input = document.getElementById(inputId);
+  if (!input) {
+    return true;
+  }
+  const value = input.value.trim();
+  if (!value) {
+    clearValidatedInputError(inputId);
+    return true;
+  }
+  if (!isIsoDateString(value)) {
+    input.classList.add("is-invalid");
+    input.setCustomValidity(`${label} must use YYYY-MM-DD.`);
+    input.reportValidity();
+    return false;
+  }
+  clearValidatedInputError(inputId);
+  return true;
+}
+
+function clearValidatedInputError(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) {
+    return;
+  }
+  input.setCustomValidity("");
+  clearInputError(inputId);
+}
+
+function formatShortDate(value) {
+  return formatDate(value);
 }
 
 function formatTrendBucketAxisLabel(bucket, grain) {
@@ -4390,21 +4584,10 @@ function formatTrendBucketHoverLabel(bucket, grain) {
 }
 
 function formatDateSpan(startValue, endValue, options = {}) {
-  const start = parseIsoDate(startValue);
-  const end = parseIsoDate(endValue);
-  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
-  const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
-  const startMonth = start.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
-  const endMonth = end.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
-  const includeYear = options.includeYear === true;
-
   if (startValue === endValue) {
     return formatDate(startValue);
   }
-  if (sameMonth) {
-    return `${start.getUTCDate()}-${end.getUTCDate()} ${endMonth}${includeYear ? ` ${end.getUTCFullYear()}` : ""}`;
-  }
-  return `${start.getUTCDate()} ${startMonth}-${end.getUTCDate()} ${endMonth}${includeYear || !sameYear ? ` ${end.getUTCFullYear()}` : ""}`;
+  return `${formatDate(startValue)} to ${formatDate(endValue)}`;
 }
 
 function buildLinePoints(values, width, height, padding, maxValue) {
@@ -4584,10 +4767,10 @@ function formatPercentPoint(value) {
 }
 
 function formatDate(value) {
-  if (!value) {
+  if (!value || !isIsoDateString(value)) {
     return "—";
   }
-  return dateFormat.format(new Date(`${value}T00:00:00`));
+  return String(value);
 }
 
 function formatTimingMatrixDateLabel(value) {

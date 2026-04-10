@@ -450,6 +450,11 @@ def test_index_renders_hub_shell() -> None:
     assert response.status_code == 200
     assert "Google Ads Signal Board" in response.text
     assert "Reporting freshness" in response.text
+    assert "Date preset" in response.text
+    assert "Current month" in response.text
+    assert "Past month" in response.text
+    assert "Year-to-date" in response.text
+    assert 'placeholder="YYYY-MM-DD"' in response.text
     assert "Detailed reports" in response.text
     assert "Time grain" in response.text
     assert "Top primary" in response.text

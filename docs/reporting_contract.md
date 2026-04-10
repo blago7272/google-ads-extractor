@@ -507,6 +507,7 @@ Contract note:
 
 - null search terms are excluded in staging
 - search term reporting is expected to remain daily-grain so filters like "last 7 days" or "this month" are trustworthy
+- the shared app shell supports calendar presets for `Current month`, `Past month`, and `Year-to-date`, and all user-facing date fields should render in `YYYY-MM-DD`
 
 ### 5. Budget Exhaustion
 

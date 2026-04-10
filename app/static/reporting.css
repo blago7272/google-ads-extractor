@@ -223,7 +223,7 @@ body {
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
   gap: 14px;
   align-items: end;
 }
@@ -348,6 +348,7 @@ body {
 .filter-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .primary-button,

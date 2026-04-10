@@ -67,6 +67,15 @@
       <section class="filter-panel">
         <form id="filters-form" class="filters-grid">
           <label>
+            <span>Date preset</span>
+            <select id="date-preset-select" name="date_preset">
+              <option value="custom">Custom</option>
+              <option value="current_month">Current month</option>
+              <option value="past_month">Past month</option>
+              <option value="ytd">Year-to-date</option>
+            </select>
+          </label>
+          <label>
             <span>Client</span>
             <select id="client-select" name="client_id"{% if is_source_local_report %} disabled{% endif %}></select>
           </label>
@@ -76,11 +85,11 @@
           </label>
           <label>
             <span>Date from</span>
-            <input id="date-from-input" name="date_from" type="date">
+            <input id="date-from-input" name="date_from" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}">
           </label>
           <label>
             <span>Date to</span>
-            <input id="date-to-input" name="date_to" type="date">
+            <input id="date-to-input" name="date_to" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}">
           </label>
           <div class="filter-actions">
             <button class="primary-button" type="submit">Refresh report</button>

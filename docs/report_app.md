@@ -15,7 +15,7 @@ It intentionally does not recreate reporting logic in Python. BigQuery remains t
 The app is responsible for:
 
 - report routing
-- client, account, and date filters
+- client, account, and date filters, including calendar presets
 - short-lived response caching
 - interactive rendering
 - client-side sorting
@@ -69,6 +69,8 @@ The current app layer also includes:
 
 - compact table mode by default across reports: first `10` rows visible, internal scroll for longer result sets, and `Expand all` only when needed
 - filtered summary rows above all table bodies
+- shared filter-shell date presets for `Current month`, `Past month`, and `Year-to-date`, anchored to the latest available date in the current scope
+- ISO date inputs and rendered date labels in `YYYY-MM-DD`
 - regex search on the keyword-audit table
 - issue-type dropdown filtering and footer row counts on the keyword-audit table
 - search-term threshold filters for conversions, spend, and ROAS
