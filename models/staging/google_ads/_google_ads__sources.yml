@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: reporting_cfg
+    database: "{{ var('raw_project_id', target.project) }}"
+    schema: gads_reporting_cfg
+    tables:
+      - name: ecb_exchange_rates_daily
+        description: >
+          Daily ECB reference exchange rates loaded by scripts/fx_rates_backfill.py.
+          Contains one row per (currency, report_date) with the ECB rate and its EUR inverse.
+          Partitioned by report_date, clustered by currency.
+        columns:
+          - name: currency
+            description: ISO currency code (EUR, USD, GBP, RON, MXN, BGN)
+          - name: report_date
+            description: Business date of the rate
+          - name: eur_exchange_rate
+            description: "Inverse ECB rate: 1 unit of currency = X EUR"

@@ -114,10 +114,11 @@ Phase-1 release orchestration:
 - `Cloud Scheduler` triggers one `reporting-release-orchestrator` `Cloud Run Job`
 - the orchestrator runs the release phases sequentially in one invocation:
   1. raw freshness probe
-  2. `dbt run` in `stage`
-  3. `dbt test` in `stage`
-  4. `dbt run` in `prod`
-  5. `dbt test` in `prod`
+  2. ECB exchange rate refresh (fetches latest daily rates from ECB API)
+  3. `dbt run` in `stage`
+  4. `dbt test` in `stage`
+  5. `dbt run` in `prod`
+  6. `dbt test` in `prod`
 - the job exits on the first failing gate
 - prod never starts from a separate fixed scheduler entry
 

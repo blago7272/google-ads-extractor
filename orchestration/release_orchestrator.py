@@ -13,6 +13,7 @@ from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 
 from orchestration.dbt_cli import DbtRuntimeConfig, parse_select_tokens, run_dbt_build, run_dbt_seeds, run_dbt_tests
+from orchestration.ecb_fx_refresh import EcbFxRefreshConfig, EcbFxRefreshResult, run_ecb_fx_refresh
 from orchestration.logging_utils import emit_log
 from orchestration.raw_freshness import (
     AccountFreshnessResult,
@@ -132,6 +133,23 @@ def run_release(
         emit_log("release_completed", completed_steps=completed_steps, prod_skipped=True)
         return ReleaseOutcome(tuple(completed_steps), freshness_summary, True)
 
+    # --- ECB exchange rate refresh (runs after freshness gate, before dbt) ---
+    ecb_fx_config = EcbFxRefreshConfig(project_id=config.raw_freshness.project_id)
+
+    def ecb_fx_refresh_step() -> None:
+        result = run_ecb_fx_refresh(ecb_fx_config, client=bq_client)
+        emit_log(
+            "ecb_fx_refresh_summary",
+            rows_fetched=result.rows_fetched,
+            rows_loaded=result.rows_loaded,
+            date_range=result.date_range,
+        )
+
+    _run_step("ecb_fx_refresh", ecb_fx_refresh_step, completed_steps)
+    if config.stop_after_step == "ecb_fx_refresh":
+        emit_log("release_completed", completed_steps=completed_steps, prod_skipped=True)
+        return ReleaseOutcome(tuple(completed_steps), freshness_summary, True)
+
     def ensure_seed_state(target: str) -> None:
         if config.dbt_runtime.run_seeds:
             emit_log("seed_sync_requested", target=target)
@@ -235,7 +253,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--stage-target", default=os.getenv("STAGE_DBT_TARGET", "stage"))
     parser.add_argument("--prod-target", default=os.getenv("PROD_DBT_TARGET", "prod"))
     parser.add_argument("--skip-prod", action="store_true", default=_env_bool("SKIP_PROD"))
-    parser.add_argument("--stop-after-step", choices=("raw_freshness_gate", "stage_build", "stage_test", "prod_build"))
+    parser.add_argument("--stop-after-step", choices=("raw_freshness_gate", "ecb_fx_refresh", "stage_build", "stage_test", "prod_build"))
     parser.add_argument("--run-seeds", action="store_true", default=_env_bool("DBT_RUN_SEEDS"))
     parser.add_argument(
         "--no-bootstrap-missing-seeds",

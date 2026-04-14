@@ -36,8 +36,9 @@ Configuration tables:
 - `cfg_accounts`
 - `cfg_account_groups`
 - `cfg_thresholds`
-- `cfg_exchange_rates`
+- `cfg_exchange_rates` (legacy seed, fallback only)
 - `cfg_segments`
+- `ecb_exchange_rates_daily` (daily ECB reference rates, loaded by orchestrator)
 
 ### `gads_reporting_stg`
 
