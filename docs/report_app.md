@@ -71,6 +71,7 @@ The current app layer also includes:
 - filtered summary rows above all table bodies
 - shared filter-shell date presets for `Last 7 days`, `Last 14 days`, `Last 30 days`, `Current month`, `Past month`, and `Year-to-date`, anchored to the latest available date in the current scope
 - ISO date inputs and rendered date labels in `YYYY-MM-DD`
+- ID Consult brand shell with the official logo, `Raleway` headings, `Roboto` body text, and the live-site purple palette, without changing report behavior
 - regex search on the keyword-audit table
 - issue-type dropdown filtering and footer row counts on the keyword-audit table
 - search-term threshold filters for conversions, spend, and ROAS

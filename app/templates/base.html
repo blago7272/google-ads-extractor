@@ -6,17 +6,26 @@
     <title>{{ page_title }} | {{ app_title }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/reporting.css">
   </head>
   <body data-page-kind="{{ page_kind }}" data-report-kind="{{ report_name or '' }}" data-source-local-report="{{ 'true' if is_source_local_report else 'false' }}">
     <div class="page-shell">
-      {% if user_email %}
-      <div class="user-bar">
-        <span class="user-bar-email">{{ user_email }}{% if is_admin %} <span class="badge badge-admin">admin</span>{% endif %}</span>
-        <a href="/auth/logout" class="user-bar-logout">Sign out</a>
+      <div class="brand-bar panel-lite">
+        <a href="/" class="brand-link">
+          <img class="brand-logo" src="/static/branding/idconsult-logo-horizontal.png" alt="ID Consult">
+          <div class="brand-copy">
+            <span class="brand-kicker">Signal Board</span>
+            <strong class="brand-title">Reporting Workspace</strong>
+          </div>
+        </a>
+        {% if user_email %}
+        <div class="user-bar">
+          <span class="user-bar-email">{{ user_email }}{% if is_admin %} <span class="badge badge-admin">admin</span>{% endif %}</span>
+          <a href="/auth/logout" class="user-bar-logout">Sign out</a>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
       <header class="hero">
         <div class="hero-copy">
           <p class="eyebrow">{% if is_ga4_report %}GA4 ecommerce reporting{% elif report_name == "auction" %}Auction source reporting{% else %}Ads reporting{% endif %}</p>

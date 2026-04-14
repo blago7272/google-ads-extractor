@@ -508,6 +508,7 @@ Contract note:
 - null search terms are excluded in staging
 - search term reporting is expected to remain daily-grain so filters like "last 7 days" or "this month" are trustworthy
 - the shared app shell supports presets for `Last 7 days`, `Last 14 days`, `Last 30 days`, `Current month`, `Past month`, and `Year-to-date`, and all user-facing date fields should render in `YYYY-MM-DD`
+- the shared app shell may use ID Consult logo, typography, and color branding, but this must remain a visual-only layer and must not change filtering, permissions, or report logic
 
 ### 5. Budget Exhaustion
 

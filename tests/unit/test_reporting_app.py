@@ -449,6 +449,8 @@ def test_index_renders_hub_shell() -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert "Google Ads Signal Board" in response.text
+    assert "Reporting Workspace" in response.text
+    assert "/static/branding/idconsult-logo-horizontal.png" in response.text
     assert "Reporting freshness" in response.text
     assert "Date preset" in response.text
     assert "Last 7 days" in response.text
