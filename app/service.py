@@ -901,7 +901,7 @@ where report_date between @date_from and @date_to
         if isinstance(max_report_date, str):
             max_report_date = date.fromisoformat(max_report_date)
         matrix_to = min(max_report_date, capped_to)
-        matrix_from = max(scope.date_from, matrix_to - timedelta(days=max(matrix_days - 1, 0)))
+        matrix_from = matrix_to - timedelta(days=max(matrix_days - 1, 0))
         return matrix_from, matrix_to
 
     def _timing_matrix_query(
