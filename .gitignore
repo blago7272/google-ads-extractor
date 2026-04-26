@@ -8,3 +8,9 @@ target/
 __pycache__/
 *.pyc
 profiles/.user.yml
+# Local working files
+.claude/
+.~lock.*#
+analysis/
+discovery/
+*.docx
