@@ -7,6 +7,9 @@ campaigns as (
 accounts as (
     select * from {{ ref('cfg_accounts') }}
 ),
+healthy_accounts as (
+    select account_id from {{ ref('stg_account_freshness') }} where freshness_status = 'healthy'
+),
 fx_daily as (
     select * from {{ ref('stg_account_fx_rates_daily') }}
 ),
@@ -33,6 +36,8 @@ hourly_enriched as (
     join accounts a
         on h.account_id = cast(a.account_id as string)
        and a.is_active = true
+    join healthy_accounts ha
+        on h.account_id = ha.account_id
     left join fx_daily fxd
         on h.account_id = fxd.account_id
        and h.report_date = fxd.report_date

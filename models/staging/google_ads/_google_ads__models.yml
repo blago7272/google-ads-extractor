@@ -136,6 +136,21 @@ models:
       - name: eur_exchange_rate
         tests: [not_null]
 
+  - name: stg_account_freshness
+    description: Per-account raw-data freshness classification for the current run. Healthy accounts have lag <= RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS; stale accounts are excluded from mart builds.
+    columns:
+      - name: account_id
+        tests: [not_null, unique]
+      - name: client_id
+        tests: [not_null]
+      - name: account_name
+        tests: [not_null]
+      - name: freshness_status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['healthy', 'stale']
+
   - name: stg_exchange_rates_latest
     description: Latest configured EUR exchange rate per currency.
     columns:

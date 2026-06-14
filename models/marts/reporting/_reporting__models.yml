@@ -44,6 +44,32 @@ seeds:
         tests: [not_null]
 
 models:
+  - name: mart_skipped_accounts
+    description: Accounts excluded from the current mart build due to stale raw data. Use this to understand which accounts were skipped and why.
+    columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
+      - name: account_id
+        data_type: string
+        tests: [not_null, unique]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: last_raw_date
+        data_type: date
+      - name: days_lag
+        data_type: int64
+      - name: freshness_status
+        data_type: string
+        tests: [not_null]
+      - name: exclusion_reason
+        data_type: string
+        tests: [not_null]
+      - name: evaluated_at
+        data_type: timestamp
+        tests: [not_null]
+
   - name: mart_ads_overview_daily
     description: Daily account overview mart for the HTML overview page.
     columns:
