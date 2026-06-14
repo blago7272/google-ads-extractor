@@ -61,7 +61,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
         )
         self.assertEqual(
             outcome.completed_steps,
-            ("raw_freshness_gate", "stage_build", "stage_test", "prod_build", "prod_test"),
+            ("raw_freshness_gate", "ecb_fx_refresh", "stage_build", "stage_test", "prod_build", "prod_test"),
         )
         self.assertFalse(outcome.prod_skipped)
 
@@ -111,7 +111,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
         )
 
         self.assertEqual(calls, [("build", "stage"), ("test", "stage")])
-        self.assertEqual(outcome.completed_steps, ("raw_freshness_gate", "stage_build", "stage_test"))
+        self.assertEqual(outcome.completed_steps, ("raw_freshness_gate", "ecb_fx_refresh", "stage_build", "stage_test"))
         self.assertTrue(outcome.prod_skipped)
 
 
