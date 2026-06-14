@@ -5,7 +5,7 @@ import unittest
 
 from orchestration.dbt_cli import DbtRuntimeConfig
 from orchestration.raw_freshness import RawFreshnessConfig, RawFreshnessSummary
-from orchestration.release_orchestrator import ReleaseOrchestratorConfig, ReleaseStepFailed, run_release
+from orchestration.release_orchestrator import ReleaseOrchestratorConfig, run_release
 
 
 class ReleaseOrchestratorTest(unittest.TestCase):
@@ -65,12 +65,17 @@ class ReleaseOrchestratorTest(unittest.TestCase):
         )
         self.assertFalse(outcome.prod_skipped)
 
-    def test_release_stops_on_failed_raw_freshness(self) -> None:
+    def test_release_does_not_block_on_stale_accounts(self) -> None:
+        # Soft freshness gate: a stale account must NOT fail the release.
+        # Stale accounts are excluded at the mart layer by the selective-freshness
+        # models and auto-rejoin once their raw data resumes, so the pipeline
+        # proceeds through every step instead of blocking everyone.
+        calls: list[tuple[str, str]] = []
         summary = RawFreshnessSummary(
-            account_count=1,
-            ready_count=0,
+            account_count=2,
+            ready_count=1,
             failing_count=1,
-            max_allowed_lag_days=0,
+            max_allowed_lag_days=3,
             checked_at=datetime(2026, 3, 23, tzinfo=timezone.utc),
             failing_accounts=(),
         )
@@ -78,10 +83,28 @@ class ReleaseOrchestratorTest(unittest.TestCase):
         def fake_probe(_config: RawFreshnessConfig):
             return [], summary
 
-        with self.assertRaises(ReleaseStepFailed) as ctx:
-            run_release(self._config(), freshness_probe=fake_probe)
+        def fake_build(target: str, _runtime: DbtRuntimeConfig) -> None:
+            calls.append(("build", target))
 
-        self.assertEqual(ctx.exception.step_name, "raw_freshness_gate")
+        def fake_test(target: str, _runtime: DbtRuntimeConfig) -> None:
+            calls.append(("test", target))
+
+        outcome = run_release(
+            self._config(),
+            freshness_probe=fake_probe,
+            dbt_build_runner=fake_build,
+            dbt_test_runner=fake_test,
+        )
+
+        self.assertEqual(
+            outcome.completed_steps,
+            ("raw_freshness_gate", "ecb_fx_refresh", "stage_build", "stage_test", "prod_build", "prod_test"),
+        )
+        self.assertEqual(
+            calls,
+            [("build", "stage"), ("test", "stage"), ("build", "prod"), ("test", "prod")],
+        )
+        self.assertFalse(outcome.prod_skipped)
 
     def test_release_can_stop_after_stage_test(self) -> None:
         calls: list[tuple[str, str]] = []

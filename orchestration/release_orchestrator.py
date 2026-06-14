@@ -18,7 +18,6 @@ from orchestration.logging_utils import emit_log
 from orchestration.raw_freshness import (
     AccountFreshnessResult,
     RawFreshnessConfig,
-    RawFreshnessGateFailed,
     RawFreshnessSummary,
     failing_accounts_payload,
     parse_timestamp,
@@ -120,12 +119,16 @@ def run_release(
             checked_at=freshness_summary.checked_at,
         )
         if not freshness_summary.is_ready:
+            # Soft (non-blocking) gate. Stale accounts no longer fail the release:
+            # the selective-freshness mart models (stg_account_freshness +
+            # healthy_accounts joins) exclude stale accounts from the mart builds,
+            # and each account is automatically re-included once its raw data
+            # resumes. We only emit a warning here for observability.
             emit_log(
-                "raw_freshness_gate_failed",
-                level="ERROR",
+                "raw_freshness_gate_warning",
+                level="WARNING",
                 failing_accounts=failing_accounts_payload(freshness_results),
             )
-            raise RawFreshnessGateFailed(freshness_summary)
 
     _run_step("raw_freshness_gate", raw_freshness_gate, completed_steps)
     assert freshness_summary is not None
