@@ -2,13 +2,13 @@ client_id,account_id,account_name,timezone,currency,is_active,has_auction_insigh
 external,2696190839,Агри Гейт Медия ООД,Europe/Sofia,EUR,false,false,false,
 idconsult,5168566988,*Europa EUR,Europe/Sofia,EUR,true,false,false,
 idconsult,4866322944,[EUR] Sleepy.bg,Europe/Sofia,EUR,true,false,false,
-idconsult,4225655970,Abrites,Europe/Sofia,EUR,true,false,false,
+idconsult,4225655970,Abrites,Europe/Sofia,EUR,false,false,false,Inactive — last data 2026-06-09
 idconsult,5216994417,Adapt BG EUR,Europe/Sofia,EUR,true,false,false,
 idconsult,4450767011,Adapt RO Eur,Europe/Sofia,EUR,true,false,false,
 idconsult,8283227085,Aerosus,Europe/Berlin,EUR,true,false,false,
 idconsult,4450825619,Aerosus - USA,America/Chicago,EUR,true,false,false,
 idconsult,6301999348,Badinka.com_f,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
-idconsult,4532197439,Balkan eCommerce Summit,Europe/Sofia,EUR,true,false,false,
+idconsult,4532197439,Balkan eCommerce Summit,Europe/Sofia,EUR,false,false,false,Inactive — last data 2026-04-26
 idconsult,6707195129,Balkan eCommerce Summit,Europe/Sofia,BGN,false,false,false,
 idconsult,9508783605,Balkan eCommerce-- 950-878-3605,Europe/Sofia,BGN,false,false,false,Inactive — last data 2023-12
 idconsult,8394432568,Boulevard BG,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
@@ -52,10 +52,10 @@ idconsult,4125761958,Sofia AirPark,Europe/Sofia,EUR,true,false,false,
 idconsult,2415006639,tez-tour.com/bg_ar,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
 idconsult,6651498454,TF--Display & Video,Europe/Sofia,EUR,false,false,false,Inactive — last data 2025-10
 idconsult,7782189325,TF--Search,Europe/Sofia,EUR,false,false,false,Inactive — last data 2026-02
-idconsult,5861433372,Tiger Technology,Europe/Sofia,USD,true,false,false,
+idconsult,5861433372,Tiger Technology,Europe/Sofia,USD,false,false,false,Inactive — last data 2026-06-04
 idconsult,3634318107,Toplease.bg,Europe/Sofia,EUR,true,false,false,
 idconsult,8427406614,TopRentaCar,Europe/Sofia,EUR,true,false,false,
-idconsult,4151214925,Toprentacar - RO,Europe/Sofia,EUR,true,false,false,
+idconsult,4151214925,Toprentacar - RO,Europe/Sofia,EUR,false,false,false,Inactive — last data 2026-06-09
 idconsult,8546938162,Tradeify FX LLC,America/New_York,USD,false,false,false,
 idconsult,2091100064,ZooMagazin.BG - Paused,Europe/Sofia,BGN,false,false,false,Inactive — last data 2024-10
 idconsult,3831220411,Zoomagazin.eu - IDC,Europe/Sofia,BGN,false,false,false,Inactive — last data 2025-09
