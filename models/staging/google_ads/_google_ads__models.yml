@@ -87,7 +87,12 @@ models:
         tests: [not_null]
 
   - name: stg_ad_group_dimension_latest
-    description: Latest ad group dimension state per account and transfer source.
+    description: >
+      Latest ad group dimension state per account and transfer source. Accumulating
+      incremental table: each run merges only the last `dimension_snapshot_lookback_days`
+      of raw daily snapshots onto the stored state, instead of rescanning the full
+      `p_ads_AdGroup_*` snapshot history. Ad groups that stop appearing in recent
+      snapshots retain their last-known attributes.
     columns:
       - name: account_id
         tests: [not_null]
