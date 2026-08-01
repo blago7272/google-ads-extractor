@@ -1,5 +1,32 @@
+{#
+    Latest ad dimension state per account and transfer source.
+
+    The raw `p_ads_Ad_*` transfer tables are DAILY FULL SNAPSHOTS: every partition
+    repeats every ad that existed on that day. Reading the whole wildcard on every run
+    therefore rescans the entire snapshot history just to pick the newest row per ad —
+    ~164 GB per execution, growing by one full snapshot every day.
+
+    This model is an accumulating dimension instead: it merges only the most recent
+    snapshot partitions onto the previously stored state. Ads that stop appearing in
+    recent snapshots (paused/removed) keep their last-known attributes, so historical
+    stats rows in the downstream marts stay enriched.
+
+    A full refresh (`dbt run --full-refresh`) rebuilds from the complete history.
+#}
+
+{{
+    config(
+        materialized='incremental',
+        incremental_strategy='merge',
+        unique_key=['transfer_source', 'account_id', 'campaign_id', 'ad_group_id', 'ad_id'],
+        cluster_by=['account_id', 'campaign_id'],
+        on_schema_change='sync_all_columns',
+    )
+}}
+
 {% set raw_project = var('raw_project_id', target.project) %}
 {% set raw_dataset = var('raw_dataset', 'gads_raw') %}
+{% set lookback_days = var('dimension_snapshot_lookback_days', 7) | int %}
 
 with src as (
     select
@@ -34,6 +61,10 @@ with src as (
         ad_group_ad_ad_final_urls as final_urls,
         _PARTITIONTIME as loaded_at
     from `{{ raw_project }}.{{ raw_dataset }}.p_ads_Ad_*`
+    {% if is_incremental() %}
+    -- Constant expression, so BigQuery prunes to the lookback partitions only.
+    where _PARTITIONDATE >= date_sub(current_date(), interval {{ lookback_days }} day)
+    {% endif %}
 ),
 ranked as (
     select

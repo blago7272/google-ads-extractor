@@ -48,20 +48,32 @@ class ReleaseOrchestratorTest(unittest.TestCase):
         def fake_test(target: str, _runtime: DbtRuntimeConfig) -> None:
             calls.append(("test", target))
 
+        def fake_alert(*_args: object, **_kwargs: object) -> None:
+            calls.append(("alert", "freshness"))
+
         outcome = run_release(
             self._config(),
             freshness_probe=fake_probe,
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
+            skipped_accounts_alert_runner=fake_alert,
         )
 
         self.assertEqual(
             calls,
-            [("build", "stage"), ("test", "stage"), ("build", "prod"), ("test", "prod")],
+            [("alert", "freshness"), ("build", "stage"), ("test", "stage"), ("build", "prod"), ("test", "prod")],
         )
         self.assertEqual(
             outcome.completed_steps,
-            ("raw_freshness_gate", "ecb_fx_refresh", "stage_build", "stage_test", "prod_build", "prod_test"),
+            (
+                "raw_freshness_gate",
+                "skipped_accounts_alert",
+                "ecb_fx_refresh",
+                "stage_build",
+                "stage_test",
+                "prod_build",
+                "prod_test",
+            ),
         )
         self.assertFalse(outcome.prod_skipped)
 
@@ -89,20 +101,32 @@ class ReleaseOrchestratorTest(unittest.TestCase):
         def fake_test(target: str, _runtime: DbtRuntimeConfig) -> None:
             calls.append(("test", target))
 
+        def fake_alert(*_args: object, **_kwargs: object) -> None:
+            calls.append(("alert", "freshness"))
+
         outcome = run_release(
             self._config(),
             freshness_probe=fake_probe,
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
+            skipped_accounts_alert_runner=fake_alert,
         )
 
         self.assertEqual(
             outcome.completed_steps,
-            ("raw_freshness_gate", "ecb_fx_refresh", "stage_build", "stage_test", "prod_build", "prod_test"),
+            (
+                "raw_freshness_gate",
+                "skipped_accounts_alert",
+                "ecb_fx_refresh",
+                "stage_build",
+                "stage_test",
+                "prod_build",
+                "prod_test",
+            ),
         )
         self.assertEqual(
             calls,
-            [("build", "stage"), ("test", "stage"), ("build", "prod"), ("test", "prod")],
+            [("alert", "freshness"), ("build", "stage"), ("test", "stage"), ("build", "prod"), ("test", "prod")],
         )
         self.assertFalse(outcome.prod_skipped)
 
@@ -126,15 +150,25 @@ class ReleaseOrchestratorTest(unittest.TestCase):
         def fake_test(target: str, _runtime: DbtRuntimeConfig) -> None:
             calls.append(("test", target))
 
+        def fake_alert(*_args: object, **_kwargs: object) -> None:
+            calls.append(("alert", "freshness"))
+
         outcome = run_release(
             self._config(stop_after_step="stage_test"),
             freshness_probe=fake_probe,
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
+            skipped_accounts_alert_runner=fake_alert,
         )
 
-        self.assertEqual(calls, [("build", "stage"), ("test", "stage")])
-        self.assertEqual(outcome.completed_steps, ("raw_freshness_gate", "ecb_fx_refresh", "stage_build", "stage_test"))
+        self.assertEqual(calls, [("alert", "freshness"), ("build", "stage"), ("test", "stage")])
+        self.assertEqual(outcome.completed_steps, (
+                "raw_freshness_gate",
+                "skipped_accounts_alert",
+                "ecb_fx_refresh",
+                "stage_build",
+                "stage_test",
+            ))
         self.assertTrue(outcome.prod_skipped)
 
 

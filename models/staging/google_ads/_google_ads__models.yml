@@ -99,7 +99,12 @@ models:
         tests: [not_null]
 
   - name: stg_keyword_dimension_latest
-    description: Latest keyword dimension state per account and transfer source.
+    description: >
+      Latest keyword dimension state per account and transfer source. Accumulating
+      incremental table: each run merges only the last `dimension_snapshot_lookback_days`
+      of raw daily snapshots onto the stored state, instead of rescanning the full
+      `p_ads_Keyword_*` snapshot history. Keywords that stop appearing in recent
+      snapshots retain their last-known attributes.
     columns:
       - name: account_id
         tests: [not_null]
@@ -160,7 +165,12 @@ models:
         tests: [not_null]
 
   - name: stg_ad_dimension_latest
-    description: Latest ad dimension state per account and transfer source.
+    description: >
+      Latest ad dimension state per account and transfer source. Accumulating
+      incremental table: each run merges only the last `dimension_snapshot_lookback_days`
+      of raw daily snapshots onto the stored state, instead of rescanning the full
+      `p_ads_Ad_*` snapshot history. Ads that stop appearing in recent snapshots
+      retain their last-known attributes.
     columns:
       - name: account_id
         tests: [not_null]

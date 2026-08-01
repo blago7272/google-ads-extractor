@@ -44,6 +44,7 @@ class AccountFreshnessResult:
     expected_last_date: date
     last_raw_date: date | None
     max_allowed_lag_days: int = 0
+    account_name: str | None = None
 
     @property
     def days_lag(self) -> int | None:
@@ -88,6 +89,7 @@ with active_accounts as (
   select
     client_id,
     cast(account_id as string) as account_id,
+    account_name,
     timezone as account_timezone
   from `{config.project_id}.{config.cfg_dataset}.{config.cfg_accounts_table}`
   where is_active = true
@@ -102,6 +104,7 @@ raw_max_dates as (
 select
   a.client_id,
   a.account_id,
+  a.account_name,
   a.account_timezone,
   date_sub(date(@execution_ts, a.account_timezone), interval 1 day) as expected_last_date,
   r.last_raw_date
@@ -133,6 +136,7 @@ def fetch_raw_freshness_results(
             expected_last_date=row["expected_last_date"],
             last_raw_date=row["last_raw_date"],
             max_allowed_lag_days=config.max_allowed_lag_days,
+            account_name=row["account_name"],
         )
         for row in rows
     ]
@@ -171,6 +175,7 @@ def failing_accounts_payload(results: Iterable[AccountFreshnessResult]) -> list[
         {
             "client_id": result.client_id,
             "account_id": result.account_id,
+            "account_name": result.account_name,
             "account_timezone": result.account_timezone,
             "expected_last_date": result.expected_last_date,
             "last_raw_date": result.last_raw_date,

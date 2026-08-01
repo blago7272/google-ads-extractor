@@ -1,5 +1,31 @@
+{#
+    Latest keyword dimension state per account and transfer source.
+
+    Same shape as stg_ad_dimension_latest: the raw `p_ads_Keyword_*` transfer tables
+    are DAILY FULL SNAPSHOTS (~788M rows / ~200 GB for ~2.6M distinct keywords), so
+    reading the full wildcard on every run rescans all history to pick the newest row
+    per keyword — ~22 GB per execution and growing daily.
+
+    Accumulating dimension: merge only the recent snapshot partitions onto the stored
+    state. Keywords that stop appearing keep their last-known attributes, so historical
+    stats rows in the downstream marts stay enriched.
+
+    A full refresh (`dbt run --full-refresh`) rebuilds from the complete history.
+#}
+
+{{
+    config(
+        materialized='incremental',
+        incremental_strategy='merge',
+        unique_key=['transfer_source', 'account_id', 'campaign_id', 'ad_group_id', 'keyword_id'],
+        cluster_by=['account_id', 'campaign_id'],
+        on_schema_change='sync_all_columns',
+    )
+}}
+
 {% set raw_project = var('raw_project_id', target.project) %}
 {% set raw_dataset = var('raw_dataset', 'gads_raw') %}
+{% set lookback_days = var('dimension_snapshot_lookback_days', 7) | int %}
 
 with src as (
     select
@@ -20,6 +46,10 @@ with src as (
         ad_group_criterion_position_estimates_top_of_page_cpc_micros / 1000000.0 as top_of_page_cpc_original,
         _PARTITIONTIME as loaded_at
     from `{{ raw_project }}.{{ raw_dataset }}.p_ads_Keyword_*`
+    {% if is_incremental() %}
+    -- Constant expression, so BigQuery prunes to the lookback partitions only.
+    where _PARTITIONDATE >= date_sub(current_date(), interval {{ lookback_days }} day)
+    {% endif %}
 ),
 ranked as (
     select

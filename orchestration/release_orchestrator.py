@@ -24,6 +24,10 @@ from orchestration.raw_freshness import (
     run_raw_freshness_probe,
 )
 from orchestration.schema_mapping import resolve_schema_name
+from orchestration.skipped_accounts_alert import (
+    SkippedAccountsAlertConfig,
+    run_skipped_accounts_alert,
+)
 
 
 def _repo_root() -> Path:
@@ -45,6 +49,7 @@ class ReleaseOrchestratorConfig:
     prod_target: str = "prod"
     skip_prod: bool = False
     stop_after_step: str | None = None
+    skipped_accounts_alert: SkippedAccountsAlertConfig | None = None
 
 
 @dataclass(frozen=True)
@@ -92,6 +97,7 @@ def run_release(
     dbt_build_runner: Callable[[str, DbtRuntimeConfig], None] = run_dbt_build,
     dbt_seed_runner: Callable[[str, DbtRuntimeConfig], None] = run_dbt_seeds,
     dbt_test_runner: Callable[[str, DbtRuntimeConfig], None] = run_dbt_tests,
+    skipped_accounts_alert_runner: Callable[..., object] = run_skipped_accounts_alert,
 ) -> ReleaseOutcome:
     emit_log(
         "release_started",
@@ -132,6 +138,33 @@ def run_release(
 
     _run_step("raw_freshness_gate", raw_freshness_gate, completed_steps)
     assert freshness_summary is not None
+
+    def skipped_accounts_alert() -> None:
+        # Announces accounts that dropped out of (or rejoined) the marts. Guarded
+        # end to end: a broken notifier or a missing state table must never fail a
+        # release whose data is fine.
+        alert_config = config.skipped_accounts_alert or SkippedAccountsAlertConfig.from_env(
+            project_id=config.raw_freshness.project_id,
+            cfg_dataset=config.raw_freshness.cfg_dataset,
+            report_timezone=os.getenv("DBT_REPORT_TIMEZONE", "Europe/Sofia"),
+            max_allowed_lag_days=config.raw_freshness.max_allowed_lag_days,
+        )
+        try:
+            skipped_accounts_alert_runner(
+                freshness_results,
+                alert_config,
+                execution_ts=config.raw_freshness.execution_ts,
+                client=bq_client,
+            )
+        except Exception as exc:  # noqa: BLE001 - alerting must not break the release
+            emit_log(
+                "skipped_accounts_alert_failed",
+                level="ERROR",
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+
+    _run_step("skipped_accounts_alert", skipped_accounts_alert, completed_steps)
     if config.stop_after_step == "raw_freshness_gate":
         emit_log("release_completed", completed_steps=completed_steps, prod_skipped=True)
         return ReleaseOutcome(tuple(completed_steps), freshness_summary, True)
@@ -243,6 +276,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=int(os.getenv("RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS", "0")),
     )
     parser.add_argument(
+        "--report-timezone",
+        default=os.getenv("DBT_REPORT_TIMEZONE", "Europe/Sofia"),
+        help="Timezone used to measure account staleness; must match the dbt report_timezone var.",
+    )
+    parser.add_argument(
         "--execution-ts",
         default=os.getenv("RELEASE_EXECUTION_TS"),
         help="Optional ISO-8601 timestamp override for release evaluation.",
@@ -324,6 +362,12 @@ def main() -> int:
         test_select=parse_select_tokens(args.test_select, ()),
         seed_select=parse_select_tokens(args.seed_select, ()),
     )
+    skipped_accounts_alert = SkippedAccountsAlertConfig.from_env(
+        project_id=args.project_id,
+        cfg_dataset=args.cfg_dataset,
+        report_timezone=args.report_timezone,
+        max_allowed_lag_days=args.max_allowed_lag_days,
+    )
     config = ReleaseOrchestratorConfig(
         raw_freshness=raw_freshness,
         dbt_runtime=dbt_runtime,
@@ -331,6 +375,7 @@ def main() -> int:
         prod_target=args.prod_target,
         skip_prod=args.skip_prod,
         stop_after_step=args.stop_after_step,
+        skipped_accounts_alert=skipped_accounts_alert,
     )
 
     try:

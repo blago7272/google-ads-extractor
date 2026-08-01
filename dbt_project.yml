@@ -15,6 +15,12 @@ vars:
   raw_project_id: "gads-export-all"
   raw_dataset: "gads_raw"
   report_timezone: "Europe/Sofia"
+  # How many days of raw snapshot partitions the accumulating dimension models
+  # (stg_ad_dimension_latest, stg_keyword_dimension_latest) re-read on each
+  # incremental run. Must comfortably exceed the longest expected gap between
+  # orchestrator runs; a longer gap only delays attribute updates, it never
+  # drops rows. Raise it if the daily release is paused for more than a week.
+  dimension_snapshot_lookback_days: 7
 
 models:
   google_ads_extractor:
