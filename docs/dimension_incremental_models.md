@@ -56,11 +56,18 @@ attributes forever.
 
 | | Before | After | Reduction |
 |---|---|---|---|
-| `stg_ad_dimension_latest` build | 370.7 GiB | **1.8 GiB** | 99.5% |
-| `stg_keyword_dimension_latest` build | 96.9 GiB | **785.7 MiB** | 99.2% |
-| `stg_ad_group_dimension_latest` build | 15.1 GiB | **129.9 MiB** | 99.2% |
+| `stg_ad_dimension_latest` build | 370.7 GiB | **10.58 GB** | 97.1% |
+| `stg_keyword_dimension_latest` build | 96.9 GiB | **2.90 GB** | 97.0% |
+| `stg_ad_group_dimension_latest` build | 15.1 GiB | **0.46 GB** | 97.0% |
 | `mart_ads_ad_performance_daily` | 394 GB | **28.3 GiB** | 92.8% |
 | `mart_ads_ad_group_daily` | 26.8 GB | **16.9 GiB** | 37% |
+
+The "after" figures are **billed** bytes for the whole model, taken from
+`INFORMATION_SCHEMA.JOBS_BY_PROJECT`. dbt-bigquery's `merge` strategy issues *two*
+jobs per incremental run — a `CREATE TABLE AS SELECT` for the temp batch, then the
+`MERGE` — and the per-model line dbt prints only reports the second one. For
+`stg_ad_dimension_latest` that is 8.80 GB (temp) + 1.78 GB (merge) = 10.58 GB.
+Measure incremental models from `JOBS_BY_PROJECT`, not from dbt's log line.
 
 Correctness verified against the full snapshot history:
 

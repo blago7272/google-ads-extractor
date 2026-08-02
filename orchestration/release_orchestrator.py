@@ -48,8 +48,24 @@ class ReleaseOrchestratorConfig:
     stage_target: str = "stage"
     prod_target: str = "prod"
     skip_prod: bool = False
+    include_stage: bool = False
     stop_after_step: str | None = None
     skipped_accounts_alert: SkippedAccountsAlertConfig | None = None
+
+    @property
+    def runs_stage(self) -> bool:
+        """Whether this release builds and tests the stage target.
+
+        Off by default: the daily refresh goes straight to prod. Stage still runs
+        when explicitly requested (`--include-stage`), when prod is skipped (a
+        stage-only CI run, which would otherwise do nothing), or when the caller
+        asked to stop after a stage step.
+        """
+        return (
+            self.include_stage
+            or self.skip_prod
+            or self.stop_after_step in ("stage_build", "stage_test")
+        )
 
 
 @dataclass(frozen=True)
@@ -214,25 +230,33 @@ def run_release(
             dbt_seed_runner(target, config.dbt_runtime)
             emit_log("seed_bootstrap_completed", target=target, cfg_schema=cfg_schema)
 
-    ensure_seed_state(config.stage_target)
+    if config.runs_stage:
+        ensure_seed_state(config.stage_target)
 
-    _run_step(
-        "stage_build",
-        lambda: dbt_build_runner(config.stage_target, config.dbt_runtime),
-        completed_steps,
-    )
-    if config.stop_after_step == "stage_build":
-        emit_log("release_completed", completed_steps=completed_steps, prod_skipped=True)
-        return ReleaseOutcome(tuple(completed_steps), freshness_summary, True)
+        _run_step(
+            "stage_build",
+            lambda: dbt_build_runner(config.stage_target, config.dbt_runtime),
+            completed_steps,
+        )
+        if config.stop_after_step == "stage_build":
+            emit_log("release_completed", completed_steps=completed_steps, prod_skipped=True)
+            return ReleaseOutcome(tuple(completed_steps), freshness_summary, True)
 
-    _run_step(
-        "stage_test",
-        lambda: dbt_test_runner(config.stage_target, config.dbt_runtime),
-        completed_steps,
-    )
-    if config.stop_after_step == "stage_test":
-        emit_log("release_completed", completed_steps=completed_steps, prod_skipped=True)
-        return ReleaseOutcome(tuple(completed_steps), freshness_summary, True)
+        _run_step(
+            "stage_test",
+            lambda: dbt_test_runner(config.stage_target, config.dbt_runtime),
+            completed_steps,
+        )
+        if config.stop_after_step == "stage_test":
+            emit_log("release_completed", completed_steps=completed_steps, prod_skipped=True)
+            return ReleaseOutcome(tuple(completed_steps), freshness_summary, True)
+    else:
+        # Stage is an exact duplicate of prod -- same code, same raw data -- and
+        # nothing reads the stage datasets except its own tests. It is a CI gate for
+        # code changes, not part of the daily data refresh, so the daily run skips
+        # it and prod_test remains the gate. Pass --include-stage (or --skip-prod,
+        # which implies it) to run the stage half.
+        emit_log("stage_release_skipped", reason="stage not requested for this run")
 
     if config.skip_prod:
         emit_log("prod_release_skipped", reason="skip_prod flag")
@@ -294,6 +318,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--stage-target", default=os.getenv("STAGE_DBT_TARGET", "stage"))
     parser.add_argument("--prod-target", default=os.getenv("PROD_DBT_TARGET", "prod"))
     parser.add_argument("--skip-prod", action="store_true", default=_env_bool("SKIP_PROD"))
+    parser.add_argument(
+        "--include-stage",
+        action="store_true",
+        default=_env_bool("INCLUDE_STAGE"),
+        help=(
+            "Build and test the stage target before prod. Off by default: stage is a "
+            "CI gate for code changes, not part of the daily refresh. Implied by --skip-prod."
+        ),
+    )
     parser.add_argument("--stop-after-step", choices=("raw_freshness_gate", "ecb_fx_refresh", "stage_build", "stage_test", "prod_build"))
     parser.add_argument("--run-seeds", action="store_true", default=_env_bool("DBT_RUN_SEEDS"))
     parser.add_argument(
@@ -374,6 +407,7 @@ def main() -> int:
         stage_target=args.stage_target,
         prod_target=args.prod_target,
         skip_prod=args.skip_prod,
+        include_stage=args.include_stage,
         stop_after_step=args.stop_after_step,
         skipped_accounts_alert=skipped_accounts_alert,
     )

@@ -119,7 +119,10 @@ Then open `http://127.0.0.1:8000`.
 - `scripts/raw_freshness_check.py`
   Manual raw-import gate against active accounts in `cfg_accounts`.
 - `scripts/release_orchestrator.py`
-  Runs raw freshness, stage build, stage tests, prod build, and prod tests in order.
+  Runs raw freshness, skipped-account alerting, the ECB FX refresh, then the prod
+  build and prod tests in order. Stage is **not** part of the daily path — pass
+  `--include-stage` to build stage before prod, or `--skip-prod` for a stage-only
+  validation run. See `docs/pipeline_cost_optimizations.md`.
   It also bootstraps missing config seeds in the target environment on first run.
 - `profiles/profiles.yml`
   dbt profile template for `dev`, `stage`, and `prod` targets.

@@ -21,6 +21,16 @@ vars:
   # orchestrator runs; a longer gap only delays attribute updates, it never
   # drops rows. Raise it if the daily release is paused for more than a week.
   dimension_snapshot_lookback_days: 7
+  # Start of the dense date spine in stg_account_fx_rates_daily. Must sit before
+  # the earliest report_date in any fact table — a date with no FX row produces a
+  # null cost_eur. Deliberately generous: extra rows are ~1 KB each and unused.
+  # `stg_account_fx_rates_daily_covers_reported_dates` fails if this drifts too late.
+  fx_spine_start_date: "2019-01-01"
+  # How far back stg_account_fx_rates_daily will carry a published ECB rate forward
+  # to cover dates with no rate. Must outlast a real ECB feed outage, not just a long
+  # weekend — the feed went dark for 13 days over 2026-05-26..06-07. Widening this is
+  # always safe: the nearest prior rate still wins, so it can only fill gaps.
+  fx_carry_forward_days: 30
 
 models:
   google_ads_extractor:
