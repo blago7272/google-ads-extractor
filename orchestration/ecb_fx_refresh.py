@@ -30,11 +30,59 @@ class EcbFxRefreshConfig:
     dataset: str = "gads_reporting_cfg"
     table: str = "ecb_exchange_rates_daily"
     currencies: tuple[str, ...] = ("USD", "GBP", "RON", "MXN")
+    # Minimum window fetched on every run, even when the table is fully up to date.
     lookback_days: int = 7
+    # Re-fetch this far back past the stored watermark, to absorb a late ECB publication.
+    watermark_overlap_days: int = 2
+    # Ceiling on a catch-up window, so a corrupt watermark cannot trigger a huge fetch.
+    max_catchup_days: int = 400
 
     @property
     def full_table(self) -> str:
         return f"{self.project_id}.{self.dataset}.{self.table}"
+
+
+@dataclass(frozen=True)
+class RefreshWindow:
+    start_date: date
+    end_date: date
+    reason: str
+    capped: bool = False
+
+
+def resolve_refresh_window(
+    latest_loaded: date | None,
+    end_date: date,
+    config: EcbFxRefreshConfig,
+) -> RefreshWindow:
+    """Decide how far back to fetch, so a gap of any length self-heals.
+
+    A fixed `today - lookback_days` window cannot recover from an outage longer
+    than the lookback: the window slides past the missing dates and nothing ever
+    fetches them again. That is exactly how 2026-05-26..06-05 was lost -- the
+    pipeline froze, a manual backfill caught up to 05-25, and by the time the
+    release resumed on 06-14 the 7-day window only reached back to 06-08.
+
+    So anchor the start on the stored watermark instead, and keep the fixed
+    lookback as a floor so a healthy run still re-fetches recent days (ECB can
+    publish late). An absurd watermark is capped rather than trusted.
+    """
+    default_start = end_date - timedelta(days=config.lookback_days)
+
+    if latest_loaded is None:
+        # No rows yet. A daily job should not attempt to seed all history --
+        # that is what scripts/fx_rates_backfill.py is for.
+        return RefreshWindow(default_start, end_date, "no_existing_rows")
+
+    catchup_start = latest_loaded - timedelta(days=config.watermark_overlap_days)
+    start_date = min(default_start, catchup_start)
+
+    floor = end_date - timedelta(days=config.max_catchup_days)
+    if start_date < floor:
+        return RefreshWindow(floor, end_date, "catchup_capped", capped=True)
+
+    reason = "watermark_catchup" if start_date < default_start else "steady_state"
+    return RefreshWindow(start_date, end_date, reason)
 
 
 @dataclass(frozen=True)
@@ -88,6 +136,38 @@ def _fetch_ecb_rates(
     return rows
 
 
+def _latest_loaded_date(
+    client: bigquery.Client,
+    config: EcbFxRefreshConfig,
+) -> date | None:
+    """Most recent report_date already stored, for the currencies this job manages.
+
+    Scoped to `config.currencies` deliberately. The table also carries static
+    EUR/BGN rows written once by scripts/fx_rates_backfill.py, which stop at
+    whatever date that run covered; letting those set the watermark would drag
+    every refresh back months and re-fetch the same window forever.
+    """
+    query = f"""
+    select max(report_date) as latest_loaded
+    from `{config.full_table}`
+    where currency in ({", ".join(f"'{c}'" for c in config.currencies)})
+    """
+    try:
+        rows = list(client.query(query).result())
+    except Exception as exc:  # noqa: BLE001 - missing table on first run is not fatal
+        emit_log(
+            "ecb_fx_refresh_watermark_unavailable",
+            level="WARNING",
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
+        return None
+
+    if not rows:
+        return None
+    return rows[0]["latest_loaded"]
+
+
 def run_ecb_fx_refresh(
     config: EcbFxRefreshConfig,
     *,
@@ -97,13 +177,27 @@ def run_ecb_fx_refresh(
     bq_client = client or bigquery.Client(project=config.project_id)
 
     end_date = date.today()
-    start_date = end_date - timedelta(days=config.lookback_days)
+    latest_loaded = _latest_loaded_date(bq_client, config)
+    window = resolve_refresh_window(latest_loaded, end_date, config)
+    start_date = window.start_date
+
+    if window.capped:
+        emit_log(
+            "ecb_fx_refresh_catchup_capped",
+            level="WARNING",
+            latest_loaded=latest_loaded,
+            max_catchup_days=config.max_catchup_days,
+            start_date=str(start_date),
+        )
 
     emit_log(
         "ecb_fx_refresh_started",
         currencies=list(config.currencies),
         start_date=str(start_date),
         end_date=str(end_date),
+        latest_loaded=latest_loaded,
+        window_reason=window.reason,
+        catchup_days=(end_date - start_date).days,
     )
 
     rows = _fetch_ecb_rates(config.currencies, str(start_date), str(end_date))
