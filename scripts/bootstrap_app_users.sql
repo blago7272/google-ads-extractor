@@ -15,13 +15,25 @@
 --   UPDATE `gads-export-all.gads_reporting_cfg.cfg_app_users`
 --   SET is_active = FALSE
 --   WHERE email = 'user@example.com';
+--
+-- To subscribe a user to Telegram notifications, set their chat id (nullable;
+-- app/telegram_bot.py only pushes to rows where it is non-NULL):
+--   UPDATE `gads-export-all.gads_reporting_cfg.cfg_app_users`
+--   SET telegram_chat_id = 123456789
+--   WHERE email = 'user@example.com';
+--
+-- Note: CREATE TABLE IF NOT EXISTS will not add telegram_chat_id to a table
+-- that predates it. On an existing deployment run:
+--   ALTER TABLE `gads-export-all.gads_reporting_cfg.cfg_app_users`
+--   ADD COLUMN IF NOT EXISTS telegram_chat_id INT64;
 
 CREATE TABLE IF NOT EXISTS `gads-export-all.gads_reporting_cfg.cfg_app_users` (
   email STRING NOT NULL,
   client_id STRING NOT NULL,
   account_id STRING NOT NULL,
   role STRING NOT NULL,
-  is_active BOOL NOT NULL
+  is_active BOOL NOT NULL,
+  telegram_chat_id INT64
 );
 
 -- Initial users: agency admin and test viewer
