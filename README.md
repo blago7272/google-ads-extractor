@@ -124,7 +124,11 @@ Then open `http://127.0.0.1:8000`.
 - `profiles/profiles.yml`
   dbt profile template for `dev`, `stage`, and `prod` targets.
 - `deploy/cloud_run/deploy_release_orchestrator.sh`
-  Deploys the orchestrator as a `Cloud Run Job`.
+  Deploys the orchestrator as a `Cloud Run Job`. Two modes: `release <project>
+  <region> <job> <image>` ships an image and preserves all existing config — use
+  this for every normal deploy; `provision ... <service_account> <env_file>`
+  rewrites the full container spec and is for first-time creation only (it
+  refuses to overwrite an existing job unless `FORCE=1`).
 - `deploy/cloud_run/create_release_scheduler.sh`
   Creates the daily `Cloud Scheduler` trigger against the Cloud Run Jobs API.
 
