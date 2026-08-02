@@ -45,13 +45,9 @@ Prerequisites:
 
 ## Rolling Creative-Metric Refresh
 
-The proposed rolling-refresh implementation lives only on
-`codex/pmax-rolling-refresh`.
-
-- window: 30 days
-- cadence: daily, after explicit approval of the transfer evidence
-- purpose: reprocess recent dates for late conversions and source corrections
-- boundary: no automatic schedule is enabled until separately approved
+The rolling-refresh implementation is now separately contracted in
+[`pmax_rolling_refresh_contract.md`](pmax_rolling_refresh_contract.md). It owns
+the native daily, 30-day transfer refresh and its acceptance evidence.
 
 A rolling window advances forward only. It does not create earlier history when
 first enabled.

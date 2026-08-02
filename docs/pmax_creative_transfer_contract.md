@@ -29,7 +29,8 @@ The isolated transfer is:
 - location: `europe`
 - destination dataset: `gads_pmax_creative_test`
 - mode: Custom Google Ads transfer
-- automatic scheduling: disabled
+- automatic scheduling: enabled only through the separate rolling-refresh
+  contract
 
 No object in `blissful-land-485813-e2` may consume this dataset until a separate
 reporting-consumer contract is approved.
@@ -57,6 +58,21 @@ Grain: `report_date × customer_id × campaign_id × asset_group_id`.
 
 Captures Google's top served asset combinations, equivalent to the PMax
 Combinations report.
+
+### Destination Objects
+
+The connector names the physical tables with the report name and MCC ID. The
+approved reporting-ready views are:
+
+| Report | Raw table | View |
+| --- | --- | --- |
+| Asset groups | `p_ads_pmax_asset_group_daily_8179020903` | `ads_pmax_asset_group_daily_8179020903` |
+| Assets | `p_ads_pmax_asset_group_asset_daily_8179020903` | `ads_pmax_asset_group_asset_daily_8179020903` |
+| Top combinations | `p_ads_pmax_top_combinations_daily_8179020903` | `ads_pmax_top_combinations_daily_8179020903` |
+
+All are in `gads-export-all.gads_pmax_creative_test`. The views include
+`segments_date`, `_DATA_DATE`, and `_LATEST_DATE`; consumers must retain their
+report-specific grain and may not use asset metrics as campaign totals.
 
 ## Query And Metric Rules
 
@@ -113,18 +129,15 @@ Before any later promotion, verify that:
 
 ## Promotion Boundary
 
-The validated transfer remains manual-only. No schedule is enabled by this
-contract or its deployment script.
-
-The next approved implementation branch is `codex/pmax-rolling-refresh`. It owns
-the proposed daily rolling 30-day refresh and requires separate explicit approval
-before any schedule is enabled. The historical queue is a later, distinct branch:
+The foundational transfer deployment script remains manual-only. The approved
+rolling configuration, schedule, and acceptance checks are owned solely by
+[`pmax_rolling_refresh_contract.md`](pmax_rolling_refresh_contract.md). The
+historical queue remains a later, distinct branch:
 `codex/pmax-historical-backfill`.
 
 ## Non-Goals
 
 - modify `gads_raw` or its standard transfer;
 - alter Google Sheets history, Meta data, or reporting in `blissful-land-485813-e2`;
-- enable a recurring transfer schedule;
 - backfill PMax history; or
 - use asset metrics as campaign totals.

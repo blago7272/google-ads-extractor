@@ -1,0 +1,17 @@
+{
+  "project_id": "gads-export-all",
+  "transfer_project_number": "638625952730",
+  "transfer_config": "projects/638625952730/locations/europe/transferConfigs/6a96a83d-0000-22b6-beb9-14223bb50dc6",
+  "data_source": "google_ads",
+  "destination_dataset": "gads_pmax_creative_test",
+  "display_name": "Google Ads MCC 8179020903 PMax Creative Test",
+  "schedule": "every day 08:00",
+  "schedule_timezone": "UTC",
+  "refresh_window_days": 30,
+  "report_views": [
+    "ads_pmax_asset_group_daily_8179020903",
+    "ads_pmax_asset_group_asset_daily_8179020903",
+    "ads_pmax_top_combinations_daily_8179020903"
+  ],
+  "historical_boundary_rule": "The active rolling window is [today-30, today-1] as defined by BigQuery Data Transfer Service; the historical queue must start immediately before that accepted boundary."
+}
