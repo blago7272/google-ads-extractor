@@ -114,6 +114,7 @@ def run_release(
     dbt_seed_runner: Callable[[str, DbtRuntimeConfig], None] = run_dbt_seeds,
     dbt_test_runner: Callable[[str, DbtRuntimeConfig], None] = run_dbt_tests,
     skipped_accounts_alert_runner: Callable[..., object] = run_skipped_accounts_alert,
+    daily_summary_pusher: Callable[[], None] | None = None,
 ) -> ReleaseOutcome:
     emit_log(
         "release_started",
@@ -279,6 +280,33 @@ def run_release(
         lambda: dbt_test_runner(config.prod_target, config.dbt_runtime),
         completed_steps,
     )
+
+    def telegram_daily_summary() -> None:
+        # Pushes the per-user daily summary to Telegram subscribers. Runs last, and
+        # only on a full green prod release -- every earlier exit path has already
+        # returned. Guarded end to end for the same reason as skipped_accounts_alert:
+        # the data is good and prod is published by this point, so a missing bot
+        # token, an unreachable Telegram or an empty subscriber table must never
+        # turn a successful release red.
+        try:
+            pusher = daily_summary_pusher
+            if pusher is None:
+                # Imported lazily so that a broken or missing notifier module -- it
+                # pulls in the web app's settings and its own BigQuery client -- is a
+                # warning here rather than an import error that kills the whole job.
+                from app.telegram_bot import push_daily_summary
+
+                pusher = push_daily_summary
+            pusher()
+        except Exception as exc:  # noqa: BLE001 - notification must not break the release
+            emit_log(
+                "telegram_daily_summary_failed",
+                level="WARNING",
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+
+    _run_step("telegram_daily_summary", telegram_daily_summary, completed_steps)
 
     emit_log("release_completed", completed_steps=completed_steps, prod_skipped=False)
     return ReleaseOutcome(tuple(completed_steps), freshness_summary, False)

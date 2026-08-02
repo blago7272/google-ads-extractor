@@ -58,11 +58,12 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
             skipped_accounts_alert_runner=fake_alert,
+            daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
 
         self.assertEqual(
             calls,
-            [("alert", "freshness"), ("build", "prod"), ("test", "prod")],
+            [("alert", "freshness"), ("build", "prod"), ("test", "prod"), ("push", "telegram")],
         )
         self.assertEqual(
             outcome.completed_steps,
@@ -72,6 +73,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
                 "ecb_fx_refresh",
                 "prod_build",
                 "prod_test",
+                "telegram_daily_summary",
             ),
         )
         self.assertFalse(outcome.prod_skipped)
@@ -109,6 +111,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
             skipped_accounts_alert_runner=fake_alert,
+            daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
 
         self.assertEqual(
@@ -119,12 +122,43 @@ class ReleaseOrchestratorTest(unittest.TestCase):
                 "ecb_fx_refresh",
                 "prod_build",
                 "prod_test",
+                "telegram_daily_summary",
             ),
         )
         self.assertEqual(
             calls,
-            [("alert", "freshness"), ("build", "prod"), ("test", "prod")],
+            [("alert", "freshness"), ("build", "prod"), ("test", "prod"), ("push", "telegram")],
         )
+        self.assertFalse(outcome.prod_skipped)
+
+    def test_telegram_push_failure_does_not_fail_the_release(self) -> None:
+        # The summary goes out after prod is already built, tested and published.
+        # A dead bot token or an unreachable Telegram is a warning, never a red run.
+        calls: list[tuple[str, str]] = []
+        summary = RawFreshnessSummary(
+            account_count=1,
+            ready_count=1,
+            failing_count=0,
+            max_allowed_lag_days=0,
+            checked_at=datetime(2026, 3, 23, tzinfo=timezone.utc),
+            failing_accounts=(),
+        )
+
+        def exploding_pusher() -> None:
+            calls.append(("push", "telegram"))
+            raise RuntimeError("telegram is down")
+
+        outcome = run_release(
+            self._config(),
+            freshness_probe=lambda _c: ([], summary),
+            dbt_build_runner=lambda target, _r: calls.append(("build", target)),
+            dbt_test_runner=lambda target, _r: calls.append(("test", target)),
+            skipped_accounts_alert_runner=lambda *_a, **_k: None,
+            daily_summary_pusher=exploding_pusher,
+        )
+
+        self.assertIn(("push", "telegram"), calls)
+        self.assertEqual(outcome.completed_steps[-1], "telegram_daily_summary")
         self.assertFalse(outcome.prod_skipped)
 
     def test_release_can_stop_after_stage_test(self) -> None:
@@ -156,6 +190,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
             skipped_accounts_alert_runner=fake_alert,
+            daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
 
         self.assertEqual(calls, [("alert", "freshness"), ("build", "stage"), ("test", "stage")])
@@ -184,6 +219,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             dbt_build_runner=lambda target, _r: calls.append(("build", target)),
             dbt_test_runner=lambda target, _r: calls.append(("test", target)),
             skipped_accounts_alert_runner=lambda *_a, **_k: None,
+            daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
         return calls, outcome
 
@@ -192,7 +228,13 @@ class ReleaseOrchestratorTest(unittest.TestCase):
 
         self.assertEqual(
             calls,
-            [("build", "stage"), ("test", "stage"), ("build", "prod"), ("test", "prod")],
+            [
+                ("build", "stage"),
+                ("test", "stage"),
+                ("build", "prod"),
+                ("test", "prod"),
+                ("push", "telegram"),
+            ],
         )
         self.assertIn("stage_build", outcome.completed_steps)
         self.assertFalse(outcome.prod_skipped)
