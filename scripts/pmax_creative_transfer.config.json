@@ -1,0 +1,25 @@
+{
+  "project_id": "gads-export-all",
+  "location": "EU",
+  "transfer_location": "europe",
+  "target_dataset": "gads_pmax_creative_test",
+  "display_name": "Google Ads MCC 8179020903 PMax Creative Test",
+  "data_source": "google_ads",
+  "customer_id": "8179020903",
+  "auto_scheduling": false,
+  "planned_rolling_refresh_window_days": 30,
+  "custom_reports": [
+    {
+      "table_name": "pmax_asset_group_daily",
+      "gaql": "SELECT customer.id, campaign.id, campaign.name, asset_group.id, asset_group.name, asset_group.status, asset_group.primary_status, asset_group.ad_strength, segments.date, segments.ad_network_type, metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM asset_group"
+    },
+    {
+      "table_name": "pmax_asset_group_asset_daily",
+      "gaql": "SELECT customer.id, campaign.id, campaign.name, asset_group.id, asset_group.name, asset_group_asset.asset, asset_group_asset.field_type, asset_group_asset.source, asset_group_asset.status, asset_group_asset.primary_status, asset.id, asset.name, asset.type, asset.text_asset.text, asset.image_asset.full_size.url, asset.youtube_video_asset.youtube_video_id, segments.date, segments.ad_network_type, metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM asset_group_asset"
+    },
+    {
+      "table_name": "pmax_top_combinations_daily",
+      "gaql": "SELECT customer.id, campaign.id, campaign.name, asset_group.id, asset_group.name, asset_group.ad_strength, asset_group_top_combination_view.asset_group_top_combinations, segments.date FROM asset_group_top_combination_view"
+    }
+  ]
+}

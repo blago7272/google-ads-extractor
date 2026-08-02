@@ -45,14 +45,6 @@ This is not a decision log. Approved design decisions belong in the main contrac
   area: `hosting`
   description: Re-validate the hosted app runtime and confirm the deployed service entrypoint and protected URL are review-ready.
 
-### Repository Hygiene
-
-- id: `repo.untracked_workspace_cleanup`
-  status: `pending`
-  area: `repository`
-  description: Inventory the untracked root-level documents, reports, spreadsheets, scripts, and analysis folders; decide for each whether to retain as a tracked project artefact, archive outside the repository, or add an appropriate ignore rule. Do not delete any item without an explicit, reviewed target list.
-  prerequisite_for: `ads.pmax_creative_transfer_migration`
-
 ## Change Rules
 
 - Add an item here when implementation is agreed but not completed.
