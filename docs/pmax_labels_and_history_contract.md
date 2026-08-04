@@ -2,7 +2,7 @@
 
 ## Status
 
-- status: `proposed`
+- status: `historical controls implemented locally; deployment pending approval`
 - owner: `data-eng`
 - related contract: [`pmax_creative_transfer_contract.md`](pmax_creative_transfer_contract.md)
 - runtime project: `gads-export-all`
@@ -54,30 +54,12 @@ first enabled.
 
 ## Historical Backfill
 
-The proposed historical implementation lives only on
-`codex/pmax-historical-backfill`.
-
-- approved start date: 2025-01-01
-- first eligible date: the day immediately before the verified rolling 30-day
-  boundary
-- order: newest eligible date first, then move backward
-- daily-segment constraint: do not request dates older than 37 months before
-  execution without a separately approved coarser-grain strategy
-
-Required controls:
-
-- dedicated BigQuery completion ledger containing date, transfer run name,
-  status, and attempt count;
-- skip dates already `SUCCEEDED`, `PENDING`, or `RUNNING`;
-- at most 30 dates per submission;
-- at most 50 in-flight runs as an operational guardrail, not a platform or
-  email quota;
-- at most three attempts per date; and
-- retry delay of at least 24 hours.
-
-The historical queue must never submit a date inside the active rolling window.
-It starts only after the rolling branch demonstrates a complete, accepted 30-day
-window.
+The locally implemented historical controls live on
+`codex/pmax-historical-backfill` and are contracted in
+[`pmax_historical_backfill_contract.md`](pmax_historical_backfill_contract.md).
+They use a separate manual-only transfer and destination dataset, not the
+operating rolling transfer. Deployment and execution remain explicitly
+approval-gated.
 
 ## Validation And Isolation
 
