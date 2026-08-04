@@ -15,6 +15,11 @@
   "max_in_flight_runs": 1,
   "attempt_cap": 3,
   "retry_delay_hours": 24,
+  "rolling_transfer_config": "projects/638625952730/locations/europe/transferConfigs/6a96a83d-0000-22b6-beb9-14223bb50dc6",
+  "rolling_active_states": [
+    "PENDING",
+    "RUNNING"
+  ],
   "custom_reports": [
     {
       "table_name": "pmax_asset_group_daily",
