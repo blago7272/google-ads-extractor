@@ -64,6 +64,25 @@ def state_name(value: Any) -> str:
         return str(value).rsplit(".", maxsplit=1)[-1]
 
 
+def rolling_transfer_active_run_count(
+    client: bigquery_datatransfer_v1.DataTransferServiceClient, config: dict[str, Any]
+) -> int:
+    """Count active rolling runs before permitting a history submission.
+
+    A read failure deliberately propagates: a scheduler must not fail open and
+    compete with the daily rolling refresh when its state cannot be determined.
+    """
+    active_states = frozenset(config["rolling_active_states"])
+    request = bigquery_datatransfer_v1.ListTransferRunsRequest(
+        parent=config["rolling_transfer_config"],
+        states=[getattr(bigquery_datatransfer_v1.TransferState, state) for state in active_states],
+    )
+    return sum(
+        state_name(run.state) in active_states
+        for run in client.list_transfer_runs(request=request)
+    )
+
+
 def find_history_transfer(
     client: bigquery_datatransfer_v1.DataTransferServiceClient, config: dict[str, Any]
 ) -> Any:
@@ -255,6 +274,13 @@ def main() -> int:
     table_client = bigquery.Client(project=config["project_id"])
     transfer_client = bigquery_datatransfer_v1.DataTransferServiceClient()
     transfer = find_history_transfer(transfer_client, config)
+    active_rolling_runs = rolling_transfer_active_run_count(transfer_client, config)
+    if active_rolling_runs:
+        print(
+            "Rolling PMax transfer has "
+            f"{active_rolling_runs} active run(s); no historical date was submitted."
+        )
+        return 0
     ensure_ledger_table(table_client, config)
     records = load_ledger_records(table_client, config, policy)
     records = reconcile_active_records(table_client, transfer_client, config, records, now)

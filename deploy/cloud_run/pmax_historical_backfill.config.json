@@ -1,0 +1,23 @@
+{
+  "project_id": "gads-export-all",
+  "region": "europe-west1",
+  "scheduler_location": "europe-west1",
+  "job_name": "pmax-historical-backfill",
+  "scheduler_name": "pmax-historical-backfill-offpeak",
+  "runtime_service_account": "dbt-runner@gads-export-all.iam.gserviceaccount.com",
+  "scheduler_service_account": "scheduler-invoker@gads-export-all.iam.gserviceaccount.com",
+  "schedule": "15 2-7 * * *",
+  "time_zone": "Etc/UTC",
+  "container_command": "python",
+  "container_args": [
+    "scripts/manage_pmax_historical_backfill.py",
+    "--apply",
+    "--confirm-submit-one-date"
+  ],
+  "task_timeout": "3600s",
+  "max_retries": 0,
+  "tasks": 1,
+  "parallelism": 1,
+  "memory": "1Gi",
+  "cpu": "1"
+}

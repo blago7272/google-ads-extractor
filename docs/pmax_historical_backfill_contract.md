@@ -2,7 +2,7 @@
 
 ## Status
 
-- status: `implemented locally; transfer deployment and execution await explicit approval`
+- status: `scheduler controls implemented locally; live provisioning awaits explicit approval`
 - owner: `data-eng`
 - runtime project: `gads-export-all`
 - rolling transfer: `gads_pmax_creative_test` (read-only boundary reference)
@@ -39,6 +39,9 @@ pacing at roughly 35-minute intervals between scheduled dates; no independent
 concurrency capacity has been demonstrated for this second configuration yet.
 A documented smoke test is required before changing that limit.
 
+The dedicated off-peak execution design and rolling-state gate are contracted in
+[`pmax_historical_scheduler_contract.md`](pmax_historical_scheduler_contract.md).
+
 ## Deployment And Execution Gates
 
 1. Review the locally implemented controls and grant explicit approval to create
@@ -50,7 +53,8 @@ A documented smoke test is required before changing that limit.
    the first candidate without contacting GCP.
 4. After a successful one-date smoke test has been reviewed, an operator may
    submit one date with `--apply --confirm-submit-one-date`. The command creates
-   or updates the ledger and refuses to submit while any ledgered run is active.
+   or updates the ledger and refuses to submit while any ledgered run is active
+   or while the rolling transfer is active.
 
 No automatic schedule, historical run, label snapshot, reporting mart, or
 consumer is created by merging this contract.
