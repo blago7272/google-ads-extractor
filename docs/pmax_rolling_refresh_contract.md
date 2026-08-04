@@ -2,7 +2,7 @@
 
 ## Status
 
-- status: `operating; initial acceptance in progress`
+- status: `operating; initial rolling window accepted`
 - owner: `data-eng`
 - runtime project: `gads-export-all`
 - BigQuery location: `EU`
@@ -62,8 +62,24 @@ destination dataset, and display name before it can make a change.
 - initial run count: 30 PMax transfer runs, covering 2026-07-03 through
   2026-08-01; the service queued them newest-first
 
-This is deployment evidence, not yet a completed acceptance result. Historical
-work stays blocked until every seeded date is verified.
+## Initial Acceptance Result
+
+- accepted at: 2026-08-04 01:50 UTC
+- accepted source window: 2026-07-03 through 2026-08-01 (30 dates)
+- latest transfer-run states: 30 `SUCCEEDED`, 0 incomplete, 0 failed
+- date coverage: all three physical reporting views cover every accepted date
+
+Sample quality check for 2026-08-01:
+
+| Report | Rows | Quality result |
+| --- | ---: | --- |
+| Asset groups | 3,001 (130 campaigns) | 0 null asset-group IDs; 0 negative metric rows |
+| Assets | 20,902 | 0 null asset-group, asset, or field-type IDs; 0 negative metric rows |
+| Top combinations | 864 | 0 null asset-group IDs or combinations |
+
+The initial rolling window is accepted. Historical implementation is unblocked,
+but its transfer configuration and execution require their own contract and
+explicit deployment approval.
 
 ## Acceptance Checks
 
@@ -89,6 +105,7 @@ The daily scheduler is the rolling mechanism; it is not the historical queue.
 Historical work begins only after the first 30-day window is accepted. Its
 newest eligible date is the day immediately before the accepted rolling boundary,
 and it proceeds backward to `2025-01-01` under its separate ledgered branch.
+It must not submit history to this rolling transfer.
 
 ## Non-Goals
 
