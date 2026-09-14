@@ -58,6 +58,9 @@
       </header>
 
       <nav class="top-nav panel-lite">
+        {% if sexwell_home_url %}
+          <a class="nav-link" href="{{ sexwell_home_url }}">Home page</a>
+        {% endif %}
         <a id="hub-link" class="nav-link{% if page_kind == 'hub' %} is-active{% endif %}" href="/ads">Hub</a>
         {% for key, page in report_pages.items() %}
           <a

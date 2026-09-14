@@ -142,6 +142,9 @@ def _base_context(request: Request, settings: ReportingAppSettings, **extra) -> 
         "user_email": user.email if user else None,
         "user_role": user.role if user else None,
         "is_admin": user.is_admin if user else False,
+        "sexwell_home_url": "/clients/sexwell"
+        if user and user.can_access_client(SEXWELL_CLIENT_ID)
+        else None,
     }
     context.update(extra)
     return context

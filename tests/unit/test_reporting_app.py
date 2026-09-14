@@ -502,6 +502,17 @@ def test_sexwell_client_home_rejects_another_client_user(monkeypatch) -> None:
     assert response.status_code == 403
 
 
+def test_ads_navigation_includes_sexwell_home_for_an_admin(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main_module,
+        "_get_current_user",
+        lambda request: UserSession(email="admin@example.com", role="admin"),
+    )
+    response = client.get("/ads")
+    assert response.status_code == 200
+    assert 'href="/clients/sexwell">Home page</a>' in response.text
+
+
 def test_business_results_dashboard_renders() -> None:
     response = client.get("/business-results")
     assert response.status_code == 200
