@@ -2536,7 +2536,7 @@ function updateReportLinks() {
   const query = currentFilterQuery().toString();
   const hubLink = document.getElementById("hub-link");
   if (hubLink) {
-    hubLink.href = query ? `/?${query}` : "/";
+    hubLink.href = query ? `/ads?${query}` : "/ads";
   }
   document.querySelectorAll("[data-report-link]").forEach((link) => {
     const reportName = link.dataset.reportName;

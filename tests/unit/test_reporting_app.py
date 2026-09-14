@@ -469,6 +469,46 @@ def test_index_renders_hub_shell() -> None:
     assert ">ROAS<" in response.text
 
 
+def test_sexwell_client_home_renders_for_a_dedicated_client_user(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main_module,
+        "_get_current_user",
+        lambda request: UserSession(
+            email="viewer@example.com",
+            role="viewer",
+            allowed_clients=["sexwell"],
+            allowed_accounts={"sexwell": ["__all__"]},
+        ),
+    )
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "SexWell reporting" in response.text
+    assert "Business results" in response.text
+    assert "/ads?client_id=sexwell" in response.text
+
+
+def test_sexwell_client_home_rejects_another_client_user(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main_module,
+        "_get_current_user",
+        lambda request: UserSession(
+            email="other@example.com",
+            role="viewer",
+            allowed_clients=["other-client"],
+            allowed_accounts={"other-client": ["__all__"]},
+        ),
+    )
+    response = client.get("/clients/sexwell")
+    assert response.status_code == 403
+
+
+def test_business_results_shell_renders() -> None:
+    response = client.get("/business-results")
+    assert response.status_code == 200
+    assert "Business results" in response.text
+    assert "ERP" in response.text
+
+
 def test_overview_page_renders_campaign_regex_filter() -> None:
     response = client.get("/reports/overview")
     assert response.status_code == 200

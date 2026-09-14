@@ -79,6 +79,8 @@ REPORT_PAGES = {
     },
 }
 
+SEXWELL_CLIENT_ID = "sexwell"
+
 app = FastAPI(title="Google Ads Signal Board")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
@@ -136,6 +138,44 @@ def _base_context(request: Request, settings: ReportingAppSettings, **extra) -> 
     }
     context.update(extra)
     return context
+
+
+def _is_dedicated_sexwell_user(request: Request) -> bool:
+    """Give single-client SexWell users a focused post-login entry point."""
+
+    user = _get_current_user(request)
+    return bool(
+        user
+        and not user.is_admin
+        and user.allowed_clients == [SEXWELL_CLIENT_ID]
+        and user.can_access_client(SEXWELL_CLIENT_ID)
+    )
+
+
+def _require_sexwell_access(request: Request) -> None:
+    """Use the same client scope boundary as the reporting API."""
+
+    user = _get_current_user(request)
+    if user is not None and not user.can_access_client(SEXWELL_CLIENT_ID):
+        raise HTTPException(status_code=403, detail="Access denied to this client")
+
+
+def _render_ads_hub(request: Request, settings: ReportingAppSettings) -> HTMLResponse:
+    return templates.TemplateResponse(
+        name="hub.html",
+        request=request,
+        context=_base_context(
+            request,
+            settings,
+            page_kind="hub",
+            page_title=settings.app_title,
+            page_subtitle="Management hub with conclusions, high-level status, and links to deeper analysis modules.",
+            active_label="Main hub",
+            report_name=None,
+            is_source_local_report=False,
+            is_ga4_report=False,
+        ),
+    )
 
 
 def _request_uses_https(request: Request) -> bool:
@@ -238,16 +278,77 @@ def hub(
     request: Request,
     settings: ReportingAppSettings = Depends(get_settings),
 ) -> HTMLResponse:
+    if _is_dedicated_sexwell_user(request):
+        return templates.TemplateResponse(
+            name="sexwell_home.html",
+            request=request,
+            context=_base_context(
+                request,
+                settings,
+                page_kind="client-home",
+                page_title="SexWell reporting",
+                page_subtitle="",
+                active_label="SexWell reporting",
+                report_name=None,
+                is_source_local_report=False,
+                is_ga4_report=False,
+            ),
+        )
+
+    return _render_ads_hub(request, settings)
+
+
+@app.get("/ads", response_class=HTMLResponse)
+def ads_hub(
+    request: Request,
+    settings: ReportingAppSettings = Depends(get_settings),
+) -> HTMLResponse:
+    """Keep the established Google Ads hub reachable from client workspaces."""
+
+    return _render_ads_hub(request, settings)
+
+
+@app.get("/clients/sexwell", response_class=HTMLResponse)
+def sexwell_home(
+    request: Request,
+    settings: ReportingAppSettings = Depends(get_settings),
+) -> HTMLResponse:
+    _require_sexwell_access(request)
     return templates.TemplateResponse(
-        name="hub.html",
+        name="sexwell_home.html",
         request=request,
         context=_base_context(
             request,
             settings,
-            page_kind="hub",
-            page_title=settings.app_title,
-            page_subtitle="Management hub with conclusions, high-level status, and links to deeper analysis modules.",
-            active_label="Main hub",
+            page_kind="client-home",
+            page_title="SexWell reporting",
+            page_subtitle="",
+            active_label="SexWell reporting",
+            report_name=None,
+            is_source_local_report=False,
+            is_ga4_report=False,
+        ),
+    )
+
+
+@app.get("/business-results", response_class=HTMLResponse)
+def business_results(
+    request: Request,
+    settings: ReportingAppSettings = Depends(get_settings),
+) -> HTMLResponse:
+    """Protected entry route for the forthcoming commerce-report workspace."""
+
+    _require_sexwell_access(request)
+    return templates.TemplateResponse(
+        name="business_results.html",
+        request=request,
+        context=_base_context(
+            request,
+            settings,
+            page_kind="business-results",
+            page_title="Business results",
+            page_subtitle="",
+            active_label="Business results",
             report_name=None,
             is_source_local_report=False,
             is_ga4_report=False,
