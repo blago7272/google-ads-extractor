@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -80,6 +80,13 @@ REPORT_PAGES = {
 }
 
 SEXWELL_CLIENT_ID = "sexwell"
+SEXWELL_BUSINESS_REPORTS_DIR = BASE_DIR / "private_reports" / SEXWELL_CLIENT_ID
+SEXWELL_BUSINESS_REPORTS = {
+    "dashboard": "dashboard.html",
+    "sexwell_order_value_tiers_2026-09-04_v02.html": "sexwell_order_value_tiers_2026-09-04_v02.html",
+    "sexwell_category_dynamics_2026-09-07_v09.html": "sexwell_category_dynamics_2026-09-07_v09.html",
+    "sexwell_product_revenue_concentration_2026-09-07_v04.html": "sexwell_product_revenue_concentration_2026-09-07_v04.html",
+}
 
 app = FastAPI(title="Google Ads Signal Board")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -331,29 +338,28 @@ def sexwell_home(
     )
 
 
-@app.get("/business-results", response_class=HTMLResponse)
+@app.get("/business-results")
 def business_results(
     request: Request,
-    settings: ReportingAppSettings = Depends(get_settings),
-) -> HTMLResponse:
-    """Protected entry route for the forthcoming commerce-report workspace."""
+):
+    """Serve the aggregate-only SexWell dashboard within the existing access scope."""
 
     _require_sexwell_access(request)
-    return templates.TemplateResponse(
-        name="business_results.html",
-        request=request,
-        context=_base_context(
-            request,
-            settings,
-            page_kind="business-results",
-            page_title="Business results",
-            page_subtitle="",
-            active_label="Business results",
-            report_name=None,
-            is_source_local_report=False,
-            is_ga4_report=False,
-        ),
+    return FileResponse(
+        SEXWELL_BUSINESS_REPORTS_DIR / SEXWELL_BUSINESS_REPORTS["dashboard"],
+        media_type="text/html",
     )
+
+
+@app.get("/business-results/assets/{report_name}")
+def business_results_asset(report_name: str, request: Request):
+    """Serve dashboard sub-reports only after the same SexWell access check."""
+
+    _require_sexwell_access(request)
+    file_name = SEXWELL_BUSINESS_REPORTS.get(report_name)
+    if file_name is None or report_name == "dashboard":
+        raise HTTPException(status_code=404, detail="Unknown business-results asset")
+    return FileResponse(SEXWELL_BUSINESS_REPORTS_DIR / file_name, media_type="text/html")
 
 
 @app.get("/reports/{report_name}", response_class=HTMLResponse)

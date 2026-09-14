@@ -502,11 +502,37 @@ def test_sexwell_client_home_rejects_another_client_user(monkeypatch) -> None:
     assert response.status_code == 403
 
 
-def test_business_results_shell_renders() -> None:
+def test_business_results_dashboard_renders() -> None:
     response = client.get("/business-results")
     assert response.status_code == 200
-    assert "Business results" in response.text
-    assert "ERP" in response.text
+    assert "SexWell — Monthly KPI Dashboard" in response.text
+    assert "/business-results/assets/sexwell_order_value_tiers_2026-09-04_v02.html" in response.text
+
+
+def test_business_results_assets_require_a_known_report() -> None:
+    response = client.get("/business-results/assets/sexwell_category_dynamics_2026-09-07_v09.html")
+    assert response.status_code == 200
+    assert "Category dynamics" in response.text
+
+    response = client.get("/business-results/assets/not-a-report.html")
+    assert response.status_code == 404
+
+
+def test_business_results_rejects_another_client_user(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main_module,
+        "_get_current_user",
+        lambda request: UserSession(
+            email="other@example.com",
+            role="viewer",
+            allowed_clients=["other-client"],
+            allowed_accounts={"other-client": ["__all__"]},
+        ),
+    )
+    assert client.get("/business-results").status_code == 403
+    assert client.get(
+        "/business-results/assets/sexwell_order_value_tiers_2026-09-04_v02.html"
+    ).status_code == 403
 
 
 def test_overview_page_renders_campaign_regex_filter() -> None:

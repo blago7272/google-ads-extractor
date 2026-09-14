@@ -1,0 +1,535 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SexWell — Monthly KPI Dashboard</title>
+<style>
+:root{
+ --bg:#f6f6f4; --surface:#fcfcfb; --border:#e5e4e0; --border-strong:#d3d2cd;
+ --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#8a8984;
+ --grid:#ecebe7; --band:#f4f3f0; --tip-bg:#ffffff; --tip-shadow:rgba(0,0,0,.14);
+ --line:#2a78d6; --partial:#8a8984;
+ --s2023:#2a78d6; --s2024:#1baf7a; --s2025:#eda100; --s2026:#008300;
+}
+@media (prefers-color-scheme:dark){:root{
+ --bg:#141413; --surface:#1a1a19; --border:#2c2c2a; --border-strong:#3a3a37;
+ --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#8f8e86;
+ --grid:#262624; --band:#201f1e; --tip-bg:#232321; --tip-shadow:rgba(0,0,0,.5);
+ --line:#3987e5; --partial:#8f8e86;
+ --s2023:#3987e5; --s2024:#199e70; --s2025:#c98500; --s2026:#008300;
+}}
+:root[data-theme=dark]{
+ --bg:#141413; --surface:#1a1a19; --border:#2c2c2a; --border-strong:#3a3a37;
+ --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#8f8e86;
+ --grid:#262624; --band:#201f1e; --tip-bg:#232321; --tip-shadow:rgba(0,0,0,.5);
+ --line:#3987e5; --partial:#8f8e86;
+ --s2023:#3987e5; --s2024:#199e70; --s2025:#c98500; --s2026:#008300;
+}
+:root[data-theme=light]{
+ --bg:#f6f6f4; --surface:#fcfcfb; --border:#e5e4e0; --border-strong:#d3d2cd;
+ --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#8a8984;
+ --grid:#ecebe7; --band:#f4f3f0; --tip-bg:#ffffff; --tip-shadow:rgba(0,0,0,.14);
+ --line:#2a78d6; --partial:#8a8984;
+ --s2023:#2a78d6; --s2024:#1baf7a; --s2025:#eda100; --s2026:#008300;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text-primary);
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+ -webkit-font-smoothing:antialiased;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+header h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+header p{margin:0;color:var(--text-secondary);font-size:13.5px;max-width:78ch}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;margin:18px 0 6px;
+ padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.viewbar{display:flex;gap:4px;margin:18px 0 0;padding:4px;background:var(--surface);border:1px solid var(--border);border-radius:10px;width:max-content}
+.viewbar button{font:inherit;font-size:13px;color:var(--text-secondary);background:transparent;border:0;border-radius:7px;padding:7px 14px;cursor:pointer}
+.viewbar button.on{background:var(--line);color:#fff}
+.dashboard-view[hidden]{display:none}
+.tiers-view{margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.tiers-view iframe{display:block;width:100%;min-height:2800px;border:0;background:var(--bg)}
+@media (max-width:760px){.tiers-view iframe{min-height:3200px}}
+.seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:9px;overflow:hidden}
+.seg button{font:inherit;font-size:12.5px;color:var(--text-secondary);background:transparent;border:0;
+ padding:6px 13px;cursor:pointer}
+.seg button.on{background:var(--line);color:#fff}
+.legend{display:flex;flex-wrap:wrap;gap:14px}
+.lg{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-secondary);
+ cursor:pointer;user-select:none;padding:2px 4px;border-radius:6px}
+.lg.off{opacity:.34}
+.chip{width:22px;height:3px;border-radius:2px;flex:none}
+.spacer{flex:1 1 auto}
+button.tbl{font:inherit;font-size:12.5px;color:var(--text-secondary);background:transparent;
+ border:1px solid var(--border-strong);border-radius:8px;padding:6px 11px;cursor:pointer}
+button.tbl:hover{color:var(--text-primary);border-color:var(--text-muted)}
+.grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px}
+.grid.overlay{grid-template-columns:repeat(2,1fr)}
+@media (max-width:760px){.grid.overlay{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 16px 8px}
+.card h3{margin:0;font-size:15px;letter-spacing:-.005em}
+.card .sub{margin:2px 0 6px;font-size:12px;color:var(--text-muted)}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.grid-line{stroke:var(--grid);stroke-width:1}
+.yband{fill:var(--band)}
+.ysep{stroke:var(--border);stroke-width:1;stroke-dasharray:2 3}
+.axis-txt{fill:var(--text-muted);font-size:10.5px}
+.yr-axis{fill:var(--text-secondary);font-size:11px;font-weight:600}
+.yr-label{font-size:10.5px;font-weight:600}
+.crosshair{stroke:var(--border-strong);stroke-width:1;stroke-dasharray:3 3}
+.tip{position:fixed;pointer-events:none;z-index:50;background:var(--tip-bg);
+ border:1px solid var(--border-strong);border-radius:10px;padding:9px 11px;font-size:12px;
+ box-shadow:0 6px 22px var(--tip-shadow);min-width:140px;opacity:0;transition:opacity .08s}
+.tip .tm{font-weight:600;margin-bottom:5px;font-size:12px}
+.tip .tr{display:flex;justify-content:space-between;gap:16px;margin:2px 0;color:var(--text-secondary)}
+.tip .tr b{color:var(--text-primary);font-variant-numeric:tabular-nums}
+.tip .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+.note{margin-top:26px;font-size:12.5px;color:var(--text-secondary);background:var(--surface);
+ border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.note b{color:var(--text-primary)} .note code{background:var(--grid);padding:1px 5px;border-radius:4px;font-size:11.5px}
+.note ul{margin:8px 0 0;padding-left:18px} .note li{margin:4px 0}
+.analysis{margin-top:16px;background:var(--surface);border:1px solid var(--border);
+ border-left:3px solid var(--s2026);border-radius:12px;padding:16px 18px}
+.analysis h2{margin:0 0 3px;font-size:16px;letter-spacing:-.01em}
+.analysis .lede{margin:0 0 12px;font-size:12.5px;color:var(--text-muted)}
+.analysis .cols{display:grid;grid-template-columns:auto 1fr;gap:20px}
+@media (max-width:760px){.analysis .cols{grid-template-columns:1fr}}
+.h1tbl{border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums;align-self:start}
+.h1tbl caption{caption-side:top;text-align:left;font-size:11px;color:var(--text-muted);padding-bottom:5px}
+.h1tbl th,.h1tbl td{padding:5px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+.h1tbl th:first-child,.h1tbl td:first-child{text-align:left}
+.h1tbl thead th{color:var(--text-muted);font-weight:600}
+.h1tbl .up{color:var(--s2026);font-weight:600} .h1tbl .dn{color:#d03b3b;font-weight:600}
+.analysis ul{margin:0;padding-left:17px;font-size:13px;color:var(--text-secondary)}
+.analysis li{margin:6px 0} .analysis li b{color:var(--text-primary)}
+.analysis .caveat{margin:12px 0 0;font-size:11.5px;color:var(--text-muted);line-height:1.5}
+.analysis .caveat b{color:var(--text-secondary)}
+.legend-section h3{margin:22px 0 6px;font-size:14px;color:var(--text-primary)}
+.legend-section h3:first-of-type{margin-top:14px}
+h2.section{margin:34px 0 2px;font-size:18px;letter-spacing:-.01em}
+p.section-sub{margin:0 0 4px;font-size:12.5px;color:var(--text-secondary);max-width:82ch}
+p.section-sub code{background:var(--grid);padding:1px 5px;border-radius:4px;font-size:11.5px}
+details.data{margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px 14px}
+details.data summary{cursor:pointer;font-size:13px;color:var(--text-secondary);padding:6px 0}
+table.dt{border-collapse:collapse;width:100%;font-size:11.5px;margin-top:8px;font-variant-numeric:tabular-nums}
+table.dt th,table.dt td{text-align:right;padding:4px 7px;border-bottom:1px solid var(--border)}
+table.dt th:first-child,table.dt td:first-child{text-align:left}
+table.dt thead th{color:var(--text-muted);font-weight:600;position:sticky;top:0;background:var(--surface)}
+.tblscroll{max-height:420px;overflow:auto}
+</style></head><body><div class="wrap">
+<header>
+<h1>SexWell — Monthly Sales KPIs</h1>
+</header>
+<nav class="viewbar" id="viewTabs" aria-label="Dashboard views">
+ <button data-view="data" class="on" aria-selected="true">Data</button>
+ <button data-view="conclusions" aria-selected="false">Conclusions</button>
+ <button data-view="tiers" aria-selected="false">Order value tiers</button>
+ <button data-view="product-dynamics" aria-selected="false">Product dynamics</button>
+ <button data-view="product-concentration" aria-selected="false">Product concentration</button>
+ <button data-view="legend" aria-selected="false">Legend</button>
+</nav>
+<main id="dataView" class="dashboard-view">
+<div class="toolbar">
+ <div class="seg" id="modeSeg">
+  <button data-mode="overlay" class="on">By year</button>
+  <button data-mode="timeline">Timeline</button>
+ </div>
+ <div class="legend" id="legend"></div>
+ <div class="spacer"></div>
+ <button class="tbl" id="themeBtn">Toggle theme</button>
+</div>
+<section class="analysis">
+<h2>Comparison analysis</h2>
+<p class="lede">Half-year (Jan–Jun) like-for-like comparison. Headline metric is net merchandise revenue (delivery, vouchers, fully free and gift-labelled lines excluded; VAT kept in).</p>
+<div class="cols">
+<table class="h1tbl"><caption>H1 (Jan–Jun) by year</caption>
+<thead><tr><th>Year</th><th>Net txns</th><th>Net merch €</th><th>AOV</th><th>YoY rev</th></tr></thead>
+<tbody>
+<tr><td>2023</td><td>4,806</td><td>€284,423</td><td>€59.18</td><td>—</td></tr>
+<tr><td>2024</td><td>5,708</td><td>€338,109</td><td>€59.23</td><td class="up">+18.9%</td></tr>
+<tr><td>2025</td><td>5,145</td><td>€324,489</td><td>€63.07</td><td class="dn">−4.0%</td></tr>
+<tr><td>2026</td><td>5,476</td><td>€377,075</td><td>€68.86</td><td class="up">+16.2%</td></tr>
+</tbody></table>
+<ul>
+<li><b>2026 is the strongest H1 on record</b> — €377k net merchandise revenue, +16.2% vs 2025. Unlike prior years, growth comes from <b>both</b> more orders (net txns +6.4%) <b>and</b> a bigger basket (AOV +9.2%), the healthiest mix in the series.</li>
+<li><b>AOV is on a structural climb:</b> flat at ~€59.2 through 2023–24, then €63.1 (2025) → €68.9 (2026) — up ~16% across the window. Basket value, not order count, is now the main growth lever (full-year AOV traces the same path: €60.0 → €60.5 → €66.0).</li>
+<li><b>The 2024→2025 dip was a volume story:</b> H1 orders fell −9.9% while AOV rose +6.5%, netting −4% revenue. Worth diagnosing (traffic, stock, ad spend?), since 2026 has since recovered the volume.</li>
+<li><b>Seasonality is highly repeatable:</b> twin peaks in November (~€78k avg) and August (~€75k), December strong (~€70k); annual trough in late spring (May–Jun, ~€46–48k). H2 carries the year — so 2026's record H1 sets up, but doesn't guarantee, a record full year (on the historical H1≈45%-of-year pattern, 2026 tracks toward ~€830k, ~+15% vs 2025).</li>
+<li><b>Refund rate</b> stepped up from ~4.4% of transactions (2023) to ~6% and has held there since — stable, not deteriorating.</li>
+</ul>
+</div>
+</section>
+<div class="grid" id="grid"></div>
+
+<h2 class="section">Discounts &amp; advertising</h2>
+<p class="section-sub">The discount series shows the WebSite export’s <b>share of completed orders with any discount</b>: <code>Status = C AND (Discount &gt; 0 OR Subtotal discount &gt; 0)</code>. This was <b>53.1%</b> in 2023, <b>71.2%</b> in 2024, <b>84.8%</b> in 2025, and <b>71.3%</b> in 2026 YTD through August. Google Ads spend remains account data (Google only — Meta &amp; organic not included).</p>
+<div class="grid" id="grid2"></div>
+
+<section class="analysis" style="border-left-color:var(--s2025)">
+<h2>Advertising, discounts &amp; sales — what moves what</h2>
+<p class="lede">Monthly order-export correlations, <b>deseasonalized</b> (2023–25 month-of-year means removed). The discount driver is the share of orders with any recorded discount; outcomes are order count, gross order revenue, and gross order value. Correlation is not proof of cause.</p>
+<div class="cols">
+<table class="h1tbl"><caption>Deseasonalized correlation (2023–25)</caption>
+<thead><tr><th>Driver →</th><th>Orders</th><th>Gross order rev</th><th>Gross order value</th></tr></thead>
+<tbody>
+<tr><td>Google Ads spend</td><td class="up">+0.30</td><td class="up">+0.64</td><td class="up">+0.27</td></tr>
+<tr><td>Orders with any discount</td><td class="up">+0.25</td><td class="up">+0.50</td><td class="up">+0.20</td></tr>
+<tr><td>Any discount <span style="color:var(--text-muted)">(controlling for spend)</span></td><td>+0.10</td><td class="up">+0.21</td><td>+0.06</td></tr>
+</tbody></table>
+<ul>
+<li><b>Ad spend is the stronger revenue signal</b> — +0.64 with gross order revenue, versus +0.50 for the discounted-order share.</li>
+<li><b>Orders with discounts and ad spend move together</b> — their deseasonalized monthly correlation is <b>+0.58</b>, so a raw discount/revenue relationship is confounded by advertising activity.</li>
+<li><b>After controlling for Google Ads spend, the discounted-order share has weak correlations</b> with orders (+0.10), gross revenue (+0.21), and gross order value (+0.06). This is not evidence of incremental discount lift.</li>
+<li><b>Gross-order-revenue ROAS is sliding:</b> 13.1 → 11.9 → 10.9 → 9.2 per €1 of Google Ads (2023→2026 YTD through Jul 28). It includes shipping.</li>
+</ul>
+</div>
+<p class="caveat"><b>Caveats:</b> correlation ≠ causation; <b>Meta/organic spend is not included</b>, so the spend control is partial; ROAS is blended, not incremental; the measure counts whether an order has a discount, not its size. Google Ads spend is complete through Aug 31. Selmatic sales and the completed-order discount share include a September actual-to-date row through Sep 13 and a separate linear sales run-rate estimate. Daily cost-per-transaction is available for Jul 1–28 and Aug 1–31.</p>
+</section>
+
+<details class="data" open><summary>Daily Google Ads cost per gross transaction and AOV (Jul 1–28 and Aug 1–31, 2026)</summary>
+ <p class="section-sub" id="daily-cpt-summary"></p>
+ <div class="tblscroll"><table class="dt" id="daily-cpt-table"></table></div>
+</details>
+
+<details class="data"><summary>Show monthly data table (September actuals and linear estimate; Google Ads pending)</summary>
+ <p class="caveat"><b>September estimate:</b> sales and order-volume values are linearly extrapolated from 13 observed calendar days to 30 days. AOV and items per order retain the observed Sep 1–13 level; discount share is actual to date. Google Ads spend and ROAS are not estimated.</p>
+ <div class="tblscroll"><table class="dt" id="dtable"></table></div>
+</details>
+</main>
+<main id="legendView" class="dashboard-view" hidden>
+ <section class="analysis legend-section">
+  <h2>Dashboard legend</h2>
+  <p class="lede">Scope, data coverage and definitions for the dashboard views.</p>
+
+  <h3>How to read the charts</h3>
+  <ul>
+   <li><b>By year</b> plots Jan–Dec on the x-axis with one line per year, making the same calendar month directly comparable across 2023–2026.</li>
+   <li><b>Timeline</b> places the same monthly values in one continuous series.</li>
+   <li>Click a year in the chart legend to show or hide it.</li>
+  </ul>
+
+  <h3>Data coverage and currency</h3>
+  <ul>
+   <li>July and August 2026 sales KPIs are full-month actuals rebuilt from reconciled Selmatic raw tables. September sales KPIs are actual through Sep 13; its completed-order discount share uses the matching Site Admin extract. Google Ads actual spend is complete through Aug 31 and is pending for September.</li>
+   <li>All values are shown in EUR. 2023–25 values recorded in BGN are standardised at the fixed 1.95583 BGN/EUR rate.</li>
+   <li>Monthly grain absorbs the 2023–24 weekend-posting artifact, where weekend orders were Monday-batched; daily and weekday comparisons across years are therefore not reliable.</li>
+  </ul>
+
+  <h3>Sales and merchandise definitions</h3>
+  <ul>
+   <li><b>Transaction</b> = one distinct <code>Продажба №</code> single-dated document. A <b>refund</b> is a separate credit-note document with a net value below zero. Refunds are attributed to the month processed because the source does not link a credit note to the original sale.</li>
+   <li><b>Gross transactions</b> count sale documents only. <b>Net transactions</b> subtract refund documents. <b>Revenue net of refunds</b> equals gross revenue less refunds processed in that month. Revenue retains VAT.</li>
+   <li><b>Net merchandise revenue</b> includes merchandise only: delivery, vouchers, fully free promotional lines, legacy zero-priced gifts and lines labelled <code>Подарък</code> are excluded. <b>AOV</b> and <b>items per order</b> use the same scope.</li>
+  </ul>
+
+  <h3>Discount and advertising definitions</h3>
+  <ul>
+   <li><b>Orders with a discount</b> is the monthly share of completed Website Orders-export records (<code>Status = C</code>) where <code>Discount &gt; 0 OR Subtotal discount &gt; 0</code>. It measures discount prevalence, not discount size.</li>
+   <li><b>Google Ads spend</b> covers the supplied Google Ads data only. Correlations and blended ROAS are descriptive, not causal or incremental estimates; Meta and organic spend are not included.</li>
+   <li>The daily cost-per-gross-transaction detail covers Jul 1–28 and Aug 1–31, 2026. Its denominator excludes refund documents.</li>
+  </ul>
+ </section>
+</main>
+<main id="conclusionsView" class="dashboard-view" hidden>
+ <section class="analysis">
+  <h2>Hourly traffic relation with purchases</h2>
+  <p class="lede">Google Ads hourly performance matched to completed WebSite orders in Europe/Sofia time. The window is Sep 2, 2025–Aug 31, 2026; 13 partial Ads-import dates were excluded rather than treated as zero traffic.</p>
+  <div class="cols">
+   <table class="h1tbl"><caption>Validated matched sample</caption>
+    <thead><tr><th>Measure</th><th>Result</th></tr></thead>
+    <tbody>
+     <tr><td>Fully populated Ads days</td><td>351</td></tr>
+     <tr><td>Completed site orders analysed</td><td>11,279</td></tr>
+     <tr><td>Most relevant purchase window</td><td>Current to prior 2 hours</td></tr>
+     <tr><td>Prior-hour relationship</td><td>Clicks +0.119 · spend +0.126</td></tr>
+    </tbody>
+   </table>
+   <ul>
+    <li><b>Qualified traffic, not impressions, is the useful signal.</b> After controlling for each date and clock hour, clicks and spend remain positively associated with purchases in the following one to two hours.</li>
+    <li><b>The effect is real but modest.</b> Ads activity adds roughly 1–2 percentage points of explanatory power beyond normal day and hour patterns.</li>
+    <li><b>Weak days are not explained by traffic alone.</b> Specific low-traffic intervals can constrain purchases, while demand, conversion rate, product availability and channel mix remain important.</li>
+   </ul>
+  </div>
+ <p class="caveat">Association, not causal attribution: completed site orders include direct, organic and returning customers. Earlier Google Ads data is available only monthly, so the hourly analysis begins in September 2025.</p>
+ </section>
+</main>
+<main id="tiersView" class="dashboard-view" hidden>
+ <section class="tiers-view" aria-label="Order value tiers report">
+  <iframe id="tiersFrame" title="SexWell merchandise order-value tiers" src="/business-results/assets/sexwell_order_value_tiers_2026-09-04_v02.html"></iframe>
+ </section>
+</main>
+<main id="productDynamicsView" class="dashboard-view" hidden>
+ <section class="tiers-view" aria-label="SexWell product dynamics">
+  <iframe id="productDynamicsFrame" title="SexWell product dynamics" src="/business-results/assets/sexwell_category_dynamics_2026-09-07_v09.html"></iframe>
+ </section>
+</main>
+<main id="productConcentrationView" class="dashboard-view" hidden>
+ <section class="tiers-view" aria-label="SexWell product revenue concentration">
+  <iframe id="productConcentrationFrame" title="SexWell product revenue concentration" src="/business-results/assets/sexwell_product_revenue_concentration_2026-09-07_v04.html"></iframe>
+ </section>
+</main>
+</div>
+<script>
+const MON=[{"year": 2023, "month": 1, "gross_txn": 868, "refund_docs": 23, "net_txn": 845, "gross_rev": 52726.56, "refund_val": -1684.88, "rev_net_refunds": 51041.68, "net_merch_rev": 50932.46, "aov": 60.28, "disc_rate": 19.4, "pen": 31.26, "depth": 19.11, "free_orders": 456, "ad_spend": 4324.84, "roas": 11.78, "items": 2.251}, {"year": 2023, "month": 2, "gross_txn": 900, "refund_docs": 45, "net_txn": 855, "gross_rev": 53246.23, "refund_val": -2321.79, "rev_net_refunds": 50924.44, "net_merch_rev": 51171.95, "aov": 59.85, "disc_rate": 18.84, "pen": 4.65, "depth": 19.05, "free_orders": 745, "ad_spend": 3731.83, "roas": 13.71, "items": 2.255}, {"year": 2023, "month": 3, "gross_txn": 787, "refund_docs": 38, "net_txn": 749, "gross_rev": 49172.35, "refund_val": -1916.12, "rev_net_refunds": 47256.23, "net_merch_rev": 47392.47, "aov": 63.27, "disc_rate": 17.89, "pen": 17.7, "depth": 17.77, "free_orders": 582, "ad_spend": 3207.58, "roas": 14.78, "items": 2.415}, {"year": 2023, "month": 4, "gross_txn": 817, "refund_docs": 31, "net_txn": 786, "gross_rev": 47179.51, "refund_val": -2460.41, "rev_net_refunds": 44719.1, "net_merch_rev": 45054.38, "aov": 57.32, "disc_rate": 18.04, "pen": 24.88, "depth": 17.79, "free_orders": 685, "ad_spend": 4274.34, "roas": 10.54, "items": 2.294}, {"year": 2023, "month": 5, "gross_txn": 797, "refund_docs": 42, "net_txn": 755, "gross_rev": 47647.16, "refund_val": -2292.92, "rev_net_refunds": 45354.24, "net_merch_rev": 45925.0, "aov": 60.83, "disc_rate": 18.8, "pen": 28.76, "depth": 19.17, "free_orders": 736, "ad_spend": 3380.66, "roas": 13.58, "items": 2.338}, {"year": 2023, "month": 6, "gross_txn": 861, "refund_docs": 45, "net_txn": 816, "gross_rev": 45834.82, "refund_val": -3245.78, "rev_net_refunds": 42589.04, "net_merch_rev": 43946.48, "aov": 53.86, "disc_rate": 18.43, "pen": 27.95, "depth": 18.38, "free_orders": 845, "ad_spend": 3277.04, "roas": 13.41, "items": 2.257}, {"year": 2023, "month": 7, "gross_txn": 851, "refund_docs": 39, "net_txn": 812, "gross_rev": 50807.8, "refund_val": -2676.34, "rev_net_refunds": 48131.46, "net_merch_rev": 48803.92, "aov": 60.1, "disc_rate": 16.78, "pen": 44.04, "depth": 15.83, "free_orders": 805, "ad_spend": 3705.02, "roas": 13.17, "items": 2.198}, {"year": 2023, "month": 8, "gross_txn": 1204, "refund_docs": 47, "net_txn": 1157, "gross_rev": 74091.38, "refund_val": -2144.48, "rev_net_refunds": 71946.9, "net_merch_rev": 71317.8, "aov": 61.64, "disc_rate": 20.3, "pen": 30.5, "depth": 20.05, "free_orders": 1167, "ad_spend": 6196.46, "roas": 11.51, "items": 2.607}, {"year": 2023, "month": 9, "gross_txn": 725, "refund_docs": 33, "net_txn": 692, "gross_rev": 48247.41, "refund_val": -2105.75, "rev_net_refunds": 46141.66, "net_merch_rev": 46586.51, "aov": 67.32, "disc_rate": 20.66, "pen": 42.68, "depth": 20.02, "free_orders": 707, "ad_spend": 3915.14, "roas": 11.9, "items": 2.561}, {"year": 2023, "month": 10, "gross_txn": 803, "refund_docs": 34, "net_txn": 769, "gross_rev": 47427.4, "refund_val": -2067.75, "rev_net_refunds": 45359.65, "net_merch_rev": 45549.44, "aov": 59.23, "disc_rate": 16.56, "pen": 23.0, "depth": 16.24, "free_orders": 791, "ad_spend": 3505.89, "roas": 12.99, "items": 2.432}, {"year": 2023, "month": 11, "gross_txn": 1237, "refund_docs": 53, "net_txn": 1184, "gross_rev": 78745.23, "refund_val": -2888.48, "rev_net_refunds": 75856.75, "net_merch_rev": 76385.12, "aov": 64.51, "disc_rate": 22.61, "pen": 33.01, "depth": 21.58, "free_orders": 1218, "ad_spend": 5344.67, "roas": 14.29, "items": 2.669}, {"year": 2023, "month": 12, "gross_txn": 1270, "refund_docs": 79, "net_txn": 1191, "gross_rev": 66647.14, "refund_val": -4249.25, "rev_net_refunds": 62397.89, "net_merch_rev": 63728.88, "aov": 53.51, "disc_rate": 23.74, "pen": 51.38, "depth": 22.95, "free_orders": 1230, "ad_spend": 5758.73, "roas": 11.07, "items": 2.627}, {"year": 2024, "month": 1, "gross_txn": 1314, "refund_docs": 103, "net_txn": 1211, "gross_rev": 75250.43, "refund_val": -5947.97, "rev_net_refunds": 69302.47, "net_merch_rev": 72280.75, "aov": 59.69, "disc_rate": 17.12, "pen": 34.11, "depth": 17.29, "free_orders": 1299, "ad_spend": 5619.84, "roas": 12.86, "items": 2.576}, {"year": 2024, "month": 2, "gross_txn": 1219, "refund_docs": 54, "net_txn": 1165, "gross_rev": 66680.66, "refund_val": -2910.84, "rev_net_refunds": 63769.82, "net_merch_rev": 63883.01, "aov": 54.84, "disc_rate": 12.99, "pen": 37.22, "depth": 12.8, "free_orders": 1179, "ad_spend": 5262.15, "roas": 12.14, "items": 2.555}, {"year": 2024, "month": 3, "gross_txn": 935, "refund_docs": 43, "net_txn": 892, "gross_rev": 53030.0, "refund_val": -3004.21, "rev_net_refunds": 50025.79, "net_merch_rev": 50836.82, "aov": 56.99, "disc_rate": 16.62, "pen": 37.12, "depth": 16.55, "free_orders": 887, "ad_spend": 3855.61, "roas": 13.19, "items": 2.55}, {"year": 2024, "month": 4, "gross_txn": 833, "refund_docs": 54, "net_txn": 779, "gross_rev": 52398.05, "refund_val": -2899.98, "rev_net_refunds": 49498.07, "net_merch_rev": 50822.26, "aov": 65.24, "disc_rate": 17.54, "pen": 28.49, "depth": 18.01, "free_orders": 791, "ad_spend": 3572.52, "roas": 14.23, "items": 2.61}, {"year": 2024, "month": 5, "gross_txn": 929, "refund_docs": 49, "net_txn": 880, "gross_rev": 54951.35, "refund_val": -3189.52, "rev_net_refunds": 51761.83, "net_merch_rev": 52901.59, "aov": 60.12, "disc_rate": 18.47, "pen": 28.73, "depth": 17.65, "free_orders": 895, "ad_spend": 3913.25, "roas": 13.52, "items": 2.459}, {"year": 2024, "month": 6, "gross_txn": 835, "refund_docs": 54, "net_txn": 781, "gross_rev": 49261.39, "refund_val": -3455.98, "rev_net_refunds": 45805.41, "net_merch_rev": 47384.65, "aov": 60.67, "disc_rate": 18.89, "pen": 30.44, "depth": 19.24, "free_orders": 818, "ad_spend": 4461.37, "roas": 10.62, "items": 2.369}, {"year": 2024, "month": 7, "gross_txn": 1004, "refund_docs": 67, "net_txn": 937, "gross_rev": 60191.79, "refund_val": -3259.04, "rev_net_refunds": 56932.75, "net_merch_rev": 57798.44, "aov": 61.68, "disc_rate": 18.88, "pen": 30.68, "depth": 19.16, "free_orders": 985, "ad_spend": 4872.08, "roas": 11.86, "items": 2.364}, {"year": 2024, "month": 8, "gross_txn": 1415, "refund_docs": 99, "net_txn": 1316, "gross_rev": 83517.26, "refund_val": -4964.76, "rev_net_refunds": 78552.5, "net_merch_rev": 80272.82, "aov": 61.0, "disc_rate": 16.65, "pen": 21.45, "depth": 16.6, "free_orders": 1392, "ad_spend": 6294.87, "roas": 12.75, "items": 2.832}, {"year": 2024, "month": 9, "gross_txn": 858, "refund_docs": 59, "net_txn": 799, "gross_rev": 57501.72, "refund_val": -4463.66, "rev_net_refunds": 53038.07, "net_merch_rev": 55590.01, "aov": 69.57, "disc_rate": 17.64, "pen": 26.16, "depth": 17.79, "free_orders": 837, "ad_spend": 4947.73, "roas": 11.24, "items": 2.683}, {"year": 2024, "month": 10, "gross_txn": 805, "refund_docs": 36, "net_txn": 769, "gross_rev": 48952.89, "refund_val": -2888.47, "rev_net_refunds": 46064.42, "net_merch_rev": 47217.45, "aov": 61.4, "disc_rate": 17.76, "pen": 32.81, "depth": 18.05, "free_orders": 788, "ad_spend": 4476.67, "roas": 10.55, "items": 2.508}, {"year": 2024, "month": 11, "gross_txn": 1335, "refund_docs": 84, "net_txn": 1251, "gross_rev": 78702.44, "refund_val": -4481.39, "rev_net_refunds": 74221.05, "net_merch_rev": 75675.61, "aov": 60.49, "disc_rate": 12.25, "pen": 15.64, "depth": 12.83, "free_orders": 1298, "ad_spend": 8217.13, "roas": 9.21, "items": 2.666}, {"year": 2024, "month": 12, "gross_txn": 1329, "refund_docs": 79, "net_txn": 1250, "gross_rev": 76765.98, "refund_val": -3606.11, "rev_net_refunds": 73159.87, "net_merch_rev": 73677.18, "aov": 58.94, "disc_rate": 13.06, "pen": 14.73, "depth": 13.2, "free_orders": 1292, "ad_spend": 6588.49, "roas": 11.18, "items": 2.622}, {"year": 2025, "month": 1, "gross_txn": 1114, "refund_docs": 62, "net_txn": 1052, "gross_rev": 64282.64, "refund_val": -3913.75, "rev_net_refunds": 60368.88, "net_merch_rev": 61904.63, "aov": 58.84, "disc_rate": 19.25, "pen": 32.1, "depth": 19.24, "free_orders": 1019, "ad_spend": 5304.82, "roas": 11.67, "items": 2.653}, {"year": 2025, "month": 2, "gross_txn": 1177, "refund_docs": 79, "net_txn": 1098, "gross_rev": 69022.74, "refund_val": -4863.89, "rev_net_refunds": 64158.85, "net_merch_rev": 66201.24, "aov": 60.29, "disc_rate": 15.95, "pen": 19.44, "depth": 17.39, "free_orders": 1163, "ad_spend": 5687.09, "roas": 11.64, "items": 2.768}, {"year": 2025, "month": 3, "gross_txn": 961, "refund_docs": 54, "net_txn": 907, "gross_rev": 60022.18, "refund_val": -3186.11, "rev_net_refunds": 56836.06, "net_merch_rev": 58001.56, "aov": 63.95, "disc_rate": 14.97, "pen": 20.86, "depth": 14.93, "free_orders": 944, "ad_spend": 5630.26, "roas": 10.3, "items": 2.564}, {"year": 2025, "month": 4, "gross_txn": 818, "refund_docs": 58, "net_txn": 760, "gross_rev": 51813.12, "refund_val": -4006.58, "rev_net_refunds": 47806.54, "net_merch_rev": 50108.99, "aov": 65.93, "disc_rate": 17.14, "pen": 25.19, "depth": 16.48, "free_orders": 797, "ad_spend": 5265.25, "roas": 9.52, "items": 2.441}, {"year": 2025, "month": 5, "gross_txn": 731, "refund_docs": 41, "net_txn": 690, "gross_rev": 45600.63, "refund_val": -2078.06, "rev_net_refunds": 43522.57, "net_merch_rev": 44076.86, "aov": 63.88, "disc_rate": 14.63, "pen": 17.93, "depth": 15.9, "free_orders": 711, "ad_spend": 4161.84, "roas": 10.59, "items": 2.465}, {"year": 2025, "month": 6, "gross_txn": 677, "refund_docs": 39, "net_txn": 638, "gross_rev": 45480.13, "refund_val": -2284.8, "rev_net_refunds": 43195.33, "net_merch_rev": 44195.26, "aov": 69.27, "disc_rate": 21.91, "pen": 7.46, "depth": 20.41, "free_orders": 661, "ad_spend": 4795.92, "roas": 9.22, "items": 2.509}, {"year": 2025, "month": 7, "gross_txn": 861, "refund_docs": 39, "net_txn": 822, "gross_rev": 59293.3, "refund_val": -3049.9, "rev_net_refunds": 56243.4, "net_merch_rev": 57575.62, "aov": 70.04, "disc_rate": 35.34, "pen": 3.29, "depth": 30.73, "free_orders": 841, "ad_spend": 5836.21, "roas": 9.87, "items": 2.599}, {"year": 2025, "month": 8, "gross_txn": 1036, "refund_docs": 65, "net_txn": 971, "gross_rev": 74573.16, "refund_val": -4345.47, "rev_net_refunds": 70227.69, "net_merch_rev": 72444.15, "aov": 74.61, "disc_rate": 28.4, "pen": 4.13, "depth": 27.01, "free_orders": 1014, "ad_spend": 7046.51, "roas": 10.28, "items": 2.759}, {"year": 2025, "month": 9, "gross_txn": 881, "refund_docs": 61, "net_txn": 820, "gross_rev": 59093.35, "refund_val": -3698.42, "rev_net_refunds": 55394.93, "net_merch_rev": 57210.53, "aov": 69.77, "disc_rate": 30.45, "pen": 4.28, "depth": 26.77, "free_orders": 856, "ad_spend": 4968.09, "roas": 11.52, "items": 2.58}, {"year": 2025, "month": 10, "gross_txn": 821, "refund_docs": 48, "net_txn": 773, "gross_rev": 57446.87, "refund_val": -3043.81, "rev_net_refunds": 54403.05, "net_merch_rev": 55761.83, "aov": 72.14, "disc_rate": 24.75, "pen": 4.29, "depth": 22.09, "free_orders": 801, "ad_spend": 3595.36, "roas": 15.51, "items": 2.596}, {"year": 2025, "month": 11, "gross_txn": 1367, "refund_docs": 85, "net_txn": 1282, "gross_rev": 83507.44, "refund_val": -4656.52, "rev_net_refunds": 78850.93, "net_merch_rev": 80715.25, "aov": 62.96, "disc_rate": 25.39, "pen": 2.38, "depth": 23.51, "free_orders": 1347, "ad_spend": 6956.57, "roas": 11.6, "items": 2.769}, {"year": 2025, "month": 12, "gross_txn": 1185, "refund_docs": 76, "net_txn": 1109, "gross_rev": 75217.61, "refund_val": -4206.0, "rev_net_refunds": 71011.61, "net_merch_rev": 72892.67, "aov": 65.73, "disc_rate": 29.8, "pen": 2.88, "depth": 25.41, "free_orders": 1172, "ad_spend": 8075.94, "roas": 9.03, "items": 2.459}, {"year": 2026, "month": 1, "gross_txn": 1257, "refund_docs": 96, "net_txn": 1161, "gross_rev": 80727.01, "refund_val": -4595.66, "rev_net_refunds": 76131.35, "net_merch_rev": 78056.63, "aov": 67.23, "disc_rate": 31.56, "pen": 4.83, "depth": 31.01, "free_orders": 1244, "ad_spend": 9294.56, "roas": 8.4, "items": 2.734}, {"year": 2026, "month": 2, "gross_txn": 1131, "refund_docs": 70, "net_txn": 1061, "gross_rev": 74028.61, "refund_val": -4383.77, "rev_net_refunds": 69644.84, "net_merch_rev": 71782.51, "aov": 67.66, "disc_rate": 35.41, "pen": 4.26, "depth": 34.02, "free_orders": 1122, "ad_spend": 8090.8, "roas": 8.87, "items": 2.526}, {"year": 2026, "month": 3, "gross_txn": 938, "refund_docs": 64, "net_txn": 874, "gross_rev": 61802.09, "refund_val": -3310.14, "rev_net_refunds": 58491.95, "net_merch_rev": 59786.19, "aov": 68.41, "disc_rate": 26.88, "pen": 4.1, "depth": 24.19, "free_orders": 928, "ad_spend": 7970.04, "roas": 7.5, "items": 2.292}, {"year": 2026, "month": 4, "gross_txn": 806, "refund_docs": 55, "net_txn": 751, "gross_rev": 50531.34, "refund_val": -3470.42, "rev_net_refunds": 47060.93, "net_merch_rev": 48868.94, "aov": 65.07, "disc_rate": 19.35, "pen": 2.55, "depth": 18.16, "free_orders": 775, "ad_spend": 6357.93, "roas": 7.69, "items": 2.67}, {"year": 2026, "month": 5, "gross_txn": 835, "refund_docs": 43, "net_txn": 792, "gross_rev": 59160.27, "refund_val": -3153.06, "rev_net_refunds": 56007.21, "net_merch_rev": 57501.81, "aov": 72.6, "disc_rate": 23.22, "pen": 2.23, "depth": 16.9, "free_orders": 796, "ad_spend": 5194.55, "roas": 11.07, "items": 2.396}, {"year": 2026, "month": 6, "gross_txn": 871, "refund_docs": 34, "net_txn": 837, "gross_rev": 62762.58, "refund_val": -2678.84, "rev_net_refunds": 60083.74, "net_merch_rev": 61079.4, "aov": 72.97, "disc_rate": 14.67, "pen": 2.8, "depth": 17.81, "free_orders": 845, "ad_spend": 6540.49, "roas": 9.34, "items": 2.545}, {"year": 2026, "month": 7, "gross_txn": 972, "refund_docs": 56, "net_txn": 916, "gross_rev": 67720.47, "refund_val": -3325.3, "rev_net_refunds": 64395.17, "net_merch_rev": 65957.0, "aov": 72.01, "disc_rate": 27.63, "pen": 2.68, "depth": 25.74, "free_orders": 923, "ad_spend": 5790.21, "roas": null, "items": 2.776}, {"year": 2026, "month": 8, "gross_txn": 1131, "refund_docs": 47, "net_txn": 1084, "gross_rev": 71593.24, "refund_val": -2745.49, "rev_net_refunds": 68847.75, "net_merch_rev": 69595.06, "aov": 64.2, "disc_rate": 28.31, "pen": 31.8, "depth": 25.9, "free_orders": 777, "ad_spend": 6920.36, "roas": 10.06, "items": 2.852}, {"refund_val": -179.86, "year": 2026, "items": 2.312, "depth": 21.77, "net_txn": 391, "free_orders": 348, "refund_docs": 2, "gross_rev": 26192.54, "net_merch_rev": 25475.43, "ad_spend": null, "gross_txn": 393, "disc_rate": 59.7911, "pen": 6.91, "rev_net_refunds": 26012.68, "aov": 65.15, "month": 9, "roas": null}], KPIS=[{"key": "gross_txn", "title": "Gross transactions", "sub": "Distinct sale orders placed (net value &gt; 0)", "fmt": "int"}, {"key": "net_txn", "title": "Net transactions", "sub": "Sale orders minus refund/credit-note documents", "fmt": "int"}, {"key": "gross_rev", "title": "Gross revenue", "sub": "All sale orders · incl. VAT, shipping &amp; gifts (€)", "fmt": "eur0"}, {"key": "rev_net_refunds", "title": "Revenue net of refunds", "sub": "Gross revenue less refunds processed that month (€)", "fmt": "eur0"}, {"key": "net_merch_rev", "title": "Net merchandise revenue", "sub": "Merchandise only · delivery, vouchers, fully free and gift-labelled lines excluded (VAT kept in; €)", "fmt": "eur0"}, {"key": "aov", "title": "Average order value (AOV)", "sub": "Net merch revenue ÷ net transactions (€)", "fmt": "eur2"}, {"key": "items", "title": "Items per order", "sub": "Purchased merchandise units per order · same scope as AOV", "fmt": "num1"}], DISC_KPIS=[{"key": "disc_rate", "title": "Discount intensity", "sub": "Discount given as % of merch revenue", "fmt": "pct"}, {"key": "ad_spend", "title": "Google Ads spend", "sub": "Monthly cost, EUR (BGN→EUR; acct switched Sep 2025)", "fmt": "eur0"}, {"key": "roas", "title": "Blended ROAS", "sub": "Net merch revenue ÷ Google Ads spend (Google-only)", "fmt": "x"}], PROJ={}, MTD={}, PROJSEP={"gross_txn": 906.923, "refund_docs": 4.615, "net_txn": 902.308, "gross_rev": 60444.323, "refund_val": -415.062, "rev_net_refunds": 60029.262, "net_merch_rev": 58789.454, "aov": 65.15, "items": 2.312}, MTDSEP={"year": 2026, "month": 9, "gross_txn": 393, "refund_docs": 2, "net_txn": 391, "gross_rev": 26192.54, "refund_val": -179.86, "rev_net_refunds": 26012.68, "net_merch_rev": 25475.43, "aov": 65.15, "disc_rate": 59.7911, "pen": 6.91, "depth": 21.77, "free_orders": 348, "ad_spend": null, "roas": null, "items": 2.312}, YEARS=[2023,2024,2025,2026];
+const DAILY_CPT=[{"date": "2026-07-01", "ad_spend": 284.16, "impressions": 3270, "clicks": 669, "gross_txn": 31, "net_txn": 29, "refund_docs": 2, "aov": 50.92, "cost_per_gross_txn": 9.17}, {"date": "2026-07-02", "ad_spend": 294.05, "impressions": 3068, "clicks": 676, "gross_txn": 36, "net_txn": 32, "refund_docs": 4, "aov": 78.24, "cost_per_gross_txn": 8.17}, {"date": "2026-07-03", "ad_spend": 292.23, "impressions": 3051, "clicks": 677, "gross_txn": 38, "net_txn": 36, "refund_docs": 2, "aov": 72.88, "cost_per_gross_txn": 7.69}, {"date": "2026-07-04", "ad_spend": 214.07, "impressions": 2317, "clicks": 518, "gross_txn": 23, "net_txn": 22, "refund_docs": 1, "aov": 77.3, "cost_per_gross_txn": 9.31}, {"date": "2026-07-05", "ad_spend": 220.88, "impressions": 2278, "clicks": 495, "gross_txn": 26, "net_txn": 23, "refund_docs": 3, "aov": 74.88, "cost_per_gross_txn": 8.5}, {"date": "2026-07-06", "ad_spend": 246.99, "impressions": 2749, "clicks": 587, "gross_txn": 30, "net_txn": 29, "refund_docs": 1, "aov": 66.6, "cost_per_gross_txn": 8.23}, {"date": "2026-07-07", "ad_spend": 277.76, "impressions": 2659, "clicks": 559, "gross_txn": 37, "net_txn": 36, "refund_docs": 1, "aov": 79.23, "cost_per_gross_txn": 7.51}, {"date": "2026-07-08", "ad_spend": 247.69, "impressions": 3288, "clicks": 573, "gross_txn": 33, "net_txn": 31, "refund_docs": 2, "aov": 57.39, "cost_per_gross_txn": 7.51}, {"date": "2026-07-09", "ad_spend": 187.67, "impressions": 3816, "clicks": 545, "gross_txn": 27, "net_txn": 25, "refund_docs": 2, "aov": 77.26, "cost_per_gross_txn": 6.95}, {"date": "2026-07-10", "ad_spend": 173.6, "impressions": 2573, "clicks": 457, "gross_txn": 26, "net_txn": 25, "refund_docs": 1, "aov": 82.71, "cost_per_gross_txn": 6.68}, {"date": "2026-07-11", "ad_spend": 162.28, "impressions": 2753, "clicks": 452, "gross_txn": 24, "net_txn": 23, "refund_docs": 1, "aov": 111.94, "cost_per_gross_txn": 6.76}, {"date": "2026-07-12", "ad_spend": 217.48, "impressions": 3731, "clicks": 551, "gross_txn": 35, "net_txn": 34, "refund_docs": 1, "aov": 56.38, "cost_per_gross_txn": 6.21}, {"date": "2026-07-13", "ad_spend": 195.26, "impressions": 2752, "clicks": 508, "gross_txn": 39, "net_txn": 34, "refund_docs": 5, "aov": 65.31, "cost_per_gross_txn": 5.01}, {"date": "2026-07-14", "ad_spend": 182.79, "impressions": 2418, "clicks": 496, "gross_txn": 38, "net_txn": 35, "refund_docs": 3, "aov": 58.79, "cost_per_gross_txn": 4.81}, {"date": "2026-07-15", "ad_spend": 122.4, "impressions": 2167, "clicks": 409, "gross_txn": 28, "net_txn": 27, "refund_docs": 1, "aov": 58.95, "cost_per_gross_txn": 4.37}, {"date": "2026-07-16", "ad_spend": 137.87, "impressions": 1977, "clicks": 447, "gross_txn": 36, "net_txn": 34, "refund_docs": 2, "aov": 66.2, "cost_per_gross_txn": 3.83}, {"date": "2026-07-17", "ad_spend": 122.04, "impressions": 1728, "clicks": 379, "gross_txn": 31, "net_txn": 31, "refund_docs": 0, "aov": 71.04, "cost_per_gross_txn": 3.94}, {"date": "2026-07-18", "ad_spend": 130.68, "impressions": 1751, "clicks": 413, "gross_txn": 29, "net_txn": 24, "refund_docs": 5, "aov": 75.99, "cost_per_gross_txn": 4.51}, {"date": "2026-07-19", "ad_spend": 130.68, "impressions": 1983, "clicks": 429, "gross_txn": 43, "net_txn": 42, "refund_docs": 1, "aov": 74.38, "cost_per_gross_txn": 3.04}, {"date": "2026-07-20", "ad_spend": 145.56, "impressions": 2031, "clicks": 414, "gross_txn": 33, "net_txn": 32, "refund_docs": 1, "aov": 73.55, "cost_per_gross_txn": 4.41}, {"date": "2026-07-21", "ad_spend": 160.48, "impressions": 2127, "clicks": 466, "gross_txn": 29, "net_txn": 28, "refund_docs": 1, "aov": 67.16, "cost_per_gross_txn": 5.53}, {"date": "2026-07-22", "ad_spend": 172.58, "impressions": 2223, "clicks": 488, "gross_txn": 30, "net_txn": 30, "refund_docs": 0, "aov": 74.06, "cost_per_gross_txn": 5.75}, {"date": "2026-07-23", "ad_spend": 179.75, "impressions": 2232, "clicks": 510, "gross_txn": 29, "net_txn": 27, "refund_docs": 2, "aov": 83.15, "cost_per_gross_txn": 6.2}, {"date": "2026-07-24", "ad_spend": 176.51, "impressions": 2475, "clicks": 495, "gross_txn": 24, "net_txn": 15, "refund_docs": 9, "aov": 107.92, "cost_per_gross_txn": 7.35}, {"date": "2026-07-25", "ad_spend": 132.19, "impressions": 2022, "clicks": 418, "gross_txn": 28, "net_txn": 28, "refund_docs": 0, "aov": 87.6, "cost_per_gross_txn": 4.72}, {"date": "2026-07-26", "ad_spend": 137.27, "impressions": 2038, "clicks": 442, "gross_txn": 28, "net_txn": 28, "refund_docs": 0, "aov": 57.42, "cost_per_gross_txn": 4.9}, {"date": "2026-07-27", "ad_spend": 175.18, "impressions": 2290, "clicks": 491, "gross_txn": 30, "net_txn": 29, "refund_docs": 1, "aov": 63.68, "cost_per_gross_txn": 5.84}, {"date": "2026-07-28", "ad_spend": 170.54, "impressions": 2176, "clicks": 481, "gross_txn": 23, "net_txn": 22, "refund_docs": 1, "aov": 83.5, "cost_per_gross_txn": 7.41}, {"date": "2026-08-01", "ad_spend": 168.1, "impressions": 2342, "clicks": 427, "gross_txn": 24, "net_txn": 22, "refund_docs": 2, "aov": 60.41, "cost_per_gross_txn": 7.0}, {"date": "2026-08-02", "ad_spend": 217.73, "impressions": 2866, "clicks": 596, "gross_txn": 42, "net_txn": 41, "refund_docs": 1, "aov": 64.64, "cost_per_gross_txn": 5.18}, {"date": "2026-08-03", "ad_spend": 192.04, "impressions": 2620, "clicks": 503, "gross_txn": 55, "net_txn": 54, "refund_docs": 1, "aov": 63.51, "cost_per_gross_txn": 3.49}, {"date": "2026-08-04", "ad_spend": 143.56, "impressions": 2257, "clicks": 390, "gross_txn": 44, "net_txn": 40, "refund_docs": 4, "aov": 51.36, "cost_per_gross_txn": 3.26}, {"date": "2026-08-05", "ad_spend": 189.47, "impressions": 2746, "clicks": 515, "gross_txn": 48, "net_txn": 43, "refund_docs": 5, "aov": 57.4, "cost_per_gross_txn": 3.95}, {"date": "2026-08-06", "ad_spend": 207.28, "impressions": 2915, "clicks": 582, "gross_txn": 50, "net_txn": 46, "refund_docs": 4, "aov": 66.88, "cost_per_gross_txn": 4.15}, {"date": "2026-08-07", "ad_spend": 181.35, "impressions": 2475, "clicks": 478, "gross_txn": 44, "net_txn": 44, "refund_docs": 0, "aov": 72.09, "cost_per_gross_txn": 4.12}, {"date": "2026-08-08", "ad_spend": 138.77, "impressions": 2183, "clicks": 421, "gross_txn": 29, "net_txn": 26, "refund_docs": 3, "aov": 72.42, "cost_per_gross_txn": 4.79}, {"date": "2026-08-09", "ad_spend": 147.79, "impressions": 2174, "clicks": 423, "gross_txn": 47, "net_txn": 41, "refund_docs": 6, "aov": 71.09, "cost_per_gross_txn": 3.14}, {"date": "2026-08-10", "ad_spend": 207.04, "impressions": 2206, "clicks": 430, "gross_txn": 29, "net_txn": 28, "refund_docs": 1, "aov": 61.27, "cost_per_gross_txn": 7.14}, {"date": "2026-08-11", "ad_spend": 186.67, "impressions": 2685, "clicks": 444, "gross_txn": 41, "net_txn": 40, "refund_docs": 1, "aov": 65.02, "cost_per_gross_txn": 4.55}, {"date": "2026-08-12", "ad_spend": 205.46, "impressions": 2744, "clicks": 509, "gross_txn": 25, "net_txn": 25, "refund_docs": 0, "aov": 86.89, "cost_per_gross_txn": 8.22}, {"date": "2026-08-13", "ad_spend": 189.82, "impressions": 2657, "clicks": 493, "gross_txn": 33, "net_txn": 31, "refund_docs": 2, "aov": 72.68, "cost_per_gross_txn": 5.75}, {"date": "2026-08-14", "ad_spend": 160.31, "impressions": 2435, "clicks": 446, "gross_txn": 26, "net_txn": 21, "refund_docs": 5, "aov": 75.46, "cost_per_gross_txn": 6.17}, {"date": "2026-08-15", "ad_spend": 166.36, "impressions": 2329, "clicks": 411, "gross_txn": 32, "net_txn": 31, "refund_docs": 1, "aov": 70.3, "cost_per_gross_txn": 5.2}, {"date": "2026-08-16", "ad_spend": 226.39, "impressions": 2606, "clicks": 492, "gross_txn": 38, "net_txn": 36, "refund_docs": 2, "aov": 66.23, "cost_per_gross_txn": 5.96}, {"date": "2026-08-17", "ad_spend": 195.38, "impressions": 2586, "clicks": 506, "gross_txn": 25, "net_txn": 24, "refund_docs": 1, "aov": 57.43, "cost_per_gross_txn": 7.82}, {"date": "2026-08-18", "ad_spend": 213.1, "impressions": 2686, "clicks": 509, "gross_txn": 39, "net_txn": 35, "refund_docs": 4, "aov": 64.31, "cost_per_gross_txn": 5.46}, {"date": "2026-08-19", "ad_spend": 206.93, "impressions": 2860, "clicks": 558, "gross_txn": 39, "net_txn": 39, "refund_docs": 0, "aov": 49.9, "cost_per_gross_txn": 5.31}, {"date": "2026-08-20", "ad_spend": 228.07, "impressions": 3094, "clicks": 573, "gross_txn": 39, "net_txn": 39, "refund_docs": 0, "aov": 62.79, "cost_per_gross_txn": 5.85}, {"date": "2026-08-21", "ad_spend": 246.62, "impressions": 3196, "clicks": 647, "gross_txn": 32, "net_txn": 32, "refund_docs": 0, "aov": 69.56, "cost_per_gross_txn": 7.71}, {"date": "2026-08-22", "ad_spend": 229.85, "impressions": 2998, "clicks": 596, "gross_txn": 28, "net_txn": 27, "refund_docs": 1, "aov": 46.36, "cost_per_gross_txn": 8.21}, {"date": "2026-08-23", "ad_spend": 253.79, "impressions": 3323, "clicks": 655, "gross_txn": 27, "net_txn": 27, "refund_docs": 0, "aov": 59.3, "cost_per_gross_txn": 9.4}, {"date": "2026-08-24", "ad_spend": 290.49, "impressions": 3451, "clicks": 675, "gross_txn": 49, "net_txn": 49, "refund_docs": 0, "aov": 58.95, "cost_per_gross_txn": 5.93}, {"date": "2026-08-25", "ad_spend": 315.74, "impressions": 3529, "clicks": 724, "gross_txn": 46, "net_txn": 45, "refund_docs": 1, "aov": 61.1, "cost_per_gross_txn": 6.86}, {"date": "2026-08-26", "ad_spend": 288.55, "impressions": 3666, "clicks": 677, "gross_txn": 43, "net_txn": 43, "refund_docs": 0, "aov": 62.57, "cost_per_gross_txn": 6.71}, {"date": "2026-08-27", "ad_spend": 279.74, "impressions": 3792, "clicks": 664, "gross_txn": 28, "net_txn": 27, "refund_docs": 1, "aov": 59.06, "cost_per_gross_txn": 9.99}, {"date": "2026-08-28", "ad_spend": 322.95, "impressions": 3927, "clicks": 692, "gross_txn": 45, "net_txn": 45, "refund_docs": 0, "aov": 64.67, "cost_per_gross_txn": 7.18}, {"date": "2026-08-29", "ad_spend": 257.93, "impressions": 3604, "clicks": 625, "gross_txn": 19, "net_txn": 19, "refund_docs": 0, "aov": 59.36, "cost_per_gross_txn": 13.58}, {"date": "2026-08-30", "ad_spend": 286.78, "impressions": 4030, "clicks": 744, "gross_txn": 25, "net_txn": 24, "refund_docs": 1, "aov": 76.23, "cost_per_gross_txn": 11.47}, {"date": "2026-08-31", "ad_spend": 376.3, "impressions": 4425, "clicks": 793, "gross_txn": 40, "net_txn": 40, "refund_docs": 0, "aov": 70.86, "cost_per_gross_txn": 9.41}];
+const PROJAUG={}, MTDAUG={"gross_txn": 1131, "net_txn": 1084, "gross_rev": 71593.24, "rev_net_refunds": 68847.75, "net_merch_rev": 69595.06, "aov": 64.2, "items": 2.852, "ad_spend": 6920.36};
+const PROJM=7, PROJY=2026, SALES_CUTOFF_DAY=31, AUGUST_CUTOFF_DAY=31, DISCOUNT_CUTOFF_DAY=31, ADS_CUTOFF_DAY=31;  // August is fully actual
+const SC={2023:'--s2023',2024:'--s2024',2025:'--s2025',2026:'--s2026'};
+const ML=['J','F','M','A','M','J','J','A','S','O','N','D'];
+const MFULL=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const SEQ=MON.slice().sort((a,b)=>a.year-b.year||a.month-b.month);
+const byYM={}; MON.forEach(r=>{byYM[r.year+'-'+r.month]=r});
+const state={mode:'overlay', off:{}}; YEARS.forEach(y=>state.off[y]=false);
+const NS='http://www.w3.org/2000/svg';
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function fmt(v,f){ if(v==null||isNaN(v))return '—';
+ if(f==='int')return Math.round(v).toLocaleString('en-US');
+ if(f==='eur0')return '€'+Math.round(v).toLocaleString('en-US');
+ if(f==='eur2')return '€'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ if(f==='pct')return v.toFixed(1)+'%';
+ if(f==='x')return v.toFixed(1)+'×';
+ if(f==='num1')return v.toFixed(1);
+ return v}
+function fmtAxis(v,f){if(f==='int')return v>=1000?(v/1000).toFixed(v%1000?1:0)+'k':Math.round(v);
+ if(f==='eur0')return '€'+(v>=1000?(v/1000).toFixed(0)+'k':Math.round(v));
+ if(f==='eur2')return '€'+Math.round(v);
+ if(f==='pct')return Math.round(v)+'%';
+ if(f==='x')return Math.round(v)+'×';
+ if(f==='num1')return (v%1?v.toFixed(1):v.toFixed(0));return v;}
+function niceMax(v){const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;
+ let s;if(n<=1)s=1;else if(n<=2)s=2;else if(n<=2.5)s=2.5;else if(n<=5)s=5;else s=10;return s*p;}
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);
+ for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function txt(p,x,y,s,cls,anchor){const t=el('text',{x,y,class:cls},p);if(anchor)t.setAttribute('text-anchor',anchor);t.textContent=s;return t;}
+function projectionFor(y,m){return y===PROJY&&m===PROJM?PROJ:y===2026&&m===8?PROJAUG:y===2026&&m===9?PROJSEP:null}
+function actualFor(y,m){return y===PROJY&&m===PROJM?MTD:y===2026&&m===8?MTDAUG:y===2026&&m===9?MTDSEP:null}
+function isProj(key,y,m){return hasProj(key,y,m)}
+function hasProj(key,y,m){const projection=projectionFor(y,m);return !!projection&&projection.hasOwnProperty(key)}
+function actualCutoff(key,y,m){if(m===9)return 13;if(m!==8)return SALES_CUTOFF_DAY;return(key==='ad_spend'||key==='roas')?ADS_CUTOFF_DAY:AUGUST_CUTOFF_DAY}
+function val(key,y,m){const projection=projectionFor(y,m);if(projection&&projection.hasOwnProperty(key))return projection[key];const r=byYM[y+'-'+m];const v=r?r[key]:null;return v===undefined?null:v;}
+function series(key,y){const a=[];for(let m=1;m<=12;m++)a.push(val(key,y,m));return a}
+
+const tip=document.createElement('div');tip.className='tip';document.body.appendChild(tip);
+function showTip(ev,title,rows){tip.innerHTML='<div class="tm">'+title+'</div>'+rows;
+ tip.style.opacity=1;tip.style.left=Math.min(ev.clientX+14,innerWidth-170)+'px';tip.style.top=(ev.clientY-10)+'px';}
+function hideTip(){tip.style.opacity=0;}
+
+/* ---------- TIMELINE (continuous) ---------- */
+function buildTimeline(kpi){
+ const card=document.createElement('div');card.className='card';
+ card.innerHTML='<h3>'+kpi.title+'</h3><div class="sub">'+kpi.sub+' · monthly, Jan 2023–Sep 2026 · Sep linear estimate from actual through 13th</div>';
+ const W=1120,H=248,P={t:14,r:20,b:34,l:62};
+ const iw=W-P.l-P.r, ih=H-P.t-P.b, n=SEQ.length;
+ const svg=el('svg',{viewBox:'0 0 '+W+' '+H,role:'img','aria-label':kpi.title+' continuous monthly series'});
+ const col=cssv('--line');
+ const gv=r=>val(kpi.key,r.year,r.month);
+ let mx=0;SEQ.forEach(r=>{const v=gv(r);if(v!=null&&v>mx)mx=v;});
+ const nice=niceMax(mx*1.08||1);
+ const x=i=>P.l+ (n>1? i/(n-1)*iw : iw/2);
+ const yv=v=>P.t+ih-(v/nice)*ih;
+ // year bands + separators + year labels
+ const yrIdx={};SEQ.forEach((r,i)=>{(yrIdx[r.year]=yrIdx[r.year]||[]).push(i);});
+ let alt=0;
+ for(const y of YEARS){const idx=yrIdx[y];if(!idx)continue;
+  const x0=x(idx[0])-(idx.length>1?(x(idx[1])-x(idx[0]))/2:6);
+  const x1=x(idx[idx.length-1])+(idx.length>1?(x(idx[1])-x(idx[0]))/2:6);
+  if(alt%2===0) el('rect',{x:Math.max(P.l,x0),y:P.t,width:Math.min(x1,P.l+iw)-Math.max(P.l,x0),height:ih,class:'yband'},svg);
+  if(alt>0) el('line',{x1:Math.max(P.l,x0),y1:P.t,x2:Math.max(P.l,x0),y2:P.t+ih,class:'ysep'},svg);
+  txt(svg,(Math.max(P.l,x0)+Math.min(x1,P.l+iw))/2,H-8,y+(y===2026?' *':''),'yr-axis','middle');
+  alt++;}
+ // horizontal gridlines + y labels
+ const ticks=5;for(let i=0;i<=ticks;i++){const val=nice*i/ticks,yy=yv(val);
+  el('line',{x1:P.l,y1:yy,x2:P.l+iw,y2:yy,class:'grid-line'},svg);
+  txt(svg,P.l-8,yy+3,fmtAxis(val,kpi.fmt),'axis-txt','end');}
+ // month ticks (minor initials)
+ SEQ.forEach((r,i)=>{ if(r.month%3===1) txt(svg,x(i),P.t+ih+13,MFULL[r.month-1].slice(0,1),'axis-txt','middle'); });
+ // line + dots (null-robust). Dashed segments mark July's estimate and August's partial actuals.
+ const pts=[]; SEQ.forEach((r,i)=>{const v=gv(r); if(v!=null) pts.push({i,r,v});});
+ let dsolid='',ddash='';
+ for(let k=0;k<pts.length;k++){const p=pts[k];const sp=isProj(kpi.key,p.r.year,p.r.month);
+  if(sp&&k>0){ddash+=(ddash?' ':'')+'M'+x(pts[k-1].i)+' '+yv(pts[k-1].v)+' L'+x(p.i)+' '+yv(p.v);}
+  else dsolid+=(dsolid?' L':'M')+x(p.i)+' '+yv(p.v);}
+ el('path',{d:dsolid,fill:'none',stroke:col,'stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'},svg);
+ if(ddash)el('path',{d:ddash,fill:'none',stroke:col,'stroke-width':2,'stroke-dasharray':'4 3'},svg);
+ pts.forEach(p=>{const sp=isProj(kpi.key,p.r.year,p.r.month);
+  if(sp)el('circle',{cx:x(p.i),cy:yv(p.v),r:3.4,fill:'var(--surface)',stroke:col,'stroke-width':1.6},svg);
+  else el('circle',{cx:x(p.i),cy:yv(p.v),r:1.9,fill:col},svg);});
+ // hover
+ const ch=el('line',{class:'crosshair',y1:P.t,y2:P.t+ih},svg);ch.style.opacity=0;
+ const hit=el('rect',{x:P.l,y:P.t,width:iw,height:ih,fill:'transparent'},svg);
+ hit.addEventListener('mousemove',ev=>{const b=svg.getBoundingClientRect();
+  const rx=(ev.clientX-b.left)/b.width*W; let i=Math.round((rx-P.l)/iw*(n-1));
+  i=Math.max(0,Math.min(n-1,i)); const r=SEQ[i];const v=gv(r);const sp=isProj(kpi.key,r.year,r.month);const projd=sp&&hasProj(kpi.key,r.year,r.month);
+  ch.setAttribute('x1',x(i));ch.setAttribute('x2',x(i));ch.style.opacity=1;
+  let body='<div class="tr"><span><span class="sw" style="background:'+col+'"></span>'+kpi.title.replace(/ \(.*/,'')+'</span><b>'+fmt(v,kpi.fmt)+'</b></div>';
+  if(projd)body+='<div class="tr" style="color:var(--text-muted);font-size:11px"><span>Actual to '+MFULL[r.month-1]+' '+actualCutoff(kpi.key,r.year,r.month)+'</span><b style="font-weight:500">'+fmt(actualFor(r.year,r.month)[kpi.key],kpi.fmt)+'</b></div>';
+  showTip(ev,MFULL[r.month-1]+' '+r.year+(projd?' (linear estimate)':r.year===2026&&r.month===9?' (actual through Sep 13)':sp?' (actual to '+MFULL[r.month-1]+' '+actualCutoff(kpi.key,r.year,r.month)+')':''),body);});
+ hit.addEventListener('mouseleave',()=>{hideTip();ch.style.opacity=0;});
+ card.appendChild(svg);return card;
+}
+
+/* ---------- OVERLAY (YoY, Jan–Dec) ---------- */
+function buildOverlay(kpi){
+ const card=document.createElement('div');card.className='card';
+ card.innerHTML='<h3>'+kpi.title+'</h3><div class="sub">'+kpi.sub+' · by month, per year</div>';
+ const W=560,H=250,P={t:14,r:40,b:24,l:52};
+ const iw=W-P.l-P.r, ih=H-P.t-P.b;
+ const svg=el('svg',{viewBox:'0 0 '+W+' '+H,role:'img','aria-label':kpi.title+' by month per year'});
+ let mx=0;YEARS.forEach(y=>series(kpi.key,y).forEach(v=>{if(v!=null&&v>mx)mx=v}));
+ const nice=niceMax(mx*1.08||1);
+ const x=m=>P.l+(m-1)/11*iw, yv=v=>P.t+ih-(v/nice)*ih;
+ const ticks=5;for(let i=0;i<=ticks;i++){const val=nice*i/ticks,yy=yv(val);
+  el('line',{x1:P.l,y1:yy,x2:P.l+iw,y2:yy,class:'grid-line'},svg);
+  txt(svg,P.l-8,yy+3,fmtAxis(val,kpi.fmt),'axis-txt','end');}
+ for(let m=1;m<=12;m++)txt(svg,x(m),H-8,ML[m-1],'axis-txt','middle');
+ const endLabels=[];
+ YEARS.forEach(y=>{const col=cssv(SC[y]);const s=series(kpi.key,y);
+  const g=el('g',{},svg);g.dataset.year=y;g.style.display=state.off[y]?'none':'';
+  let pts=[],lastIdx=-1;s.forEach((v,i)=>{if(v!=null){pts.push([i+1,v]);lastIdx=i+1}});
+  let dsolid='',ddash='';
+  for(let k=0;k<pts.length;k++){const [m,v]=pts[k];const partial=isProj(kpi.key,y,m);
+   if(partial&&k>0)ddash+=(ddash?' ':'')+'M'+x(pts[k-1][0])+' '+yv(pts[k-1][1])+' L'+x(m)+' '+yv(v);
+   else dsolid+=(dsolid?' L':'M')+x(m)+' '+yv(v);}
+  el('path',{d:dsolid,fill:'none',stroke:col,'stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'},g);
+  if(ddash)el('path',{d:ddash,fill:'none',stroke:col,'stroke-width':2,'stroke-dasharray':'4 3'},g);
+  pts.forEach(([m,v])=>{const partial=isProj(kpi.key,y,m);
+   if(partial)el('circle',{cx:x(m),cy:yv(v),r:3.2,fill:'var(--surface)',stroke:col,'stroke-width':1.6},g);
+   else el('circle',{cx:x(m),cy:yv(v),r:2.6,fill:col},g);});
+  if(lastIdx>0){const lv=s[lastIdx-1];const t=txt(g,x(lastIdx)+6,yv(lv)+3.5,String(y),'yr-label','start');
+   t.setAttribute('fill',col);if(lastIdx===12)endLabels.push({t,y:yv(lv)+3.5});}
+ });
+ endLabels.sort((a,b)=>a.y-b.y);
+ for(let i=1;i<endLabels.length;i++){if(endLabels[i].y-endLabels[i-1].y<11){
+  endLabels[i].y=endLabels[i-1].y+11;endLabels[i].t.setAttribute('y',endLabels[i].y);}}
+ const ch=el('line',{class:'crosshair',y1:P.t,y2:P.t+ih},svg);ch.style.opacity=0;
+ const hit=el('rect',{x:P.l,y:P.t,width:iw,height:ih,fill:'transparent'},svg);
+ hit.addEventListener('mousemove',ev=>{const b=svg.getBoundingClientRect();
+  const rx=(ev.clientX-b.left)/b.width*W;let m=Math.round((rx-P.l)/iw*11)+1;m=Math.max(1,Math.min(12,m));
+  ch.setAttribute('x1',x(m));ch.setAttribute('x2',x(m));ch.style.opacity=1;
+  let rows='';YEARS.forEach(y=>{if(state.off[y])return;const v=val(kpi.key,y,m);if(v==null)return;const projd=isProj(kpi.key,y,m)&&hasProj(kpi.key,y,m);const part=isProj(kpi.key,y,m)&&!hasProj(kpi.key,y,m);
+   rows+='<div class="tr"><span><span class="sw" style="background:'+cssv(SC[y])+'"></span>'+y+(projd?' (est.)':part?' *':'')+'</span><b>'+fmt(v,kpi.fmt)+'</b></div>';});
+  if((m===7||m===8)&&!state.off[PROJY]&&hasProj(kpi.key,PROJY,m)){const actual=actualFor(PROJY,m);rows+='<div class="tr" style="color:var(--text-muted);font-size:11px"><span>2026 actual to '+MFULL[m-1]+' '+actualCutoff(kpi.key,PROJY,m)+'</span><b style="font-weight:500">'+fmt(actual[kpi.key],kpi.fmt)+'</b></div>';}
+  showTip(ev,MFULL[m-1],rows);});
+ hit.addEventListener('mouseleave',()=>{hideTip();ch.style.opacity=0;});
+ card.appendChild(svg);return card;
+}
+
+function render(){const fn=state.mode==='overlay'?buildOverlay:buildTimeline;
+ [['grid',KPIS],['grid2',DISC_KPIS]].forEach(([id,list])=>{const g=document.getElementById(id);g.innerHTML='';
+  g.classList.toggle('overlay',state.mode==='overlay');list.forEach(k=>g.appendChild(fn(k)));});
+ document.getElementById('legend').style.display=state.mode==='overlay'?'':'none';}
+
+// Dashboard view switch
+document.querySelectorAll('#viewTabs button').forEach(b=>b.onclick=()=>{
+ const view=b.dataset.view;
+ document.getElementById('dataView').hidden=view!=='data';
+ document.getElementById('legendView').hidden=view!=='legend';
+ document.getElementById('conclusionsView').hidden=view!=='conclusions';
+ document.getElementById('tiersView').hidden=view!=='tiers';
+ document.getElementById('productDynamicsView').hidden=view!=='product-dynamics';
+ document.getElementById('productConcentrationView').hidden=view!=='product-concentration';
+ document.querySelectorAll('#viewTabs button').forEach(x=>{
+  const selected=x===b;x.classList.toggle('on',selected);x.setAttribute('aria-selected',selected?'true':'false');
+ });
+});
+
+// Keep the embedded tier report at its natural height when opened from the menu.
+const tiersFrame=document.getElementById('tiersFrame');
+function resizeTiersFrame(){
+ try{
+  const doc=tiersFrame.contentDocument;
+  if(doc)tiersFrame.style.height=Math.max(2800,doc.documentElement.scrollHeight,doc.body.scrollHeight)+'px';
+ }catch(_){/* The fixed minimum height remains available if a browser blocks local-frame access. */}
+}
+tiersFrame.addEventListener('load',resizeTiersFrame);
+setTimeout(resizeTiersFrame,0);
+window.addEventListener('resize',resizeTiersFrame);
+
+// The product-dynamics report is embedded with the same local-frame pattern.
+const productDynamicsFrame=document.getElementById('productDynamicsFrame');
+function resizeProductDynamicsFrame(){
+ try{
+  const doc=productDynamicsFrame.contentDocument;
+  if(doc)productDynamicsFrame.style.height=Math.max(2600,doc.documentElement.scrollHeight,doc.body.scrollHeight)+'px';
+ }catch(_){/* The fixed minimum height remains available if a browser blocks local-frame access. */}
+}
+productDynamicsFrame.addEventListener('load',resizeProductDynamicsFrame);
+setTimeout(resizeProductDynamicsFrame,0);
+window.addEventListener('resize',resizeProductDynamicsFrame);
+
+// Keep the concentration report self-contained, while expanding its frame when local access permits.
+const productConcentrationFrame=document.getElementById('productConcentrationFrame');
+function resizeProductConcentrationFrame(){
+ try{
+  const doc=productConcentrationFrame.contentDocument;
+  if(doc)productConcentrationFrame.style.height=Math.max(2400,doc.documentElement.scrollHeight,doc.body.scrollHeight)+'px';
+ }catch(_){/* The fixed minimum height remains available if a browser blocks local-frame access. */}
+}
+productConcentrationFrame.addEventListener('load',resizeProductConcentrationFrame);
+setTimeout(resizeProductConcentrationFrame,0);
+window.addEventListener('resize',resizeProductConcentrationFrame);
+
+// mode segmented control
+document.querySelectorAll('#modeSeg button').forEach(b=>b.onclick=()=>{
+ state.mode=b.dataset.mode;
+ document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on',x===b));
+ render();});
+// legend (overlay only)
+const lg=document.getElementById('legend');
+YEARS.forEach(y=>{const d=document.createElement('div');d.className='lg';d.dataset.year=y;
+ d.innerHTML='<span class="chip" style="background:'+cssv(SC[y])+'"></span>'+y;
+ d.onclick=()=>{state.off[y]=!state.off[y];d.classList.toggle('off',state.off[y]);render();};lg.appendChild(d);});
+// theme
+document.getElementById('themeBtn').onclick=()=>{
+ const cur=document.documentElement.getAttribute('data-theme');
+ const dark=cur? cur==='dark' : matchMedia('(prefers-color-scheme:dark)').matches;
+ document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+ lg.querySelectorAll('.chip').forEach((c,i)=>c.style.background=cssv(SC[YEARS[i]]));
+ render();};
+// Discount prevalence from completed WebSite orders (2023-01-01 to 2026-08-31).
+// Discounted order = Discount > 0 OR Subtotal discount > 0.
+const ORDER_EXPORT_DISCOUNTED_ORDER_RATE={"2023":[44.4183,23.0769,42.0844,42.1801,46.1642,43.3984,61.6223,92.0809,43.2756,38.896,73.0514,57.3794],"2024":[37.7966,76.5391,73.1183,63.6816,72.4409,64.8,46.9777,91.8545,64.4571,61.1902,93.7675,85.9309],"2025":[88.2246,85.7642,80.3061,89.4268,89.1929,53.7065,58.2431,88.8788,91.7949,85.7881,95.5423,93.7766],"2026":[88.4304,84.491,71.2139,72.7756,59.1532,46.4455,52.0591,82.9155,59.7911]};
+const ORDER_EXPORT_ROAS={
+  2023:[12.2155,14.1224,14.9780,11.5666,13.1306,13.8584,13.4951,11.8661,12.9803,13.0918,14.5178,12.9654],
+  2024:[12.0762,12.6387,13.7406,14.3020,13.4517,11.6866,11.7169,12.9534,11.7317,10.6515,10.2472,10.5868],
+  2025:[11.9384,11.9574,10.8274,9.4282,11.1513,9.4652,9.7295,11.3738,10.4819,15.1941,11.8612,9.5219],
+  2026:[10.3182,8.5467,7.2604,7.4407,10.9514,9.2474]
+};
+MON.forEach(r=>{
+ const rate=ORDER_EXPORT_DISCOUNTED_ORDER_RATE[r.year]?.[r.month-1];
+ const roas=ORDER_EXPORT_ROAS[r.year]?.[r.month-1];
+ if(Number.isFinite(rate))r.disc_rate=rate;
+ if(Number.isFinite(roas))r.roas=roas;
+ // The ERP's line-level discount ratio is not comparable with the validated order-level measure.
+});
+const discountCard=DISC_KPIS.find(k=>k.key==='disc_rate');
+discountCard.title='Orders with a discount';
+discountCard.sub='Validated Orders export: Discount > 0 OR Subtotal discount > 0';
+const roasCard=DISC_KPIS.find(k=>k.key==='roas');
+roasCard.title='Gross-order ROAS';
+roasCard.sub='Gross order revenue incl. shipping ÷ Google Ads spend';
+const freeGiftCardIndex=DISC_KPIS.findIndex(k=>k.key==='free_orders');
+if(freeGiftCardIndex!==-1)DISC_KPIS.splice(freeGiftCardIndex,1);
+
+// daily Google Ads acquisition efficiency (matched to gross sale documents)
+(function(){
+ const summary=document.getElementById('daily-cpt-summary');
+ const table=document.getElementById('daily-cpt-table');
+ if(!DAILY_CPT.length){summary.textContent='Daily spend data has not been loaded.';return;}
+ const totalSpend=DAILY_CPT.reduce((sum,row)=>sum+row.ad_spend,0);
+ const totalGross=DAILY_CPT.reduce((sum,row)=>sum+row.gross_txn,0);
+ const first=DAILY_CPT.slice(0,7),last=DAILY_CPT.slice(-7);
+ const cpt=rows=>rows.reduce((sum,row)=>sum+row.ad_spend,0)/rows.reduce((sum,row)=>sum+row.gross_txn,0);
+ summary.innerHTML='<b>'+fmt(totalSpend,'eur2')+'</b> spend ÷ <b>'+fmt(totalGross,'int')+'</b> gross sale transactions = <b>'+fmt(totalSpend/totalGross,'eur2')+'</b> per transaction. First 7 days: <b>'+fmt(cpt(first),'eur2')+'</b>; last 7 days: <b>'+fmt(cpt(last),'eur2')+'</b>. AOV is net merchandise revenue ÷ net transactions (VAT included; delivery, vouchers, fully free and gift-labelled lines excluded). Refunds are shown but excluded from the acquisition denominator.';
+ let html='<thead><tr><th>Date</th><th>Google Ads spend</th><th>Gross transactions</th><th>Refund docs</th><th>Cost / gross transaction</th><th>AOV</th></tr></thead><tbody>';
+ DAILY_CPT.forEach(row=>{html+='<tr><td>'+row.date.slice(5)+'</td><td>'+fmt(row.ad_spend,'eur2')+'</td><td>'+fmt(row.gross_txn,'int')+'</td><td>'+fmt(row.refund_docs,'int')+'</td><td>'+fmt(row.cost_per_gross_txn,'eur2')+'</td><td>'+fmt(row.aov,'eur2')+'</td></tr>';});
+ html+='</tbody>';table.innerHTML=html;
+})();
+
+// data table
+(function(){const t=document.getElementById('dtable');const ALL=KPIS.concat(DISC_KPIS);
+ let h='<thead><tr><th>Month</th>';ALL.forEach(k=>h+='<th>'+k.title.replace(/ \(.*/,'')+'</th>');h+='</tr></thead><tbody>';
+ SEQ.forEach(r=>{const label=r.year+'-'+String(r.month).padStart(2,'0')+(r.year===2026&&r.month===7?' (full-month sales, Google Ads and discount share actual)':r.year===2026&&r.month===8?(ADS_CUTOFF_DAY===31?' (full-month actuals)':' (full-month sales and discount share actual; Google Ads to Aug '+ADS_CUTOFF_DAY+')'):r.year===2026&&r.month===9?' (actual through Sep 13; Google Ads spend pending)':'');h+='<tr><td>'+label+'</td>';
+  ALL.forEach(k=>h+='<td>'+fmt(r[k.key],k.fmt)+'</td>');h+='</tr>';});
+ if(Object.keys(PROJSEP).length){h+='<tr style="color:var(--text-muted)"><td>2026-09 (linear sales estimate from Sep 1–13)</td>';ALL.forEach(k=>h+='<td>'+(hasProj(k.key,2026,9)?fmt(PROJSEP[k.key],k.fmt):k.key==='disc_rate'?fmt(MTDSEP.disc_rate,k.fmt)+' (actual to date)':'—')+'</td>');h+='</tr>';}
+ if(Object.keys(PROJAUG).length){h+='<tr style="color:var(--text-muted)"><td>2026-08 (Google Ads linear estimate)</td>';
+ ALL.forEach(k=>h+='<td>'+(hasProj(k.key,2026,8)?fmt(PROJAUG[k.key],k.fmt):'—')+'</td>');h+='</tr>';}
+ h+='</tbody>';t.innerHTML=h;})();
+render();
+</script></body></html>
