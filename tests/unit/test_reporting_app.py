@@ -516,6 +516,7 @@ def test_ads_navigation_includes_sexwell_home_for_an_admin(monkeypatch) -> None:
 def test_business_results_dashboard_renders() -> None:
     response = client.get("/business-results")
     assert response.status_code == 200
+    assert 'href="/clients/sexwell">← SexWell reporting home</a>' in response.text
     assert "SexWell — Monthly KPI Dashboard" in response.text
     assert "/business-results/assets/sexwell_order_value_tiers_2026-09-14_v03.html" in response.text
 

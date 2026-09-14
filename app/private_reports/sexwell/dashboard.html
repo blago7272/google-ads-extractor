@@ -35,8 +35,11 @@ body{margin:0;background:var(--bg);color:var(--text-primary);
  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
  -webkit-font-smoothing:antialiased;line-height:1.45}
 .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px}
 header h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
 header p{margin:0;color:var(--text-secondary);font-size:13.5px;max-width:78ch}
+header a.home-link{display:inline-flex;align-items:center;min-height:32px;padding:6px 11px;border:1px solid var(--border-strong);border-radius:8px;color:var(--text-secondary);font-size:12.5px;text-decoration:none;white-space:nowrap}
+header a.home-link:hover{color:var(--text-primary);border-color:var(--text-muted)}
 .toolbar{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;margin:18px 0 6px;
  padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px}
 .viewbar{display:flex;gap:4px;margin:18px 0 0;padding:4px;background:var(--surface);border:1px solid var(--border);border-radius:10px;width:max-content}
@@ -115,6 +118,7 @@ table.dt thead th{color:var(--text-muted);font-weight:600;position:sticky;top:0;
 </style></head><body><div class="wrap">
 <header>
 <h1>SexWell — Monthly Sales KPIs</h1>
+<a class="home-link" href="/clients/sexwell">← SexWell reporting home</a>
 </header>
 <nav class="viewbar" id="viewTabs" aria-label="Dashboard views">
  <button data-view="data" class="on" aria-selected="true">Data</button>
