@@ -518,11 +518,11 @@ def test_business_results_dashboard_renders() -> None:
     assert response.status_code == 200
     assert 'href="/clients/sexwell">← SexWell reporting home</a>' in response.text
     assert "SexWell — Monthly KPI Dashboard" in response.text
-    assert "/business-results/assets/sexwell_order_value_tiers_2026-09-14_v03.html" in response.text
+    assert "/business-results/assets/sexwell_order_value_tiers_2026-09-17_v04.html" in response.text
 
 
 def test_business_results_assets_require_a_known_report() -> None:
-    response = client.get("/business-results/assets/sexwell_category_dynamics_2026-09-14_v10.html")
+    response = client.get("/business-results/assets/sexwell_category_dynamics_2026-09-17_v11.html")
     assert response.status_code == 200
     assert "Category dynamics" in response.text
 

@@ -83,9 +83,9 @@ SEXWELL_CLIENT_ID = "sexwell"
 SEXWELL_BUSINESS_REPORTS_DIR = BASE_DIR / "private_reports" / SEXWELL_CLIENT_ID
 SEXWELL_BUSINESS_REPORTS = {
     "dashboard": "dashboard.html",
-    "sexwell_order_value_tiers_2026-09-14_v03.html": "sexwell_order_value_tiers_2026-09-14_v03.html",
-    "sexwell_category_dynamics_2026-09-14_v10.html": "sexwell_category_dynamics_2026-09-14_v10.html",
-    "sexwell_product_revenue_concentration_2026-09-14_v05.html": "sexwell_product_revenue_concentration_2026-09-14_v05.html",
+    "sexwell_order_value_tiers_2026-09-17_v04.html": "sexwell_order_value_tiers_2026-09-17_v04.html",
+    "sexwell_category_dynamics_2026-09-17_v11.html": "sexwell_category_dynamics_2026-09-17_v11.html",
+    "sexwell_product_revenue_concentration_2026-09-17_v06.html": "sexwell_product_revenue_concentration_2026-09-17_v06.html",
 }
 
 app = FastAPI(title="Google Ads Signal Board")
