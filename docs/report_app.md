@@ -44,6 +44,13 @@ The app is responsible for:
 - `GA4 Timing`
   Standalone hourly performance and date-by-hour matrices from the GA4 historical export.
 
+- `SexWell Business Results`
+  Protected client view at `/business-results` with API coverage and freshness,
+  completed-order KPIs, monthly sales, current status distribution, top products,
+  and top categories from the validated ID Consult reporting marts. The view
+  explicitly keeps Selmatic manual exports as the source for history,
+  accounting/VAT, posting dates, refunds, and credit notes.
+
 ## Excel Alignment
 
 The current app structure intentionally pulls from the original workbook patterns:
@@ -87,6 +94,10 @@ The current app layer also includes:
   HTML hub shell
 - `GET /reports/{report_name}`
   HTML report shell for Ads, Auction, and GA4 report pages
+- `GET /clients/sexwell`
+  protected SexWell client workspace
+- `GET /business-results`
+  protected SexWell commerce dashboard backed by report-ready ID Consult marts
 - `GET /healthz`
   lightweight app health check
 - `GET /api/options`
@@ -116,6 +127,9 @@ The current app layer also includes:
 - `experimental-clients.sexwell_analyses.gads--impression_share--weekly`
 - `experimental-clients.sexwell_analyses.gads--impression_share--monthly`
 - `experimental-clients.sexwell_analyses.GA4-345365542--historical`
+- `sexwell_reporting_mart.mart_orders_daily`
+- `sexwell_reporting_mart.mart_order_lines_daily`
+- `sexwell_reporting_mart.mart_data_freshness`
 
 ## Feature Flags
 
@@ -138,6 +152,7 @@ The app now uses an in-process TTL cache for:
 
 - filter options
 - scope-level BigQuery query results shared across hub and detail pages
+- SexWell Business Results aggregates and source freshness
 
 Relevant environment knobs:
 

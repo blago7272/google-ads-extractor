@@ -6,6 +6,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any
 
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 
 from app.cache import TtlCache
@@ -140,6 +141,9 @@ class BigQueryReportingService:
 
     def mart_table(self, table_name: str) -> str:
         return f"`{self.settings.project_id}.{self.settings.mart_dataset}.{table_name}`"
+
+    def sexwell_mart_table(self, table_name: str) -> str:
+        return f"`{self.settings.project_id}.{self.settings.sexwell_mart_dataset}.{table_name}`"
 
     def cfg_table(self, table_name: str) -> str:
         return f"`{self.settings.project_id}.{self.settings.cfg_dataset}.{table_name}`"
@@ -432,6 +436,156 @@ limit 1
             return row
 
         return self.freshness_cache.get_or_set(("freshness", client_id, account_id), load_freshness)
+
+    def get_sexwell_business_source_status(self) -> dict[str, Any]:
+        """Return non-blocking ID Consult freshness for Business results."""
+
+        def load_status() -> dict[str, Any]:
+            sql = f"""
+select
+  data_available_through,
+  last_success_at,
+  last_success_mode,
+  last_weekly_full_at,
+  last_monthly_full_at,
+  freshness_status,
+  report_generation_allowed,
+  failure_note,
+  latest_failure_at,
+  latest_failure_category,
+  latest_failure_code,
+  latest_run_status
+from {self.sexwell_mart_table('mart_data_freshness')}
+limit 1
+"""
+            try:
+                rows = self._run_query(sql)
+            except NotFound:
+                rows = []
+            if not rows:
+                return {
+                    "freshness_status": "backfilling",
+                    "report_generation_allowed": False,
+                    "data_available_through": None,
+                    "last_success_at": None,
+                    "failure_note": "The SexWell order API feed has not completed its first approved load yet.",
+                }
+            return rows[0]
+
+        return self.freshness_cache.get_or_set(("sexwell_business_source_status",), load_status)
+
+    def get_sexwell_business_results(self) -> dict[str, Any]:
+        """Return report-ready order and product metrics from the ID Consult marts.
+
+        The web application remains read-only: extraction and source credentials
+        stay in the dedicated SEX-003 pipeline, while this method reads only the
+        validated reporting views.
+        """
+
+        def load_results() -> dict[str, Any]:
+            summary_sql = f"""
+select
+  min(report_date) as coverage_start,
+  max(report_date) as coverage_end,
+  sum(completed_orders) as completed_orders,
+  sum(cancelled_or_returned_orders) as cancelled_or_returned_orders,
+  round(sum(if(status = 'C', total_gross, 0)), 2) as completed_sales_eur,
+  round(safe_divide(
+    sum(if(status = 'C', total_gross, 0)),
+    nullif(sum(completed_orders), 0)
+  ), 2) as average_order_value_eur,
+  round(sum(if(status = 'C', product_discount_gross + order_discount_gross, 0)), 2)
+    as recorded_discount_eur,
+  round(sum(if(status = 'C', shipping_gross, 0)), 2) as shipping_eur
+from {self.sexwell_mart_table('mart_orders_daily')}
+"""
+            monthly_sql = f"""
+select
+  date_trunc(report_date, month) as report_month,
+  sum(completed_orders) as completed_orders,
+  sum(cancelled_or_returned_orders) as cancelled_or_returned_orders,
+  round(sum(if(status = 'C', total_gross, 0)), 2) as completed_sales_eur,
+  round(safe_divide(
+    sum(if(status = 'C', total_gross, 0)),
+    nullif(sum(completed_orders), 0)
+  ), 2) as average_order_value_eur,
+  round(sum(if(status = 'C', product_discount_gross + order_discount_gross, 0)), 2)
+    as recorded_discount_eur
+from {self.sexwell_mart_table('mart_orders_daily')}
+group by report_month
+order by report_month
+"""
+            products_sql = f"""
+select
+  coalesce(nullif(product_name, ''), nullif(sku, ''), 'Unnamed product') as product_name,
+  sku,
+  category_path,
+  brand,
+  round(sum(quantity), 2) as quantity,
+  round(sum(line_total_gross), 2) as product_sales_eur,
+  sum(orders) as completed_orders
+from {self.sexwell_mart_table('mart_order_lines_daily')}
+where status = 'C'
+  and item_type = 'merchandise'
+  and not is_free_item
+group by product_name, sku, category_path, brand
+order by product_sales_eur desc, quantity desc, product_name
+limit 12
+"""
+            status_sql = f"""
+select
+  status,
+  status_name,
+  sum(orders) as orders,
+  round(safe_divide(sum(orders), sum(sum(orders)) over ()), 4) as order_share
+from {self.sexwell_mart_table('mart_orders_daily')}
+group by status, status_name
+order by orders desc, status
+"""
+            categories_sql = f"""
+select
+  coalesce(nullif(category_path, ''), 'Uncategorised') as category_path,
+  round(sum(quantity), 2) as quantity,
+  round(sum(line_total_gross), 2) as product_sales_eur,
+  sum(orders) as completed_orders
+from {self.sexwell_mart_table('mart_order_lines_daily')}
+where status = 'C'
+  and item_type = 'merchandise'
+  and not is_free_item
+group by category_path
+order by product_sales_eur desc, quantity desc, category_path
+limit 10
+"""
+            try:
+                summary_rows = self._run_query(summary_sql)
+                monthly = self._run_query(monthly_sql)
+                top_products = self._run_query(products_sql)
+                statuses = self._run_query(status_sql)
+                top_categories = self._run_query(categories_sql)
+            except NotFound:
+                return {
+                    "available": False,
+                    "summary": None,
+                    "monthly": [],
+                    "top_products": [],
+                    "statuses": [],
+                    "top_categories": [],
+                    "message": "The SexWell order reporting marts are not provisioned yet.",
+                }
+
+            summary = summary_rows[0] if summary_rows else None
+            available = bool(summary and summary.get("coverage_start"))
+            return {
+                "available": available,
+                "summary": summary,
+                "monthly": monthly,
+                "top_products": top_products,
+                "statuses": statuses,
+                "top_categories": top_categories,
+                "message": None if available else "No validated SexWell API orders are available yet.",
+            }
+
+        return self.query_cache.get_or_set(("sexwell_business_results",), load_results)
 
     def resolve_scope(
         self,

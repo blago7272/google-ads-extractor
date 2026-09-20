@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from google.api_core.exceptions import NotFound
+
 from app.cache import TtlCache
 from app.service import BigQueryReportingService, ScopeFilters
 from app.settings import ReportingAppSettings
@@ -57,6 +59,98 @@ def test_reporting_service_caches_filter_options(monkeypatch) -> None:
     assert first["defaults"]["account_id"] == "1200697994"
     assert second["defaults"]["account_id"] == "1200697994"
     assert calls == 1
+
+
+def test_sexwell_business_source_status_uses_freshness_mart_and_cache(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+    calls = 0
+
+    def fake_run_query(sql: str, **__: object) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        assert "sexwell_reporting_mart.mart_data_freshness" in sql
+        return [
+            {
+                "freshness_status": "error",
+                "report_generation_allowed": True,
+                "failure_note": "Reports use the last successful data.",
+            }
+        ]
+
+    monkeypatch.setattr(service, "_run_query", fake_run_query)
+
+    first = service.get_sexwell_business_source_status()
+    second = service.get_sexwell_business_source_status()
+
+    assert first["report_generation_allowed"] is True
+    assert second["freshness_status"] == "error"
+    assert calls == 1
+
+
+def test_sexwell_business_source_status_handles_unprovisioned_mart(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+
+    def missing_mart(*_: object, **__: object) -> list[dict[str, object]]:
+        raise NotFound("mart_data_freshness is not provisioned")
+
+    monkeypatch.setattr(service, "_run_query", missing_mart)
+
+    status = service.get_sexwell_business_source_status()
+
+    assert status["freshness_status"] == "backfilling"
+    assert status["report_generation_allowed"] is False
+    assert "first approved load" in status["failure_note"]
+
+
+def test_sexwell_business_results_reads_validated_marts_and_caches(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+    calls = 0
+
+    def fake_run_query(sql: str, **__: object) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if "group by report_month" in sql:
+            return [{"report_month": "2026-09-01", "completed_orders": 493}]
+        if "mart_order_lines_daily" in sql:
+            if "group by category_path" in sql:
+                return [{"category_path": "Example category", "product_sales_eur": 25200.0}]
+            return [{"product_name": "Example product", "product_sales_eur": 2520.0}]
+        if "group by status, status_name" in sql:
+            return [{"status": "C", "status_name": "Завършена", "orders": 4913}]
+        assert "mart_orders_daily" in sql
+        return [{"coverage_start": "2026-04-01", "coverage_end": "2026-09-20"}]
+
+    monkeypatch.setattr(service, "_run_query", fake_run_query)
+
+    first = service.get_sexwell_business_results()
+    second = service.get_sexwell_business_results()
+
+    assert first["available"] is True
+    assert first["monthly"][0]["completed_orders"] == 493
+    assert first["top_products"][0]["product_name"] == "Example product"
+    assert first["statuses"][0]["status"] == "C"
+    assert first["top_categories"][0]["category_path"] == "Example category"
+    assert second == first
+    assert calls == 5
+
+
+def test_sexwell_business_results_handles_missing_marts(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+
+    def missing_mart(*_: object, **__: object) -> list[dict[str, object]]:
+        raise NotFound("SexWell business mart is not provisioned")
+
+    monkeypatch.setattr(service, "_run_query", missing_mart)
+
+    result = service.get_sexwell_business_results()
+
+    assert result["available"] is False
+    assert result["monthly"] == []
+    assert result["statuses"] == []
 
 
 def test_reporting_service_caches_scope_queries(monkeypatch) -> None:

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="bg">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Business results | {{ app_title }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&family=Raleway:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/reporting.css">
+  </head>
+  <body class="client-home-body" data-page-kind="business-results">
+    <main class="business-results-shell">
+      <a class="business-results-back" href="/clients/sexwell"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Към SexWell reporting</a>
+      <section class="business-results-message" aria-labelledby="business-results-title">
+        <p class="client-home-kicker">SexWell</p>
+        <h1 id="business-results-title">Business results</h1>
+        <p>Продажби, поръчки, продукти и отстъпки от валидирания ID Consult API.</p>
+        <p class="business-results-note">API замества регулярния Site Admin export. Selmatic ERP остава ръчният източник за история, счетоводни документи, ДДС и credit notes.</p>
+        {% if business_source.failure_note %}
+        <aside class="business-results-source-note business-results-source-note--{{ business_source.freshness_status }}" role="status">
+          <strong>Order API status</strong>
+          <span>{{ business_source.failure_note }}</span>
+        </aside>
+        {% elif business_source.report_generation_allowed %}
+        <aside class="business-results-source-note business-results-source-note--ok" role="status">
+          <strong>Order API status</strong>
+          <span>Latest successful data: {{ business_source.data_available_through }}.</span>
+        </aside>
+        {% endif %}
+      </section>
+
+      {% if business_results.available %}
+      <section class="business-results-data" aria-label="API business results">
+        <header class="business-results-section-heading">
+          <div>
+            <p class="client-home-kicker">API coverage</p>
+            <h2>{{ business_results.summary.coverage_start }} – {{ business_results.summary.coverage_end }}</h2>
+          </div>
+          <p>Current order state · EUR · Sofia order date</p>
+        </header>
+
+        <div class="business-results-kpis">
+          <article class="business-results-kpi">
+            <span>Completed orders</span>
+            <strong>{{ "{:,.0f}".format(business_results.summary.completed_orders or 0) }}</strong>
+            <small>Status C / Завършена</small>
+          </article>
+          <article class="business-results-kpi">
+            <span>Completed sales</span>
+            <strong>€{{ "{:,.0f}".format(business_results.summary.completed_sales_eur or 0) }}</strong>
+            <small>Gross order total, including shipping</small>
+          </article>
+          <article class="business-results-kpi">
+            <span>Average order value</span>
+            <strong>€{{ "{:,.2f}".format(business_results.summary.average_order_value_eur or 0) }}</strong>
+            <small>Completed sales ÷ completed orders</small>
+          </article>
+          <article class="business-results-kpi">
+            <span>Recorded discounts</span>
+            <strong>€{{ "{:,.0f}".format(business_results.summary.recorded_discount_eur or 0) }}</strong>
+            <small>Product and allocated order discounts</small>
+          </article>
+        </div>
+
+        <div class="business-results-grid">
+          <article class="business-results-panel">
+            <header>
+              <h2>Monthly API sales</h2>
+              <p>Completed orders only; cancelled-or-returned orders are shown separately.</p>
+            </header>
+            <div class="business-results-table-wrap">
+              <table class="business-results-table">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Completed</th>
+                    <th>Sales</th>
+                    <th>AOV</th>
+                    <th>Cancelled / returned</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in business_results.monthly %}
+                  <tr>
+                    <td>{{ row.report_month[:7] }}</td>
+                    <td>{{ "{:,.0f}".format(row.completed_orders or 0) }}</td>
+                    <td>€{{ "{:,.0f}".format(row.completed_sales_eur or 0) }}</td>
+                    <td>€{{ "{:,.2f}".format(row.average_order_value_eur or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(row.cancelled_or_returned_orders or 0) }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="business-results-panel">
+            <header>
+              <h2>Top products by API sales</h2>
+              <p>Completed merchandise lines; free items are excluded from the ranking.</p>
+            </header>
+            <ol class="business-results-product-list">
+              {% for row in business_results.top_products %}
+              <li>
+                <div>
+                  <strong>{{ row.product_name }}</strong>
+                  <span>{{ row.category_path or "Uncategorised" }}{% if row.brand %} · {{ row.brand }}{% endif %}</span>
+                </div>
+                <div>
+                  <strong>€{{ "{:,.0f}".format(row.product_sales_eur or 0) }}</strong>
+                  <span>{{ "{:,.0f}".format(row.quantity or 0) }} units</span>
+                </div>
+              </li>
+              {% endfor %}
+            </ol>
+          </article>
+        </div>
+
+        <div class="business-results-grid business-results-grid--secondary">
+          <article class="business-results-panel">
+            <header>
+              <h2>Current order status mix</h2>
+              <p>The API is current-state data; these statuses can change after the original order date.</p>
+            </header>
+            <div class="business-results-table-wrap">
+              <table class="business-results-table">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Meaning</th>
+                    <th>Orders</th>
+                    <th>Share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in business_results.statuses %}
+                  <tr>
+                    <td>{{ row.status }}</td>
+                    <td>{{ row.status_name }}</td>
+                    <td>{{ "{:,.0f}".format(row.orders or 0) }}</td>
+                    <td>{{ "{:.1%}".format(row.order_share or 0) }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="business-results-panel">
+            <header>
+              <h2>Top categories by API sales</h2>
+              <p>Completed merchandise lines using the current catalogue category path.</p>
+            </header>
+            <ol class="business-results-product-list">
+              {% for row in business_results.top_categories %}
+              <li>
+                <div>
+                  <strong>{{ row.category_path }}</strong>
+                  <span>{{ "{:,.0f}".format(row.completed_orders or 0) }} completed product orders</span>
+                </div>
+                <div>
+                  <strong>€{{ "{:,.0f}".format(row.product_sales_eur or 0) }}</strong>
+                  <span>{{ "{:,.0f}".format(row.quantity or 0) }} units</span>
+                </div>
+              </li>
+              {% endfor %}
+            </ol>
+          </article>
+        </div>
+
+        <aside class="business-results-method-note">
+          <strong>Source policy</strong>
+          <span>The API is the operational source from 1 April 2026. Until Cloud Run is accepted by Cloudflare, API refreshes are run manually. Selmatic manual exports remain the accounting and historical source.</span>
+        </aside>
+      </section>
+      {% else %}
+      <aside class="business-results-source-note business-results-source-note--backfilling" role="status">
+        <strong>Business data unavailable</strong>
+        <span>{{ business_results.message }}</span>
+      </aside>
+      {% endif %}
+    </main>
+  </body>
+</html>
+

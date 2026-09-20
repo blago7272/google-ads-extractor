@@ -874,6 +874,46 @@ Future option:
 
 - if direct BigQuery or Looker-style access is introduced, revisit row-level security
 
+## SexWell Business Results Source Contract
+
+Status:
+
+- implemented locally and validated against the production reporting marts
+
+Source responsibilities:
+
+- ID Consult API marts replace recurring Site Admin CSV imports for operational
+  order, current-status, gross-sales, discount, product, brand and current
+  catalogue-category reporting from `2026-04-01` onward
+- Selmatic manual exports remain authoritative for reporting before
+  `2026-04-01`, accounting/posting dates, VAT and net amounts, ERP document
+  identity, separate credit notes and monetary refund reporting
+- Site Admin and API order IDs reconcile directly; Selmatic document IDs are a
+  different grain and must not be treated as the shop order key
+
+Application rules:
+
+- `/business-results` reads only `sexwell_reporting_mart` views and never calls
+  the source API or reads its token
+- completed sales use status `C / Завършена`
+- status `D / Отказана` is labelled `cancelled / returned` and is not used as a
+  monetary refund substitute
+- product revenue uses `line_total_gross`; free items are excluded from ranked
+  product/category sales
+- API categories and brands are current catalogue attributes, not historical
+  order snapshots
+- the freshness/failure note is visible and report generation continues from
+  the last successful data when extraction fails
+
+Interim operations:
+
+- until Cloud Run is allowed through the source Cloudflare policy, an approved
+  operator refreshes the API pipeline manually from the trusted development
+  machine
+- Selmatic continues as a separate manual export/import process
+- recurring Site Admin exports are no longer required for the supported API
+  views after the client-facing deployment is complete
+
 ## Change Management
 
 Status:

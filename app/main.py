@@ -79,6 +79,8 @@ REPORT_PAGES = {
     },
 }
 
+SEXWELL_CLIENT_ID = "sexwell"
+
 app = FastAPI(title="Google Ads Signal Board")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
@@ -136,6 +138,49 @@ def _base_context(request: Request, settings: ReportingAppSettings, **extra) -> 
     }
     context.update(extra)
     return context
+
+
+def _is_dedicated_sexwell_user(request: Request) -> bool:
+    """Return true only for a non-admin user scoped solely to SexWell.
+
+    Administrators and multi-client users keep the management hub as their entry
+    point. This preserves the current cross-client working mode while giving
+    SexWell's client users their own focused workspace after sign-in.
+    """
+
+    user = _get_current_user(request)
+    return bool(
+        user
+        and not user.is_admin
+        and user.allowed_clients == [SEXWELL_CLIENT_ID]
+        and user.can_access_client(SEXWELL_CLIENT_ID)
+    )
+
+
+def _require_sexwell_access(request: Request) -> None:
+    """Protect the dedicated workspace with the same client scope as the API."""
+
+    user = _get_current_user(request)
+    if user is not None and not user.can_access_client(SEXWELL_CLIENT_ID):
+        raise HTTPException(status_code=403, detail="Access denied to this client")
+
+
+def _render_ads_hub(request: Request, settings: ReportingAppSettings) -> HTMLResponse:
+    return templates.TemplateResponse(
+        name="hub.html",
+        request=request,
+        context=_base_context(
+            request,
+            settings,
+            page_kind="hub",
+            page_title=settings.app_title,
+            page_subtitle="Management hub with conclusions, high-level status, and links to deeper analysis modules.",
+            active_label="Main hub",
+            report_name=None,
+            is_source_local_report=False,
+            is_ga4_report=False,
+        ),
+    )
 
 
 def _request_uses_https(request: Request) -> bool:
@@ -238,20 +283,85 @@ def hub(
     request: Request,
     settings: ReportingAppSettings = Depends(get_settings),
 ) -> HTMLResponse:
+    if _is_dedicated_sexwell_user(request):
+        return templates.TemplateResponse(
+            name="sexwell_home.html",
+            request=request,
+            context=_base_context(
+                request,
+                settings,
+                page_kind="client-home",
+                page_title="SexWell reporting",
+                page_subtitle="",
+                active_label="SexWell reporting",
+                report_name=None,
+                is_source_local_report=False,
+                is_ga4_report=False,
+            ),
+        )
+
+    return _render_ads_hub(request, settings)
+
+
+@app.get("/ads", response_class=HTMLResponse)
+def ads_hub(
+    request: Request,
+    settings: ReportingAppSettings = Depends(get_settings),
+) -> HTMLResponse:
+    """Keep the established Google Ads hub reachable from client workspaces."""
+
+    return _render_ads_hub(request, settings)
+
+
+@app.get("/clients/sexwell", response_class=HTMLResponse)
+def sexwell_home(
+    request: Request,
+    settings: ReportingAppSettings = Depends(get_settings),
+) -> HTMLResponse:
+    _require_sexwell_access(request)
     return templates.TemplateResponse(
-        name="hub.html",
+        name="sexwell_home.html",
         request=request,
         context=_base_context(
             request,
             settings,
-            page_kind="hub",
-            page_title=settings.app_title,
-            page_subtitle="Management hub with conclusions, high-level status, and links to deeper analysis modules.",
-            active_label="Main hub",
+            page_kind="client-home",
+            page_title="SexWell reporting",
+            page_subtitle="",
+            active_label="SexWell reporting",
             report_name=None,
             is_source_local_report=False,
             is_ga4_report=False,
         ),
+    )
+
+
+@app.get("/business-results", response_class=HTMLResponse)
+def business_results(
+    request: Request,
+    settings: ReportingAppSettings = Depends(get_settings),
+    reporting_service: BigQueryReportingService = Depends(get_reporting_service),
+) -> HTMLResponse:
+    """Protected landing route for the forthcoming commerce-report workspace."""
+
+    _require_sexwell_access(request)
+    context = _base_context(
+        request,
+        settings,
+        page_kind="business-results",
+        page_title="Business results",
+        page_subtitle="",
+        active_label="Business results",
+        report_name=None,
+        is_source_local_report=False,
+        is_ga4_report=False,
+    )
+    context["business_source"] = reporting_service.get_sexwell_business_source_status()
+    context["business_results"] = reporting_service.get_sexwell_business_results()
+    return templates.TemplateResponse(
+        name="business_results.html",
+        request=request,
+        context=context,
     )
 
 

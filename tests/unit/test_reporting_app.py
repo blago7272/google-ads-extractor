@@ -13,6 +13,59 @@ from app.settings import ReportingAppSettings, get_settings
 
 
 class FakeReportingService:
+    def get_sexwell_business_source_status(self) -> dict[str, object]:
+        return {
+            "freshness_status": "error",
+            "report_generation_allowed": True,
+            "data_available_through": "2026-09-19T02:00:00+00:00",
+            "last_success_at": "2026-09-19T02:05:00+00:00",
+            "failure_note": "Latest extraction failed. Reports use the last successful data.",
+        }
+
+    def get_sexwell_business_results(self) -> dict[str, object]:
+        return {
+            "available": True,
+            "summary": {
+                "coverage_start": "2026-04-01",
+                "coverage_end": "2026-09-20",
+                "completed_orders": 4913,
+                "cancelled_or_returned_orders": 314,
+                "completed_sales_eur": 321000.0,
+                "average_order_value_eur": 65.34,
+                "recorded_discount_eur": 12000.0,
+            },
+            "monthly": [
+                {
+                    "report_month": "2026-09-01",
+                    "completed_orders": 493,
+                    "cancelled_or_returned_orders": 11,
+                    "completed_sales_eur": 32083.53,
+                    "average_order_value_eur": 65.08,
+                }
+            ],
+            "top_products": [
+                {
+                    "product_name": "Example product",
+                    "category_path": "Example category",
+                    "brand": "Example brand",
+                    "quantity": 42,
+                    "product_sales_eur": 2520.0,
+                }
+            ],
+            "statuses": [
+                {"status": "C", "status_name": "Завършена", "orders": 4913, "order_share": 0.833}
+            ],
+            "top_categories": [
+                {
+                    "category_path": "Example category",
+                    "quantity": 420,
+                    "product_sales_eur": 25200.0,
+                    "completed_orders": 300,
+                }
+            ],
+            "message": None,
+        }
+
     def get_filter_options(self) -> dict[str, object]:
         return {
             "clients": [{"client_id": "sexwell"}],
@@ -467,6 +520,60 @@ def test_index_renders_hub_shell() -> None:
     assert "Bottom secondary" in response.text
     assert "Bottom compare" in response.text
     assert ">ROAS<" in response.text
+
+
+def test_sexwell_client_home_renders_for_a_dedicated_client_user(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main_module,
+        "_get_current_user",
+        lambda request: UserSession(
+            email="viewer@example.com",
+            role="viewer",
+            allowed_clients=["sexwell"],
+            allowed_accounts={"sexwell": ["__all__"]},
+        ),
+    )
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "SexWell reporting" in response.text
+    assert "Business results" in response.text
+    assert "/ads?client_id=sexwell" in response.text
+
+
+def test_sexwell_client_home_rejects_another_client_user(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main_module,
+        "_get_current_user",
+        lambda request: UserSession(
+            email="other@example.com",
+            role="viewer",
+            allowed_clients=["other-client"],
+            allowed_accounts={"other-client": ["__all__"]},
+        ),
+    )
+
+    response = client.get("/clients/sexwell")
+
+    assert response.status_code == 403
+
+
+def test_business_results_shell_renders() -> None:
+    response = client.get("/business-results")
+
+    assert response.status_code == 200
+    assert "Business results" in response.text
+    assert "ERP" in response.text
+    assert "Order API status" in response.text
+    assert "Reports use the last successful data" in response.text
+    assert "Completed orders" in response.text
+    assert "4,913" in response.text
+    assert "Monthly API sales" in response.text
+    assert "Top products by API sales" in response.text
+    assert "Example product" in response.text
+    assert "Current order status mix" in response.text
+    assert "Top categories by API sales" in response.text
 
 
 def test_overview_page_renders_campaign_regex_filter() -> None:
