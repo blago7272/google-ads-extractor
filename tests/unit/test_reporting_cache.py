@@ -66,18 +66,17 @@ def test_sexwell_discount_prevalence_uses_api_mart_and_cache(monkeypatch) -> Non
     service = BigQueryReportingService(ReportingAppSettings())
     calls = 0
 
-    def fake_run_query(sql: str, **kwargs: object) -> list[dict[str, object]]:
+    def fake_run_query(sql: str, **__: object) -> list[dict[str, object]]:
         nonlocal calls
         calls += 1
         assert "sexwell_reporting_mart.mart_orders_daily" in sql
         assert "completed_discounted_orders" in sql
-        assert "@data_through" in sql
-        parameters = kwargs["parameters"]
-        assert parameters[0].value == date(2026, 9, 16)
+        assert "current_date('Europe/Sofia')" in sql
         return [
             {
                 "year": 2026,
                 "month": 9,
+                "data_through": "2026-09-19",
                 "completed_orders": 513,
                 "discounted_orders": 307,
                 "discounted_order_share_pct": 59.8441,
@@ -86,8 +85,8 @@ def test_sexwell_discount_prevalence_uses_api_mart_and_cache(monkeypatch) -> Non
 
     monkeypatch.setattr(service, "_run_query", fake_run_query)
 
-    first = service.get_sexwell_discount_prevalence(data_through=date(2026, 9, 16))
-    second = service.get_sexwell_discount_prevalence(data_through=date(2026, 9, 16))
+    first = service.get_sexwell_discount_prevalence()
+    second = service.get_sexwell_discount_prevalence()
 
     assert first[0]["discounted_order_share_pct"] == 59.8441
     assert second == first
@@ -103,7 +102,50 @@ def test_sexwell_discount_prevalence_fails_open(monkeypatch) -> None:
 
     monkeypatch.setattr(service, "_run_query", failed_query)
 
-    assert service.get_sexwell_discount_prevalence(data_through=date(2026, 9, 16)) == []
+    assert service.get_sexwell_discount_prevalence() == []
+
+
+def test_sexwell_google_ads_daily_uses_reporting_mart_and_cache(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+    calls = 0
+
+    def fake_run_query(sql: str, **__: object) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        assert "gads_reporting_mart.mart_ads_overview_daily" in sql
+        assert "client_id = 'sexwell'" in sql
+        assert "account_id = '1200697994'" in sql
+        assert "current_date('Europe/Sofia')" in sql
+        return [
+            {
+                "report_date": "2026-09-19",
+                "cost_eur": 184.66,
+                "impressions": 5176,
+                "clicks": 456,
+            }
+        ]
+
+    monkeypatch.setattr(service, "_run_query", fake_run_query)
+
+    first = service.get_sexwell_google_ads_daily()
+    second = service.get_sexwell_google_ads_daily()
+
+    assert first[0]["cost_eur"] == 184.66
+    assert second == first
+    assert calls == 1
+
+
+def test_sexwell_google_ads_daily_fails_open(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+
+    def failed_query(*_: object, **__: object) -> list[dict[str, object]]:
+        raise GoogleAPICallError("temporary BigQuery failure")
+
+    monkeypatch.setattr(service, "_run_query", failed_query)
+
+    assert service.get_sexwell_google_ads_daily() == []
 
 
 def test_reporting_service_caches_scope_queries(monkeypatch) -> None:

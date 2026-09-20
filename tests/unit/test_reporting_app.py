@@ -15,16 +15,12 @@ from app.settings import ReportingAppSettings, get_settings
 
 
 class FakeReportingService:
-    def get_sexwell_discount_prevalence(
-        self,
-        *,
-        data_through: date,
-    ) -> list[dict[str, object]]:
-        assert data_through == date(2026, 9, 16)
+    def get_sexwell_discount_prevalence(self) -> list[dict[str, object]]:
         return [
             {
                 "year": 2026,
                 "month": 6,
+                "data_through": "2026-06-30",
                 "completed_orders": 843,
                 "discounted_orders": 391,
                 "discounted_order_share_pct": 46.382,
@@ -32,10 +28,22 @@ class FakeReportingService:
             {
                 "year": 2026,
                 "month": 9,
-                "completed_orders": 468,
-                "discounted_orders": 287,
-                "discounted_order_share_pct": 61.3248,
+                "data_through": "2026-09-19",
+                "completed_orders": 513,
+                "discounted_orders": 307,
+                "discounted_order_share_pct": 59.8441,
             },
+        ]
+
+    def get_sexwell_google_ads_daily(self) -> list[dict[str, object]]:
+        return [
+            {
+                "report_date": date(2026, 9, day),
+                "cost_eur": 100.0,
+                "impressions": 1000 + day,
+                "clicks": 100 + day,
+            }
+            for day in range(1, 20)
         ]
 
     def get_filter_options(self) -> dict[str, object]:
@@ -470,6 +478,12 @@ def _auth_test_settings() -> ReportingAppSettings:
     )
 
 
+def _dashboard_literal(html: str, marker: str) -> object:
+    start = html.index(marker) + len(marker)
+    value, _ = json.JSONDecoder().raw_decode(html[start:])
+    return value
+
+
 def test_index_renders_hub_shell() -> None:
     response = client.get("/")
     assert response.status_code == 200
@@ -557,8 +571,29 @@ def test_business_results_dashboard_renders() -> None:
     series = json.loads(match.group(1))
     assert series["2026"][:5] == [88.4304, 84.491, 71.2139, 72.7756, 59.1532]
     assert series["2026"][5] == 46.382
-    assert series["2026"][8] == 61.3248
-    assert 'const MON=[{"year": 2023' in response.text
+    assert series["2026"][8] == 59.8441
+    assert 'const MON=[{"year":2023' in response.text
+
+    monthly = _dashboard_literal(response.text, "const MON=")
+    september = next(row for row in monthly if row["year"] == 2026 and row["month"] == 9)
+    assert september["disc_rate"] == 59.8441
+    assert september["ad_spend"] == 1900.0
+    assert september["roas"] == 19.48
+
+    mtd = _dashboard_literal(response.text, "MTDSEP=")
+    projection = _dashboard_literal(response.text, "PROJSEP=")
+    daily = _dashboard_literal(response.text, "DAILY_CPT=")
+    assert mtd["ad_spend"] == 1900.0
+    assert mtd["disc_rate"] == 59.8441
+    assert projection["ad_spend"] == 3000.0
+    assert projection["roas"] == 19.48
+    assert daily[-1]["date"] == "2026-09-16"
+    assert daily[-1]["ad_spend"] == 100.0
+    assert daily[-1]["cost_per_gross_txn"] == 3.23
+    assert "Google Ads spend through Sep 19" in response.text
+    assert "Selmatic sales and ROAS through Sep 16" in response.text
+    assert "completed-order discount share through Sep 19" in response.text
+    assert "Daily Google Ads cost per gross transaction and AOV (Jul 1–28, Aug 1–31 and Sep 1–16, 2026)" in response.text
 
 
 def test_business_results_assets_require_a_known_report() -> None:

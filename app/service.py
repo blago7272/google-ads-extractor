@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -11,6 +12,9 @@ from google.cloud import bigquery
 
 from app.cache import TtlCache
 from app.settings import ReportingAppSettings, get_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 def _serialize_value(value: Any) -> Any:
@@ -148,11 +152,7 @@ class BigQueryReportingService:
     def cfg_table(self, table_name: str) -> str:
         return f"`{self.settings.project_id}.{self.settings.cfg_dataset}.{table_name}`"
 
-    def get_sexwell_discount_prevalence(
-        self,
-        *,
-        data_through: date,
-    ) -> list[dict[str, Any]]:
+    def get_sexwell_discount_prevalence(self) -> list[dict[str, Any]]:
         """Return the API-backed replacement for the Site Admin discount series.
 
         The established Business Results dashboard keeps Selmatic accounting,
@@ -162,33 +162,68 @@ class BigQueryReportingService:
 
         def load_discount_prevalence() -> list[dict[str, Any]]:
             sql = f"""
+with eligible as (
+  select *
+  from {self.sexwell_mart_table('mart_orders_daily')}
+  where report_date between date '2026-04-01'
+    and date_sub(current_date('Europe/Sofia'), interval 1 day)
+)
 select
   extract(year from report_date) as year,
   extract(month from report_date) as month,
+  max(report_date) as data_through,
   sum(completed_orders) as completed_orders,
   sum(completed_discounted_orders) as discounted_orders,
   round(100 * safe_divide(
     sum(completed_discounted_orders),
     sum(completed_orders)
   ), 4) as discounted_order_share_pct
-from {self.sexwell_mart_table('mart_orders_daily')}
-where report_date between date '2026-04-01' and @data_through
+from eligible
 group by year, month
 order by year, month
 """
             try:
-                return self._run_query(
-                    sql,
-                    parameters=[
-                        bigquery.ScalarQueryParameter("data_through", "DATE", data_through),
-                    ],
-                )
+                return self._run_query(sql)
             except GoogleAPICallError:
+                logger.warning("SexWell discount mart query failed; using bundled report values", exc_info=True)
                 return []
 
         return self.query_cache.get_or_set(
-            ("sexwell_discount_prevalence", data_through.isoformat()),
+            ("sexwell_discount_prevalence",),
             load_discount_prevalence,
+        )
+
+    def get_sexwell_google_ads_daily(self) -> list[dict[str, Any]]:
+        """Return live SexWell Google Ads days used by Business Results.
+
+        The report keeps ERP-only sales measures in its approved static artifact.
+        This feed refreshes compatible Ads spend and matched daily acquisition
+        fields through the latest complete Sofia calendar day.
+        """
+
+        def load_google_ads_daily() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  report_date,
+  cost_eur,
+  impressions,
+  clicks
+from {self.mart_table('mart_ads_overview_daily')}
+where client_id = 'sexwell'
+  and account_id = '1200697994'
+  and report_date >= date '2025-09-01'
+  and report_date <= date_sub(current_date('Europe/Sofia'), interval 1 day)
+order by report_date
+"""
+            try:
+                return self._run_query(sql)
+            except GoogleAPICallError:
+                logger.warning("SexWell Google Ads mart query failed; using bundled report values", exc_info=True)
+                return []
+
+        return self.query_cache.get_or_set(
+            ("sexwell_google_ads_daily",),
+            load_google_ads_daily,
         )
 
     def auction_table(self, grain: str) -> str:
