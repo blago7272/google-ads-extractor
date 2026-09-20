@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 from datetime import date
 from urllib.parse import parse_qs, urlparse
 
@@ -13,6 +15,29 @@ from app.settings import ReportingAppSettings, get_settings
 
 
 class FakeReportingService:
+    def get_sexwell_discount_prevalence(
+        self,
+        *,
+        data_through: date,
+    ) -> list[dict[str, object]]:
+        assert data_through == date(2026, 9, 16)
+        return [
+            {
+                "year": 2026,
+                "month": 6,
+                "completed_orders": 843,
+                "discounted_orders": 391,
+                "discounted_order_share_pct": 46.382,
+            },
+            {
+                "year": 2026,
+                "month": 9,
+                "completed_orders": 468,
+                "discounted_orders": 287,
+                "discounted_order_share_pct": 61.3248,
+            },
+        ]
+
     def get_filter_options(self) -> dict[str, object]:
         return {
             "clients": [{"client_id": "sexwell"}],
@@ -519,6 +544,21 @@ def test_business_results_dashboard_renders() -> None:
     assert 'href="/clients/sexwell">← SexWell reporting home</a>' in response.text
     assert "SexWell — Monthly KPI Dashboard" in response.text
     assert "/business-results/assets/sexwell_order_value_tiers_2026-09-17_v04.html" in response.text
+    assert 'data-view="conclusions"' in response.text
+    assert 'data-view="product-dynamics"' in response.text
+    assert 'data-view="product-concentration"' in response.text
+
+    match = re.search(
+        r"const ORDER_EXPORT_DISCOUNTED_ORDER_RATE=(\{.*?\});",
+        response.text,
+        re.DOTALL,
+    )
+    assert match is not None
+    series = json.loads(match.group(1))
+    assert series["2026"][:5] == [88.4304, 84.491, 71.2139, 72.7756, 59.1532]
+    assert series["2026"][5] == 46.382
+    assert series["2026"][8] == 61.3248
+    assert 'const MON=[{"year": 2023' in response.text
 
 
 def test_business_results_assets_require_a_known_report() -> None:

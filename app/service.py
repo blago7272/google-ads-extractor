@@ -6,6 +6,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any
 
+from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import bigquery
 
 from app.cache import TtlCache
@@ -141,8 +142,54 @@ class BigQueryReportingService:
     def mart_table(self, table_name: str) -> str:
         return f"`{self.settings.project_id}.{self.settings.mart_dataset}.{table_name}`"
 
+    def sexwell_mart_table(self, table_name: str) -> str:
+        return f"`{self.settings.project_id}.{self.settings.sexwell_mart_dataset}.{table_name}`"
+
     def cfg_table(self, table_name: str) -> str:
         return f"`{self.settings.project_id}.{self.settings.cfg_dataset}.{table_name}`"
+
+    def get_sexwell_discount_prevalence(
+        self,
+        *,
+        data_through: date,
+    ) -> list[dict[str, Any]]:
+        """Return the API-backed replacement for the Site Admin discount series.
+
+        The established Business Results dashboard keeps Selmatic accounting,
+        refund, product and historical measures unchanged. Only the compatible
+        completed-order discount prevalence is refreshed from the API mart.
+        """
+
+        def load_discount_prevalence() -> list[dict[str, Any]]:
+            sql = f"""
+select
+  extract(year from report_date) as year,
+  extract(month from report_date) as month,
+  sum(completed_orders) as completed_orders,
+  sum(completed_discounted_orders) as discounted_orders,
+  round(100 * safe_divide(
+    sum(completed_discounted_orders),
+    sum(completed_orders)
+  ), 4) as discounted_order_share_pct
+from {self.sexwell_mart_table('mart_orders_daily')}
+where report_date between date '2026-04-01' and @data_through
+group by year, month
+order by year, month
+"""
+            try:
+                return self._run_query(
+                    sql,
+                    parameters=[
+                        bigquery.ScalarQueryParameter("data_through", "DATE", data_through),
+                    ],
+                )
+            except GoogleAPICallError:
+                return []
+
+        return self.query_cache.get_or_set(
+            ("sexwell_discount_prevalence", data_through.isoformat()),
+            load_discount_prevalence,
+        )
 
     def auction_table(self, grain: str) -> str:
         return f"`experimental-clients.sexwell_analyses.gads--impression_share--{grain}`"

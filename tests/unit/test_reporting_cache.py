@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from google.api_core.exceptions import GoogleAPICallError
+
 from app.cache import TtlCache
 from app.service import BigQueryReportingService, ScopeFilters
 from app.settings import ReportingAppSettings
@@ -57,6 +59,51 @@ def test_reporting_service_caches_filter_options(monkeypatch) -> None:
     assert first["defaults"]["account_id"] == "1200697994"
     assert second["defaults"]["account_id"] == "1200697994"
     assert calls == 1
+
+
+def test_sexwell_discount_prevalence_uses_api_mart_and_cache(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+    calls = 0
+
+    def fake_run_query(sql: str, **kwargs: object) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        assert "sexwell_reporting_mart.mart_orders_daily" in sql
+        assert "completed_discounted_orders" in sql
+        assert "@data_through" in sql
+        parameters = kwargs["parameters"]
+        assert parameters[0].value == date(2026, 9, 16)
+        return [
+            {
+                "year": 2026,
+                "month": 9,
+                "completed_orders": 513,
+                "discounted_orders": 307,
+                "discounted_order_share_pct": 59.8441,
+            }
+        ]
+
+    monkeypatch.setattr(service, "_run_query", fake_run_query)
+
+    first = service.get_sexwell_discount_prevalence(data_through=date(2026, 9, 16))
+    second = service.get_sexwell_discount_prevalence(data_through=date(2026, 9, 16))
+
+    assert first[0]["discounted_order_share_pct"] == 59.8441
+    assert second == first
+    assert calls == 1
+
+
+def test_sexwell_discount_prevalence_fails_open(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+
+    def failed_query(*_: object, **__: object) -> list[dict[str, object]]:
+        raise GoogleAPICallError("temporary BigQuery failure")
+
+    monkeypatch.setattr(service, "_run_query", failed_query)
+
+    assert service.get_sexwell_discount_prevalence(data_through=date(2026, 9, 16)) == []
 
 
 def test_reporting_service_caches_scope_queries(monkeypatch) -> None:

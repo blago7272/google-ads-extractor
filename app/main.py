@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+import re
 import secrets
 from datetime import date
 from pathlib import Path
@@ -87,6 +89,11 @@ SEXWELL_BUSINESS_REPORTS = {
     "sexwell_category_dynamics_2026-09-17_v11.html": "sexwell_category_dynamics_2026-09-17_v11.html",
     "sexwell_product_revenue_concentration_2026-09-17_v06.html": "sexwell_product_revenue_concentration_2026-09-17_v06.html",
 }
+SEXWELL_DISCOUNT_SERIES_PATTERN = re.compile(
+    r"const ORDER_EXPORT_DISCOUNTED_ORDER_RATE=(\{.*?\});",
+    re.DOTALL,
+)
+SEXWELL_BUSINESS_RESULTS_DATA_THROUGH = date(2026, 9, 16)
 
 app = FastAPI(title="Google Ads Signal Board")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -186,6 +193,35 @@ def _render_ads_hub(request: Request, settings: ReportingAppSettings) -> HTMLRes
             is_ga4_report=False,
         ),
     )
+
+
+def _inject_sexwell_api_discount_series(
+    html: str,
+    api_rows: list[dict[str, object]],
+) -> str:
+    """Patch only the existing discount data literal; preserve the report UI."""
+
+    match = SEXWELL_DISCOUNT_SERIES_PATTERN.search(html)
+    if match is None or not api_rows:
+        return html
+
+    series = json.loads(match.group(1))
+    for row in api_rows:
+        year = str(int(row["year"]))
+        month_index = int(row["month"]) - 1
+        share = row.get("discounted_order_share_pct")
+        if share is None or year not in series or month_index < 0:
+            continue
+        if month_index >= len(series[year]):
+            continue
+        series[year][month_index] = round(float(share), 4)
+
+    replacement = (
+        "const ORDER_EXPORT_DISCOUNTED_ORDER_RATE="
+        + json.dumps(series, ensure_ascii=False, separators=(",", ":"))
+        + ";"
+    )
+    return html[: match.start()] + replacement + html[match.end() :]
 
 
 def _request_uses_https(request: Request) -> bool:
@@ -344,13 +380,19 @@ def sexwell_home(
 @app.get("/business-results")
 def business_results(
     request: Request,
-):
+    reporting_service: BigQueryReportingService = Depends(get_reporting_service),
+) -> HTMLResponse:
     """Serve the aggregate-only SexWell dashboard within the existing access scope."""
 
     _require_sexwell_access(request)
-    return FileResponse(
-        SEXWELL_BUSINESS_REPORTS_DIR / SEXWELL_BUSINESS_REPORTS["dashboard"],
-        media_type="text/html",
+    dashboard = (
+        SEXWELL_BUSINESS_REPORTS_DIR / SEXWELL_BUSINESS_REPORTS["dashboard"]
+    ).read_text(encoding="utf-8")
+    api_rows = reporting_service.get_sexwell_discount_prevalence(
+        data_through=SEXWELL_BUSINESS_RESULTS_DATA_THROUGH,
+    )
+    return HTMLResponse(
+        content=_inject_sexwell_api_discount_series(dashboard, api_rows),
     )
 
 
