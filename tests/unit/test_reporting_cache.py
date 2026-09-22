@@ -148,6 +148,53 @@ def test_sexwell_google_ads_daily_fails_open(monkeypatch) -> None:
     assert service.get_sexwell_google_ads_daily() == []
 
 
+def test_sexwell_completed_sales_daily_uses_api_marts_and_cache(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+    calls = 0
+
+    def fake_run_query(sql: str, **__: object) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        assert "sexwell_reporting_mart.mart_orders_daily" in sql
+        assert "sexwell_reporting_mart.mart_order_lines_daily" in sql
+        assert "status = 'C'" in sql
+        assert "not is_free_item" in sql
+        assert "current_date('Europe/Sofia')" in sql
+        return [
+            {
+                "report_date": "2026-09-17",
+                "completed_orders": 35,
+                "completed_total_gross": 1933.87,
+                "completed_merchandise_gross": 1836.89,
+                "paid_item_quantity": 65,
+                "completed_aov": 52.48,
+                "items_per_completed_order": 1.857,
+            }
+        ]
+
+    monkeypatch.setattr(service, "_run_query", fake_run_query)
+
+    first = service.get_sexwell_completed_sales_daily()
+    second = service.get_sexwell_completed_sales_daily()
+
+    assert first[0]["completed_orders"] == 35
+    assert second == first
+    assert calls == 1
+
+
+def test_sexwell_completed_sales_daily_fails_open(monkeypatch) -> None:
+    monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
+    service = BigQueryReportingService(ReportingAppSettings())
+
+    def failed_query(*_: object, **__: object) -> list[dict[str, object]]:
+        raise GoogleAPICallError("temporary BigQuery failure")
+
+    monkeypatch.setattr(service, "_run_query", failed_query)
+
+    assert service.get_sexwell_completed_sales_daily() == []
+
+
 def test_reporting_service_caches_scope_queries(monkeypatch) -> None:
     monkeypatch.setattr("app.service.bigquery.Client", FakeBigQueryClient)
     service = BigQueryReportingService(

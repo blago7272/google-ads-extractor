@@ -46,6 +46,28 @@ class FakeReportingService:
             for day in range(1, 20)
         ]
 
+    def get_sexwell_completed_sales_daily(self) -> list[dict[str, object]]:
+        rows = [
+            {
+                "report_date": date(2026, 9, 16),
+                "completed_orders": 999,
+                "completed_total_gross": 99999.0,
+                "completed_merchandise_gross": 99999.0,
+                "paid_item_quantity": 999,
+            }
+        ]
+        rows.extend(
+            {
+                "report_date": date(2026, 9, day),
+                "completed_orders": 10,
+                "completed_total_gross": 700.0,
+                "completed_merchandise_gross": 650.0,
+                "paid_item_quantity": 20,
+            }
+            for day in range(17, 20)
+        )
+        return rows
+
     def get_filter_options(self) -> dict[str, object]:
         return {
             "clients": [{"client_id": "sexwell"}],
@@ -578,22 +600,65 @@ def test_business_results_dashboard_renders() -> None:
     september = next(row for row in monthly if row["year"] == 2026 and row["month"] == 9)
     assert september["disc_rate"] == 59.8441
     assert september["ad_spend"] == 1900.0
-    assert september["roas"] == 19.48
+    assert september["gross_txn"] == 523
+    assert september["net_txn"] == 512
+    assert september["gross_rev"] == 34183.53
+    assert september["net_merch_rev"] == 33111.72
+    assert september["aov"] == 64.67
+    assert september["items"] == 2.349
+    assert september["roas"] == 17.99
 
     mtd = _dashboard_literal(response.text, "MTDSEP=")
     projection = _dashboard_literal(response.text, "PROJSEP=")
     daily = _dashboard_literal(response.text, "DAILY_CPT=")
     assert mtd["ad_spend"] == 1900.0
     assert mtd["disc_rate"] == 59.8441
+    assert mtd["gross_txn"] == 523
+    assert mtd["gross_rev"] == 34183.53
     assert projection["ad_spend"] == 3000.0
-    assert projection["roas"] == 19.48
-    assert daily[-1]["date"] == "2026-09-16"
+    assert projection["gross_txn"] == 825.789
+    assert projection["roas"] == 17.99
+    assert daily[-1]["date"] == "2026-09-19"
     assert daily[-1]["ad_spend"] == 100.0
-    assert daily[-1]["cost_per_gross_txn"] == 3.23
+    assert daily[-1]["gross_txn"] == 10
+    assert daily[-1]["refund_docs"] is None
+    assert daily[-1]["cost_per_gross_txn"] == 10.0
+    assert daily[-1]["aov"] == 65.0
     assert "Google Ads spend through Sep 19" in response.text
-    assert "Selmatic sales and ROAS through Sep 16" in response.text
+    assert "provisional ID Consult API data through Sep 19" in response.text
+    assert "Selmatic refunds and revenue net of refunds through Sep 16" in response.text
     assert "completed-order discount share through Sep 19" in response.text
-    assert "Daily Google Ads cost per gross transaction and AOV (Jul 1–28, Aug 1–31 and Sep 1–16, 2026)" in response.text
+    assert "Daily Google Ads cost per gross transaction and AOV (Jul 1–28, Aug 1–31 and Sep 1–19, 2026)" in response.text
+    assert "API-tail refund counts are unavailable and shown as a dash" in response.text
+
+    roas_match = re.search(
+        r"const ORDER_EXPORT_ROAS=(\{.*?\});",
+        response.text,
+        re.DOTALL,
+    )
+    assert roas_match is not None
+    roas_series = json.loads(roas_match.group(1))
+    assert roas_series["2026"][8] == 17.99
+
+
+def test_business_results_keeps_selmatic_cutoff_when_sales_mart_fails() -> None:
+    dashboard = (
+        main_module.SEXWELL_BUSINESS_REPORTS_DIR
+        / main_module.SEXWELL_BUSINESS_REPORTS["dashboard"]
+    ).read_text(encoding="utf-8")
+    service = FakeReportingService()
+
+    rendered = main_module._inject_sexwell_live_data(
+        dashboard,
+        service.get_sexwell_discount_prevalence(),
+        service.get_sexwell_google_ads_daily(),
+        [],
+    )
+
+    assert "Selmatic sales and ROAS through Sep 16" in rendered
+    assert "provisional ID Consult API data" not in rendered
+    daily = _dashboard_literal(rendered, "DAILY_CPT=")
+    assert daily[-1]["date"] == "2026-09-16"
 
 
 def test_business_results_assets_require_a_known_report() -> None:

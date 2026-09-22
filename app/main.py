@@ -94,6 +94,10 @@ SEXWELL_DISCOUNT_SERIES_PATTERN = re.compile(
     r"const ORDER_EXPORT_DISCOUNTED_ORDER_RATE=(\{.*?\});",
     re.DOTALL,
 )
+SEXWELL_ROAS_SERIES_PATTERN = re.compile(
+    r"const ORDER_EXPORT_ROAS=(\{.*?\});",
+    re.DOTALL,
+)
 
 app = FastAPI(title="Google Ads Signal Board")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -238,6 +242,7 @@ def _inject_sexwell_live_data(
     html: str,
     discount_rows: list[dict[str, object]],
     ads_rows: list[dict[str, object]],
+    sales_rows: list[dict[str, object]],
 ) -> str:
     """Refresh compatible report literals while preserving the approved UI."""
 
@@ -294,6 +299,88 @@ def _inject_sexwell_live_data(
         for row in monthly
         if isinstance(row, dict) and "year" in row and "month" in row
     }
+
+    provisional_sales: list[tuple[date, dict[str, object]]] = []
+    if erp_data_through is not None:
+        for row in sales_rows:
+            report_date = _coerce_date(row.get("report_date"))
+            if report_date is None or report_date <= erp_data_through:
+                continue
+            required = (
+                "completed_orders",
+                "completed_total_gross",
+                "completed_merchandise_gross",
+                "paid_item_quantity",
+            )
+            if any(row.get(field) is None for field in required):
+                continue
+            provisional_sales.append((report_date, row))
+    provisional_sales.sort(key=lambda item: item[0])
+    latest_sales_date = (
+        provisional_sales[-1][0] if provisional_sales else erp_data_through
+    )
+
+    provisional_by_month: dict[tuple[int, int], dict[str, float]] = {}
+    for report_date, row in provisional_sales:
+        key = (report_date.year, report_date.month)
+        totals = provisional_by_month.setdefault(
+            key,
+            {"orders": 0.0, "gross": 0.0, "merchandise": 0.0, "items": 0.0},
+        )
+        totals["orders"] += float(row["completed_orders"])
+        totals["gross"] += float(row["completed_total_gross"])
+        totals["merchandise"] += float(row["completed_merchandise_gross"])
+        totals["items"] += float(row["paid_item_quantity"])
+
+    for key, totals in provisional_by_month.items():
+        row = monthly_by_key.get(key)
+        if row is None:
+            row = {
+                "year": key[0],
+                "month": key[1],
+                "gross_txn": 0,
+                "refund_docs": None,
+                "net_txn": 0,
+                "gross_rev": 0.0,
+                "refund_val": None,
+                "rev_net_refunds": None,
+                "net_merch_rev": 0.0,
+                "aov": None,
+                "disc_rate": None,
+                "pen": None,
+                "depth": None,
+                "free_orders": None,
+                "ad_spend": None,
+                "roas": None,
+                "items": None,
+            }
+            monthly.append(row)
+            monthly_by_key[key] = row
+
+        original_net_transactions = float(row.get("net_txn") or 0)
+        original_item_quantity = float(row.get("items") or 0) * original_net_transactions
+        row["gross_txn"] = round(float(row.get("gross_txn") or 0) + totals["orders"])
+        # The provisional tail uses completed shop orders as the operational
+        # net-transaction proxy. Monetary refunds remain Selmatic-only.
+        row["net_txn"] = round(original_net_transactions + totals["orders"])
+        row["gross_rev"] = round(float(row.get("gross_rev") or 0) + totals["gross"], 2)
+        row["net_merch_rev"] = round(
+            float(row.get("net_merch_rev") or 0) + totals["merchandise"], 2
+        )
+        combined_orders = float(row["net_txn"])
+        row["aov"] = (
+            round(float(row["net_merch_rev"]) / combined_orders, 2)
+            if combined_orders
+            else None
+        )
+        row["items"] = (
+            round((original_item_quantity + totals["items"]) / combined_orders, 3)
+            if combined_orders
+            else None
+        )
+
+    monthly.sort(key=lambda row: (int(row["year"]), int(row["month"])))
+
     for key, row in monthly_by_key.items():
         discount = discount_by_month.get(key)
         if discount is not None and discount.get("discounted_order_share_pct") is not None:
@@ -315,11 +402,54 @@ def _inject_sexwell_live_data(
 
         row["ad_spend"] = round(sum(float(item[1]["cost_eur"]) for item in month_ads), 2)
         matched_ads = month_ads
-        if erp_data_through is not None and key == (erp_data_through.year, erp_data_through.month):
-            matched_ads = [item for item in month_ads if item[0] <= erp_data_through]
+        if latest_sales_date is not None and key == (
+            latest_sales_date.year,
+            latest_sales_date.month,
+        ):
+            matched_ads = [item for item in month_ads if item[0] <= latest_sales_date]
         matched_spend = sum(float(item[1]["cost_eur"]) for item in matched_ads)
-        if matched_spend and row.get("net_merch_rev") is not None:
-            row["roas"] = round(float(row["net_merch_rev"]) / matched_spend, 2)
+        if matched_spend and row.get("gross_rev") is not None:
+            row["roas"] = round(float(row["gross_rev"]) / matched_spend, 2)
+
+    existing_daily_dates = {
+        parsed
+        for row in daily
+        if isinstance(row, dict)
+        for parsed in [_coerce_date(row.get("date"))]
+        if parsed is not None
+    }
+    for report_date, sale in provisional_sales:
+        if report_date in existing_daily_dates:
+            continue
+        ad = ads_by_date.get(report_date)
+        if ad is None:
+            continue
+        completed_orders = float(sale["completed_orders"])
+        spend = round(float(ad["cost_eur"]), 2)
+        daily.append(
+            {
+                "date": report_date.isoformat(),
+                "ad_spend": spend,
+                "impressions": int(ad["impressions"]),
+                "clicks": int(ad["clicks"]),
+                "gross_txn": round(completed_orders),
+                "net_txn": round(completed_orders),
+                "refund_docs": None,
+                "aov": (
+                    round(
+                        float(sale["completed_merchandise_gross"])
+                        / completed_orders,
+                        2,
+                    )
+                    if completed_orders
+                    else None
+                ),
+                "cost_per_gross_txn": (
+                    round(spend / completed_orders, 2) if completed_orders else None
+                ),
+            }
+        )
+    daily.sort(key=lambda row: str(row.get("date", "")))
 
     for row in daily:
         if not isinstance(row, dict):
@@ -342,7 +472,17 @@ def _inject_sexwell_live_data(
     mtd_located = _json_literal_span(html, "MTDSEP=")
     mtd = mtd_located[0] if mtd_located is not None else None
     if isinstance(mtd, dict) and sep_monthly is not None:
-        for field in ("disc_rate", "ad_spend", "roas"):
+        for field in (
+            "gross_txn",
+            "net_txn",
+            "gross_rev",
+            "net_merch_rev",
+            "aov",
+            "items",
+            "disc_rate",
+            "ad_spend",
+            "roas",
+        ):
             if field in sep_monthly:
                 mtd[field] = sep_monthly[field]
 
@@ -354,6 +494,22 @@ def _inject_sexwell_live_data(
         and latest_ads_date is not None
         and (latest_ads_date.year, latest_ads_date.month) == sep_key
     ):
+        if latest_sales_date is not None and (
+            latest_sales_date.year,
+            latest_sales_date.month,
+        ) == sep_key:
+            sales_factor = monthrange(
+                latest_sales_date.year, latest_sales_date.month
+            )[1] / latest_sales_date.day
+            for field in ("gross_txn", "net_txn", "gross_rev", "net_merch_rev"):
+                if sep_monthly.get(field) is not None:
+                    projection[field] = round(float(sep_monthly[field]) * sales_factor, 3)
+            projection["aov"] = sep_monthly.get("aov")
+            projection["items"] = sep_monthly.get("items")
+            # Refund value is not exposed by the API. Do not leave the older
+            # Selmatic-only refund projection beside newer operational sales.
+            for field in ("refund_docs", "refund_val", "rev_net_refunds"):
+                projection.pop(field, None)
         projection["ad_spend"] = round(
             float(sep_monthly["ad_spend"])
             * monthrange(latest_ads_date.year, latest_ads_date.month)[1]
@@ -393,6 +549,33 @@ def _inject_sexwell_live_data(
         )
         html = html[: match.start()] + replacement + html[match.end() :]
 
+    roas_match = SEXWELL_ROAS_SERIES_PATTERN.search(html)
+    if roas_match is not None:
+        # The legacy artifact uses JavaScript numeric object keys rather than
+        # strict JSON string keys. Normalize only those year keys before
+        # decoding, then write back valid JavaScript/JSON.
+        normalized_series = re.sub(
+            r"([,{]\s*)(\d{4})(\s*:)",
+            r'\1"\2"\3',
+            roas_match.group(1),
+        )
+        series = json.loads(normalized_series)
+        for (year, month), row in monthly_by_key.items():
+            roas = row.get("roas")
+            if roas is None:
+                continue
+            year_key = str(year)
+            values = series.setdefault(year_key, [])
+            while len(values) < month:
+                values.append(None)
+            values[month - 1] = round(float(roas), 4)
+        replacement = (
+            "const ORDER_EXPORT_ROAS="
+            + json.dumps(series, ensure_ascii=False, separators=(",", ":"))
+            + ";"
+        )
+        html = html[: roas_match.start()] + replacement + html[roas_match.end() :]
+
     if discount_by_month:
         html = html.replace(
             "The discount series shows the WebSite export’s ",
@@ -407,35 +590,57 @@ def _inject_sexwell_live_data(
         latest_ads_date is not None
         and latest_discount_date is not None
         and erp_data_through is not None
-        and latest_ads_date.year == latest_discount_date.year == erp_data_through.year == 2026
-        and latest_ads_date.month == latest_discount_date.month == erp_data_through.month == 9
+        and latest_sales_date is not None
+        and latest_ads_date.year == latest_discount_date.year == latest_sales_date.year == erp_data_through.year == 2026
+        and latest_ads_date.month == latest_discount_date.month == latest_sales_date.month == erp_data_through.month == 9
     ):
         ads_label = _month_day(latest_ads_date)
         discount_label = _month_day(latest_discount_date)
         erp_label = _month_day(erp_data_through)
+        sales_label = _month_day(latest_sales_date)
         old_caveat = (
             "Google Ads, Selmatic sales and completed-order discount share use the same September actual-to-date window through Sep 16; "
             "the separate September run-rate estimates sales and Google Ads spend linearly. "
             "Daily cost-per-transaction is available for Jul 1–28 and Aug 1–31."
         )
-        new_caveat = (
-            f"September data cutoffs are metric-specific: Google Ads spend through {ads_label}; "
-            f"Selmatic sales and ROAS through {erp_label}; completed-order discount share through {discount_label}. "
-            f"The separate September run-rate estimates sales from {erp_data_through.day} observed days and Google Ads spend from {latest_ads_date.day} observed days. "
-            f"Daily cost-per-transaction remains matched to ERP and is available for Jul 1–28, Aug 1–31 and Sep 1–{erp_data_through.day}."
-        )
+        if provisional_sales:
+            new_caveat = (
+                f"September data cutoffs are metric-specific: Google Ads spend through {ads_label}; "
+                f"Selmatic refunds and revenue net of refunds through {erp_label}; completed-order discount share through {discount_label}. "
+                f"Completed orders, gross and merchandise sales, AOV, items per order and ROAS combine Selmatic through {erp_label} with provisional ID Consult API data through {sales_label}; the provisional tail will be replaced by the next Selmatic export. "
+                f"Daily cost-per-transaction is available for Jul 1–28, Aug 1–31 and Sep 1–{latest_sales_date.day}; API-tail refund counts are unavailable and shown as a dash."
+            )
+            estimate_text = (
+                f"<b>September estimate:</b> operational sales and order volume use Selmatic through Sep {erp_data_through.day} plus provisional API data through Sep {latest_sales_date.day}; Google Ads spend is extrapolated from {latest_ads_date.day} observed days. Refund value and revenue net of refunds remain Selmatic-only through Sep {erp_data_through.day}. AOV, items per order and ROAS use the combined operational window; discount share is actual through {discount_label}."
+            )
+            legend_text = (
+                f"September operational sales and ROAS combine Selmatic through Sep {erp_data_through.day} with provisional API data through Sep {latest_sales_date.day}; refund measures remain Selmatic-only through Sep {erp_data_through.day}, completed-order discount share is current through {discount_label}, and Google Ads spend through {ads_label}."
+            )
+        else:
+            new_caveat = (
+                f"September data cutoffs are metric-specific: Google Ads spend through {ads_label}; "
+                f"Selmatic sales and ROAS through {erp_label}; completed-order discount share through {discount_label}. "
+                f"The separate September run-rate estimates sales from {erp_data_through.day} observed days and Google Ads spend from {latest_ads_date.day} observed days. "
+                f"Daily cost-per-transaction remains matched to ERP and is available for Jul 1–28, Aug 1–31 and Sep 1–{erp_data_through.day}."
+            )
+            estimate_text = (
+                f"<b>September estimate:</b> sales and order-volume are extrapolated from {erp_data_through.day} observed days; Google Ads spend is extrapolated from {latest_ads_date.day} observed days. AOV, items per order and ROAS retain the matched Sep 1–{erp_data_through.day} level; discount share is actual through {discount_label}."
+            )
+            legend_text = (
+                f"September Selmatic sales and ROAS use the matched Sep 1–{erp_data_through.day} window; completed-order discount share is current through {discount_label}, and Google Ads spend through {ads_label}."
+            )
         html = html.replace(old_caveat, new_caveat)
         html = html.replace(
             "<b>September estimate:</b> sales, order-volume and Google Ads spend are extrapolated from 16 observed days. AOV, items per order, discount share and ROAS retain the matched Sep 1–16 level.",
-            f"<b>September estimate:</b> sales and order-volume are extrapolated from {erp_data_through.day} observed days; Google Ads spend is extrapolated from {latest_ads_date.day} observed days. AOV, items per order and ROAS retain the matched Sep 1–{erp_data_through.day} level; discount share is actual through {discount_label}.",
+            estimate_text,
         )
         html = html.replace(
             "September sales, completed-order discount share, Google Ads spend and ROAS use the matched Sep 1–16 window.",
-            f"September Selmatic sales and ROAS use the matched Sep 1–{erp_data_through.day} window; completed-order discount share is current through {discount_label}, and Google Ads spend through {ads_label}.",
+            legend_text,
         )
         html = html.replace(
             "function actualCutoff(key,y,m){if(m===9)return 16;",
-            f"function actualCutoff(key,y,m){{if(m===9){{if(key==='ad_spend')return {latest_ads_date.day};if(key==='disc_rate')return {latest_discount_date.day};return {erp_data_through.day};}}",
+            f"function actualCutoff(key,y,m){{if(m===9){{if(key==='ad_spend')return {latest_ads_date.day};if(key==='disc_rate')return {latest_discount_date.day};if(key==='rev_net_refunds')return {erp_data_through.day};return {latest_sales_date.day};}}",
         )
         html = html.replace(
             "r.year===2026&&r.month===9?' (actual through Sep 16)':sp?",
@@ -443,11 +648,23 @@ def _inject_sexwell_live_data(
         )
         html = html.replace(
             "2026-09 (linear sales and Google Ads run-rate estimate from Sep 1–16)",
-            f"2026-09 (sales estimate from Sep 1–{erp_data_through.day}; Google Ads run-rate from Sep 1–{latest_ads_date.day})",
+            f"2026-09 (provisional sales estimate through Sep {latest_sales_date.day}; refund measures through Sep {erp_data_through.day}; Google Ads run-rate through Sep {latest_ads_date.day})",
         )
         html = html.replace(
             "r.year===2026&&r.month===9?' (actual through Sep 16; Google Ads actual)'",
-            f"r.year===2026&&r.month===9?' (sales/ROAS through Sep {erp_data_through.day}; discount through Sep {latest_discount_date.day}; Google Ads through Sep {latest_ads_date.day})'",
+            f"r.year===2026&&r.month===9?' (provisional sales/ROAS through Sep {latest_sales_date.day}; refunds through Sep {erp_data_through.day}; discount through Sep {latest_discount_date.day}; Google Ads through Sep {latest_ads_date.day})'",
+        )
+        html = html.replace(
+            "Daily Google Ads cost per gross transaction and AOV (Jul 1–28, Aug 1–31 and Sep 1–16, 2026)",
+            f"Daily Google Ads cost per gross transaction and AOV (Jul 1–28, Aug 1–31 and Sep 1–{latest_sales_date.day}, 2026)",
+        )
+        html = html.replace(
+            "Show monthly data table (September actuals through Sep 16 and linear estimate)",
+            f"Show monthly data table (September provisional sales through Sep {latest_sales_date.day}; refunds through Sep {erp_data_through.day}; linear estimate)",
+        )
+        html = html.replace(
+            "Sep linear estimate from actual through 13th",
+            "September estimate; metric cutoffs vary",
         )
 
     return html
@@ -619,8 +836,14 @@ def business_results(
     ).read_text(encoding="utf-8")
     discount_rows = reporting_service.get_sexwell_discount_prevalence()
     ads_rows = reporting_service.get_sexwell_google_ads_daily()
+    sales_rows = reporting_service.get_sexwell_completed_sales_daily()
     return HTMLResponse(
-        content=_inject_sexwell_live_data(dashboard, discount_rows, ads_rows),
+        content=_inject_sexwell_live_data(
+            dashboard,
+            discount_rows,
+            ads_rows,
+            sales_rows,
+        ),
     )
 
 

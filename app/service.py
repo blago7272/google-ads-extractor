@@ -226,6 +226,74 @@ order by report_date
             load_google_ads_daily,
         )
 
+    def get_sexwell_completed_sales_daily(self) -> list[dict[str, Any]]:
+        """Return API-backed completed-order sales for the provisional ERP tail.
+
+        Business Results keeps every day already covered by Selmatic. The route
+        uses these rows only after the embedded ERP cutoff and labels that tail
+        as provisional until a later Selmatic export replaces it.
+        """
+
+        def load_completed_sales_daily() -> list[dict[str, Any]]:
+            sql = f"""
+with completed_orders as (
+  select
+    report_date,
+    sum(if(status = 'C', completed_orders, 0)) as completed_orders,
+    sum(if(status = 'C', total_gross, 0)) as completed_total_gross,
+    sum(if(status = 'C', merchandise_after_discounts_gross, 0))
+      as completed_merchandise_gross,
+    max(source_updated_through) as source_updated_through
+  from {self.sexwell_mart_table('mart_orders_daily')}
+  where report_date between date '2026-04-01'
+    and date_sub(current_date('Europe/Sofia'), interval 1 day)
+  group by report_date
+),
+paid_items as (
+  select
+    report_date,
+    sum(quantity) as paid_item_quantity
+  from {self.sexwell_mart_table('mart_order_lines_daily')}
+  where status = 'C'
+    and item_type = 'merchandise'
+    and not is_free_item
+    and report_date between date '2026-04-01'
+      and date_sub(current_date('Europe/Sofia'), interval 1 day)
+  group by report_date
+)
+select
+  o.report_date,
+  o.completed_orders,
+  o.completed_total_gross,
+  o.completed_merchandise_gross,
+  coalesce(i.paid_item_quantity, 0) as paid_item_quantity,
+  round(safe_divide(
+    o.completed_merchandise_gross,
+    o.completed_orders
+  ), 2) as completed_aov,
+  round(safe_divide(
+    coalesce(i.paid_item_quantity, 0),
+    o.completed_orders
+  ), 3) as items_per_completed_order,
+  o.source_updated_through
+from completed_orders o
+left join paid_items i using (report_date)
+order by report_date
+"""
+            try:
+                return self._run_query(sql)
+            except GoogleAPICallError:
+                logger.warning(
+                    "SexWell completed-sales mart query failed; keeping Selmatic cutoff",
+                    exc_info=True,
+                )
+                return []
+
+        return self.query_cache.get_or_set(
+            ("sexwell_completed_sales_daily",),
+            load_completed_sales_daily,
+        )
+
     def auction_table(self, grain: str) -> str:
         return f"`experimental-clients.sexwell_analyses.gads--impression_share--{grain}`"
 
