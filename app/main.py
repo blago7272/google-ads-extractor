@@ -33,26 +33,6 @@ REPORT_PAGES = {
         "title": "High-Level Overview",
         "subtitle": "KPI trend, campaign mix, and competitive context.",
     },
-    "ga4-overview": {
-        "title": "GA4 Overview",
-        "subtitle": "Commerce KPIs, source mix, campaign mix, and product leaders from the GA4 historical export, enriched with ERP categories and GA4 brand signals.",
-    },
-    "ga4-impact": {
-        "title": "GA4 Impact",
-        "subtitle": "How source/medium and campaign shape products, categories, and brands.",
-    },
-    "ga4-funnel": {
-        "title": "GA4 Funnel",
-        "subtitle": "Views, add-to-cart, and purchase progression by channel and source.",
-    },
-    "ga4-timing": {
-        "title": "GA4 Timing",
-        "subtitle": "Hour-of-day performance and date-by-hour matrices from the GA4 export.",
-    },
-    "auction": {
-        "title": "Auction Insights",
-        "subtitle": "Daily, weekly, and monthly auction-share tables from the source export.",
-    },
     "keywords": {
         "title": "Keyword and Query Audit",
         "subtitle": "Keyword issues, search terms, and spend-without-return analysis.",
@@ -82,8 +62,19 @@ REPORT_PAGES = {
 app = FastAPI(title="Google Ads Signal Board")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
-SOURCE_LOCAL_REPORTS = {"auction", "ga4-overview", "ga4-impact", "ga4-funnel", "ga4-timing"}
-GA4_REPORTS = {"ga4-overview", "ga4-impact", "ga4-funnel", "ga4-timing"}
+# SexWell's own reporting (client home, Business results, GA4 reports) moved to
+# a standalone app. Old links land there instead of on a 404; the query string
+# is kept. SexWell's Google Ads reporting stays here (/ads).
+MOVED_REPORTING_ORIGIN = "https://sexwell-reporting.idconsult.bg"
+MOVED_PATHS = {
+    "/clients/sexwell",
+    "/business-results",
+    "/reports/ga4-overview",
+    "/reports/ga4-impact",
+    "/reports/ga4-funnel",
+    "/reports/ga4-timing",
+}
+MOVED_PREFIXES = ("/business-results/assets/",)
 SESSION_COOKIE_NAME = "session"
 OAUTH_STATE_COOKIE_NAME = "oauth_state"
 OAUTH_STATE_MAX_AGE_SECONDS = 600
@@ -93,6 +84,13 @@ PUBLIC_PATHS = {"/auth/login", "/auth/callback", "/auth/denied", "/healthz"}
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
+        if path in MOVED_PATHS or path.startswith(MOVED_PREFIXES):
+            # Before auth: the redirect reveals nothing, and a signed-out user
+            # should not have to sign in here just to be sent elsewhere.
+            target = MOVED_REPORTING_ORIGIN + path
+            if request.url.query:
+                target += "?" + request.url.query
+            return RedirectResponse(url=target, status_code=302)
         if path in PUBLIC_PATHS or path.startswith("/static"):
             return await call_next(request)
 
@@ -234,6 +232,7 @@ def auth_logout():
 
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/ads", response_class=HTMLResponse)
 def hub(
     request: Request,
     settings: ReportingAppSettings = Depends(get_settings),
@@ -249,8 +248,6 @@ def hub(
             page_subtitle="Management hub with conclusions, high-level status, and links to deeper analysis modules.",
             active_label="Main hub",
             report_name=None,
-            is_source_local_report=False,
-            is_ga4_report=False,
         ),
     )
 
@@ -276,8 +273,6 @@ def report_page(
             report_name=report_name,
             report_title=REPORT_PAGES[report_name]["title"],
             report_subtitle=REPORT_PAGES[report_name]["subtitle"],
-            is_source_local_report=report_name in SOURCE_LOCAL_REPORTS,
-            is_ga4_report=report_name in GA4_REPORTS,
         ),
     )
 

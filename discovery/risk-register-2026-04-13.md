@@ -10,14 +10,16 @@ Date: 2026-04-13
 **Mitigation:** Add exchange rates for USD, GBP, RON, and MXN to `cfg_exchange_rates` seed. Consider whether rates should be periodically updated or remain fixed snapshots.
 
 ### R2 — GA4 and Auction Insights Outside dbt (MEDIUM)
-**Description:** GA4 ecommerce data and auction insights are queried directly from external BigQuery tables by the app's service layer, bypassing the dbt pipeline entirely. These live in `experimental-clients.sexwell_analyses.*`.
+**Description:** GA4 ecommerce data and auction insights are queried directly from external BigQuery tables by the app's service layer, bypassing the dbt pipeline entirely. These live in a single client's external dataset in another project.
 **Impact:** No dbt contract enforcement, no automated testing, no freshness monitoring for these data sources. Schema changes in external tables will break the app silently. Cross-referencing with Ads data is ad-hoc.
 **Mitigation:** Either bring these into the dbt pipeline as proper staging/mart models, or implement explicit schema validation and freshness checks in the app layer. The `stg_auction_insights` stub already exists but is unused.
+**Resolved 2026-09-24:** the source-local GA4 and Auction Insights pages were removed from the app, so it no longer reads this external dataset. That client's own reporting now runs in a separate app.
 
 ### R3 — Single-Account Feature Coverage (MEDIUM)
-**Description:** GA4 reports (`has_ga4`) and auction insights (`has_auction_insights`) are enabled for only one account (Sexwell). The GA4 queries hardcode a specific BigQuery table ID (`GA4-345365542--historical`).
+**Description:** GA4 reports (`has_ga4`) and auction insights (`has_auction_insights`) are enabled for only one account. The GA4 queries hardcode that client's BigQuery table.
 **Impact:** These features cannot scale to additional accounts without code changes in `service.py`. The pattern of one hardcoded table per feature doesn't support multi-tenant reporting.
 **Mitigation:** Define a configuration pattern (seed or config table) that maps account_id → external data source. Refactor `ga4_table()` and `auction_table()` to be account-aware.
+**Resolved 2026-09-24:** the source-local GA4 and Auction Insights pages were removed from the app, so it no longer reads this external dataset. That client's own reporting now runs in a separate app.
 
 ### R4 — App Service Layer Complexity (MEDIUM)
 **Description:** `service.py` is 2,984 lines with extensive inline SQL queries. Business logic that should arguably live in dbt (GA4 channel grouping, ERP enrichment, efficiency calculations) is embedded in Python.

@@ -69,7 +69,7 @@ to allow operational changes without a deploy cycle.
 email,client_id,account_id,role,is_active
 maria@agency.com,__all__,__all__,admin,true
 ivan@agency.com,__all__,__all__,admin,true
-contact@sexwell.bg,sexwell,__all__,viewer,true
+contact@client-a.com,client_a,__all__,viewer,true
 manager@client-b.com,client_b,__all__,viewer,true
 analyst@client-b.com,client_b,555666777,viewer,true
 ```

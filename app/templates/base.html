@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/reporting.css">
   </head>
-  <body data-page-kind="{{ page_kind }}" data-report-kind="{{ report_name or '' }}" data-source-local-report="{{ 'true' if is_source_local_report else 'false' }}">
+  <body data-page-kind="{{ page_kind }}" data-report-kind="{{ report_name or '' }}">
     <div class="page-shell">
       <div class="brand-bar panel-lite">
         <a href="/" class="brand-link">
@@ -28,25 +28,21 @@
       </div>
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">{% if is_ga4_report %}GA4 ecommerce reporting{% elif report_name == "auction" %}Auction source reporting{% else %}Ads reporting{% endif %}</p>
+          <p class="eyebrow">Ads reporting</p>
           <h1>{{ page_title }}</h1>
           <p class="hero-text">{{ page_subtitle }}</p>
         </div>
         <div class="hero-meta">
           <div class="meta-card">
             <span class="meta-label">Data source</span>
-            <strong>{% if is_source_local_report %}BigQuery source tables{% else %}BigQuery marts{% endif %}</strong>
+            <strong>BigQuery marts</strong>
             <span id="coverage-badge" class="badge badge-muted">Loading coverage</span>
           </div>
           <div class="meta-card">
             <span class="meta-label">Current page</span>
             <strong>{{ active_label }}</strong>
             <span class="meta-helper">
-              {% if is_source_local_report %}
-                This page uses its own source-local logic and keeps client/account filters read-only.
-              {% else %}
-                Shared filters stay active across the whole report pack.
-              {% endif %}
+              Shared filters stay active across the whole report pack.
             </span>
           </div>
           <div class="meta-card">
@@ -64,8 +60,6 @@
             class="nav-link{% if report_name == key %} is-active{% endif %}"
             data-report-link
             data-report-name="{{ key }}"
-            {% if key in ['ga4-overview', 'ga4-impact', 'ga4-funnel', 'ga4-timing'] %}data-feature="has_ga4"{% endif %}
-            {% if key == 'auction' %}data-feature="has_auction_insights"{% endif %}
             href="/reports/{{ key }}"
           >
             {{ page.title }}
@@ -89,11 +83,11 @@
           </label>
           <label>
             <span>Client</span>
-            <select id="client-select" name="client_id"{% if is_source_local_report %} disabled{% endif %}></select>
+            <select id="client-select" name="client_id"></select>
           </label>
           <label>
             <span>Account</span>
-            <select id="account-select" name="account_id"{% if is_source_local_report %} disabled{% endif %}></select>
+            <select id="account-select" name="account_id"></select>
           </label>
           <label>
             <span>Date from</span>

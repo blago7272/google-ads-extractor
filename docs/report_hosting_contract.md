@@ -15,7 +15,6 @@ It covers:
 It does not replace the data-pipeline contracts in:
 
 - `docs/reporting_contract.md`
-- `docs/ga4_reporting_contract.md`
 - `docs/infrastructure_design.md`
 - `docs/operations_design.md`
 
@@ -81,12 +80,8 @@ The hosted reporting app may read:
 
 - `gads_reporting_cfg`
 - `gads_reporting_mart`
-- approved source-local tables currently used by the UI:
-  - `experimental-clients.sexwell_analyses.gads--impression_share--daily`
-  - `experimental-clients.sexwell_analyses.gads--impression_share--weekly`
-  - `experimental-clients.sexwell_analyses.gads--impression_share--monthly`
-  - `experimental-clients.sexwell_analyses.GA4-345365542--historical`
-  - approved ERP enrichment views if used by GA4 reporting
+
+It no longer reads source-local tables outside these datasets. SexWell's own reporting (client home, Business results and the GA4 report pack) moved to the standalone app at `sexwell-reporting.idconsult.bg` in September 2026; its old URLs here redirect there. SexWell's Google Ads reporting stays in this app.
 
 The app must not require the developer laptop, local credentials outside the runtime service account, or any local process to serve end users.
 

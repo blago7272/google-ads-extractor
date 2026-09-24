@@ -94,6 +94,6 @@ All tables live in `gads-export-all.gads_raw` and use wildcard suffixes (`_*`) f
 - **Exchange rates**: Only EUR and BGN configured. USD, GBP, RON, MXN accounts exist but have no FX rates — EUR conversions will be NULL for these.
 - **Segments**: Placeholder only. No real campaign-to-segment mappings exist yet.
 - **Account groups**: Single placeholder group. No real multi-account rollup groups defined.
-- **Auction insights**: Stub model with all NULLs. Real data lives in external tables (`experimental-clients.sexwell_analyses.gads--impression_share--*`), accessed directly by the app layer, not through dbt.
+- **Auction insights**: Stub model with all NULLs. Real data lived in one client's external tables, accessed directly by the app layer, not through dbt (removed 2026-09-24).
 - **Client-specific thresholds**: All thresholds are default-level. No per-client overrides exist.
-- **GA4 data**: Not in dbt. Queried directly from `experimental-clients.sexwell_analyses.GA4-*` by the app.
+- **GA4 data**: Not in dbt. Was queried directly from one client's external GA4 export by the app (removed 2026-09-24).

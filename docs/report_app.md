@@ -35,14 +35,6 @@ The app is responsible for:
   Hour-of-day, day-of-week, date-by-hour timing matrix, daypart summary, ad-group timing profile, budget pacing, and switchable timing metrics.
 - `Action Queue`
   Consolidated alerts and budget flags.
-- `GA4 Overview`
-  Standalone commerce KPIs, source/campaign mix, product leaders, and monthly channel share from the GA4 historical export, with brand restored from GA4 view-side item rows and category restored from ERP item mapping.
-- `GA4 Impact`
-  Standalone source/campaign impact on products, categories, and brands.
-- `GA4 Funnel`
-  Standalone views, add-to-cart, and purchase progression by channel and source.
-- `GA4 Timing`
-  Standalone hourly performance and date-by-hour matrices from the GA4 historical export.
 
 ## Excel Alignment
 
@@ -57,7 +49,9 @@ The current app structure intentionally pulls from the original workbook pattern
 - `Бюджет_Лимит`, `Резюме_часови_анализ`, and `Профил_по_групи`
   Recast as the timing page.
 
-The GA4 scope is now documented separately in `docs/ga4_reporting_contract.md`. Items still deferred are the blended Ads + GA4 sheets and any landing-page/session-based analysis not present in the current GA4 source.
+Items still deferred are the blended Ads + GA4 sheets and any landing-page/session-based analysis.
+
+SexWell's own reporting (client home, Business results and the GA4 report pack) moved to the standalone app at `sexwell-reporting.idconsult.bg` in September 2026; its old URLs here redirect there. SexWell's Google Ads reporting stays in this app. The source-local GA4 and Auction Insights pages were removed with that move: they read one client's external dataset regardless of the selected client scope.
 
 Persistent help-note content is documented in `docs/report_help_contract.md`.
 
@@ -83,10 +77,10 @@ The current app layer also includes:
 
 ## API Surface
 
-- `GET /`
+- `GET /` and `GET /ads`
   HTML hub shell
 - `GET /reports/{report_name}`
-  HTML report shell for Ads, Auction, and GA4 report pages
+  HTML report shell for the Ads report pages
 - `GET /healthz`
   lightweight app health check
 - `GET /api/options`
@@ -112,10 +106,6 @@ The current app layer also includes:
 - `mart_ads_alerts`
 - `mart_data_freshness`
 - `mart_ads_auction_insights_monthly`
-- `experimental-clients.sexwell_analyses.gads--impression_share--daily`
-- `experimental-clients.sexwell_analyses.gads--impression_share--weekly`
-- `experimental-clients.sexwell_analyses.gads--impression_share--monthly`
-- `experimental-clients.sexwell_analyses.GA4-345365542--historical`
 
 ## Feature Flags
 

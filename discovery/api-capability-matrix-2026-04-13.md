@@ -29,9 +29,9 @@ Date: 2026-04-13
 ### External Data Sources (App-Layer Only)
 | Source | Status | Details |
 |--------|--------|---------|
-| Auction insights (daily/weekly/monthly) | Active for 1 account | `experimental-clients.sexwell_analyses.gads--impression_share--*` |
-| GA4 historical ecommerce | Active for 1 account | `experimental-clients.sexwell_analyses.GA4-345365542--historical` |
-| ERP item categories | Active for 1 account | `experimental-clients.sexwell_analyses.erp_import_item_category_v` |
+| Auction insights (daily/weekly/monthly) | Removed 2026-09-24 | Was one client's external Sheets tables |
+| GA4 historical ecommerce | Removed 2026-09-24 | Was one client's external GA4 export |
+| ERP item categories | Removed 2026-09-24 | Was one client's ERP category view |
 
 ### Authentication
 | Capability | Status | Details |

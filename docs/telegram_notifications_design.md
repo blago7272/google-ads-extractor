@@ -48,18 +48,18 @@ Examples:
 
 ```
 telegram_user_id  client_id   account_id  role    receives_daily_summary
-111222333         sexwell     __all__     admin   true
+111222333         client_a    __all__     admin   true
 111222333         matraci.bg  4848659150  admin   true
 444555666         matraci.bg  4848659150  viewer  true
-444555666         sexwell     1200697994  viewer  false
+444555666         client_a    1111111111  viewer  false
 ```
 
 In this example:
 
-- User 111222333 is an admin who receives daily summaries for all Sexwell
+- User 111222333 is an admin who receives daily summaries for all Client A
   accounts and for the specific Matraci account
 - User 444555666 is a viewer who receives daily summaries for Matraci only,
-  and has read access (but no push) to one Sexwell account via commands
+  and has read access (but no push) to one Client A account via commands
 
 ### Access Control Rules
 
@@ -84,7 +84,7 @@ Google Ads Health — 2026-03-30
 
 Accounts: 2 checked, 2 OK, 0 issues
 
-  Sexwell.bg (EUR) — OK
+  Client A (EUR) — OK
     208 days of data, 0 new alerts
 
   Matraci (EUR) — 3 alerts
@@ -151,7 +151,7 @@ Data: current (last date: 2026-03-29)
 ```
 Data Freshness — 2026-03-30
 
-  Sexwell.bg (EUR)    last: 2026-03-29  OK
+  Client A (EUR)     last: 2026-03-29  OK
   Matraci (EUR)       last: 2026-03-29  OK
 ```
 

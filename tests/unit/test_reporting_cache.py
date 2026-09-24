@@ -39,9 +39,9 @@ def test_reporting_service_caches_filter_options(monkeypatch) -> None:
         calls += 1
         return [
             {
-                "client_id": "sexwell",
-                "account_id": "1200697994",
-                "account_name": "Sexwell.bg (EUR)",
+                "client_id": "acme",
+                "account_id": "1111111111",
+                "account_name": "Acme.bg (EUR)",
                 "timezone": "Europe/Sofia",
                 "currency": "EUR",
                 "min_report_date": "2025-09-02",
@@ -54,8 +54,8 @@ def test_reporting_service_caches_filter_options(monkeypatch) -> None:
     first = service.get_filter_options()
     second = service.get_filter_options()
 
-    assert first["defaults"]["account_id"] == "1200697994"
-    assert second["defaults"]["account_id"] == "1200697994"
+    assert first["defaults"]["account_id"] == "1111111111"
+    assert second["defaults"]["account_id"] == "1111111111"
     assert calls == 1
 
 
@@ -98,8 +98,8 @@ def test_reporting_service_caches_scope_queries(monkeypatch) -> None:
     monkeypatch.setattr(service, "_run_query", fake_run_query)
 
     scope = ScopeFilters(
-        client_id="sexwell",
-        account_id="1200697994",
+        client_id="acme",
+        account_id="1111111111",
         date_from=date(2026, 2, 21),
         date_to=date(2026, 3, 22),
     )

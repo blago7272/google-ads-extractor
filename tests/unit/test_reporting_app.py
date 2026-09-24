@@ -15,12 +15,12 @@ from app.settings import ReportingAppSettings, get_settings
 class FakeReportingService:
     def get_filter_options(self) -> dict[str, object]:
         return {
-            "clients": [{"client_id": "sexwell"}],
+            "clients": [{"client_id": "acme"}],
             "accounts": [
                 {
-                    "client_id": "sexwell",
-                    "account_id": "1200697994",
-                    "account_name": "Sexwell.bg (EUR)",
+                    "client_id": "acme",
+                    "account_id": "1111111111",
+                    "account_name": "Acme.bg (EUR)",
                     "timezone": "Europe/Sofia",
                     "currency": "EUR",
                     "min_report_date": "2025-09-02",
@@ -32,8 +32,8 @@ class FakeReportingService:
                 "max_report_date": "2026-03-22",
             },
             "defaults": {
-                "client_id": "sexwell",
-                "account_id": "1200697994",
+                "client_id": "acme",
+                "account_id": "1111111111",
                 "date_from": "2026-02-22",
                 "date_to": "2026-03-22",
             },
@@ -54,9 +54,9 @@ class FakeReportingService:
             }
         return {
             "scope_type": "account",
-            "client_id": "sexwell",
+            "client_id": "acme",
             "account_id": account_id,
-            "account_name": "Sexwell.bg (EUR)",
+            "account_name": "Acme.bg (EUR)",
             "freshness_status": "stale",
             "last_data_date": "2026-03-22",
             "hours_since_last_data": 44,
@@ -66,8 +66,8 @@ class FakeReportingService:
 
     def _scope(self) -> dict[str, str]:
         return {
-            "client_id": "sexwell",
-            "account_id": "1200697994",
+            "client_id": "acme",
+            "account_id": "1111111111",
             "date_from": "2026-02-22",
             "date_to": "2026-03-22",
             "previous_date_from": "2026-01-24",
@@ -98,17 +98,6 @@ class FakeReportingService:
             "impressions": 39000,
             "ctr": 0.0897,
             "cpa_eur": 22.5,
-        }
-
-    def _auction_scope(self) -> dict[str, str | None]:
-        return {
-            "client_id": None,
-            "account_id": None,
-            "date_from": "2025-01-01",
-            "date_to": "2025-03-23",
-            "previous_date_from": "2024-10-09",
-            "previous_date_to": "2024-12-31",
-            "scope_label": "Sexwell.bg (BGN)",
         }
 
     def _overview_payload(self) -> dict[str, object]:
@@ -176,7 +165,7 @@ class FakeReportingService:
             "previous_summary": self._previous_summary(),
             "keywords": [
                 {
-                    "keyword_text": "sexwell",
+                    "keyword_text": "acme",
                     "campaign_name": "Brand",
                     "ad_group_name": "Brand Core",
                     "audit_reason": "low_qs",
@@ -187,7 +176,7 @@ class FakeReportingService:
                     "report_date_end": "2026-03-22",
                 }
             ],
-            "search_terms": [{"search_term": "sexwell", "campaign_name": "Brand", "cost_eur": 12.0, "conversions": 0.0, "roas": 0.0}],
+            "search_terms": [{"search_term": "acme", "campaign_name": "Brand", "cost_eur": 12.0, "conversions": 0.0, "roas": 0.0}],
             "alerts": [{"report_date": "2026-03-22", "severity": "medium", "alert_message": "Check budget"}],
             "alerts_definition": "Only keyword alerts are shown.",
         }
@@ -227,152 +216,8 @@ class FakeReportingService:
             "scope": self._scope(),
             "summary": self._summary(),
             "previous_summary": self._previous_summary(),
-            "coverage_opportunities": [{"search_term": "sexwell promo", "campaign_name": "Brand", "ad_group_name": "Brand Core", "search_term_status": "NONE", "cost_eur": 22.0, "clicks": 15, "conversions": 2.0, "conversion_rate": 0.133, "conversion_value_eur": 170.0, "roas": 7.73}],
+            "coverage_opportunities": [{"search_term": "acme promo", "campaign_name": "Brand", "ad_group_name": "Brand Core", "search_term_status": "NONE", "cost_eur": 22.0, "clicks": 15, "conversions": 2.0, "conversion_rate": 0.133, "conversion_value_eur": 170.0, "roas": 7.73}],
             "negative_candidates": [{"search_term": "free toy", "campaign_name": "Generic", "ad_group_name": "Generic Core", "search_term_status": "NONE", "cost_eur": 18.0, "clicks": 12, "impressions": 200, "ctr": 0.06, "conversions": 0.0}],
-        }
-
-    def get_auction_data(self, **_: object) -> dict[str, object]:
-        return {
-            "scope": self._auction_scope(),
-            "summary": {
-                "report_date_start": "2025-01-01",
-                "report_date_end": "2025-03-23",
-            },
-            "previous_summary": {},
-            "source_cards": [
-                {"title": "Accounts", "value": "1", "helper": "Distinct account_name values in scope"},
-                {"title": "Campaigns", "value": "7", "helper": "Distinct campaigns in the selected window"},
-            ],
-            "source_note": "This report is siloed to the Auction Insights source tables.",
-            "auction_daily": [
-                {
-                    "bucket_date": "2025-03-23",
-                    "account_name": "Sexwell.bg (BGN)",
-                    "campaign_name": "ROI - Search - Categories",
-                    "display_url_domain": "You",
-                    "search_impr_share": 35.22,
-                    "search_overlap_rate": None,
-                    "search_outranking_share": None,
-                }
-            ],
-            "auction_weekly": [
-                {
-                    "bucket_date": "2025-03-17",
-                    "account_name": "Sexwell.bg (BGN)",
-                    "campaign_name": "ROI - Search - Categories",
-                    "display_url_domain": "competitor.bg",
-                    "search_impr_share": 40.11,
-                    "search_overlap_rate": 28.42,
-                    "search_outranking_share": 11.05,
-                }
-            ],
-            "auction_monthly": [
-                {
-                    "bucket_date": "2025-03-01",
-                    "account_name": "Sexwell.bg (BGN)",
-                    "campaign_name": "ROI - Search - Categories",
-                    "display_url_domain": "competitor.bg",
-                    "search_impr_share": 44.98,
-                    "search_overlap_rate": 31.12,
-                    "search_outranking_share": 12.77,
-                }
-            ],
-        }
-
-    def _ga4_scope(self) -> dict[str, str | None]:
-        return {
-            "client_id": None,
-            "account_id": None,
-            "date_from": "2026-02-24",
-            "date_to": "2026-03-23",
-            "previous_date_from": "2026-01-27",
-            "previous_date_to": "2026-02-23",
-            "scope_label": "GA4 ecommerce export",
-        }
-
-    def _ga4_summary(self) -> dict[str, float | str]:
-        return {
-            "report_date_start": "2026-02-24",
-            "report_date_end": "2026-03-23",
-            "revenue": 12500.0,
-            "orders": 180,
-            "items_purchased": 245,
-            "items_added_to_cart": 390,
-            "items_viewed": 5400,
-            "aov": 69.44,
-            "view_to_order_rate": 0.0333,
-            "atc_to_order_rate": 0.4615,
-        }
-
-    def _ga4_previous_summary(self) -> dict[str, float]:
-        return {
-            "revenue": 11300.0,
-            "orders": 160,
-            "items_purchased": 220,
-            "items_added_to_cart": 360,
-            "items_viewed": 5200,
-            "aov": 70.63,
-            "view_to_order_rate": 0.0308,
-            "atc_to_order_rate": 0.4444,
-        }
-
-    def get_ga4_overview_data(self, **_: object) -> dict[str, object]:
-        return {
-            "scope": self._ga4_scope(),
-            "summary": self._ga4_summary(),
-            "previous_summary": self._ga4_previous_summary(),
-            "trend": [
-                {"report_date": "2026-03-22", "revenue": 420.0, "orders": 8, "items_purchased": 11, "items_added_to_cart": 17, "items_viewed": 210, "aov": 52.5},
-                {"report_date": "2026-03-23", "revenue": 560.0, "orders": 10, "items_purchased": 13, "items_added_to_cart": 21, "items_viewed": 240, "aov": 56.0},
-            ],
-            "previous_trend": [
-                {"report_date": "2026-02-22", "revenue": 390.0, "orders": 7, "items_purchased": 9, "items_added_to_cart": 15, "items_viewed": 205, "aov": 55.71},
-                {"report_date": "2026-02-23", "revenue": 500.0, "orders": 9, "items_purchased": 12, "items_added_to_cart": 18, "items_viewed": 232, "aov": 55.56},
-            ],
-            "source_summary": [{"channel_group": "Google Ads", "sessionSourceMedium": "google / cpc", "revenue": 4200.0, "orders": 60, "items_purchased": 84, "items_added_to_cart": 120, "items_viewed": 1600, "aov": 70.0}],
-            "campaign_summary": [{"channel_group": "Google Ads", "sessionCampaignName": "ROI - Performance Max", "revenue": 2600.0, "orders": 34, "items_purchased": 49, "items_added_to_cart": 72, "items_viewed": 920, "aov": 76.47}],
-            "top_products": [{"item_name": "Lube", "item_brand": "Sexwell", "item_category": "Lubricants & Intimate Care", "revenue": 780.0, "orders": 16, "items_purchased": 24, "aov": 48.75}],
-            "channel_monthly": [{"report_month": "2026-03-01", "channel_group": "Google Ads", "revenue": 4200.0, "revenue_share": 0.336, "orders": 60, "order_share": 0.333}],
-            "insights": [{"title": "Revenue trend", "detail": "Revenue is up."}],
-            "source_note": "GA4 overview note",
-        }
-
-    def get_ga4_impact_data(self, **_: object) -> dict[str, object]:
-        row = {"revenue": 900.0, "orders": 12, "items_purchased": 16, "items_added_to_cart": 25, "items_viewed": 180, "aov": 75.0}
-        return {
-            "scope": self._ga4_scope(),
-            "summary": self._ga4_summary(),
-            "previous_summary": self._ga4_previous_summary(),
-            "source_item_impact": [{"source_medium": "google / cpc", "item_name": "Lube", **row}],
-            "source_category_impact": [{"source_medium": "google / cpc", "item_category": "Lubricants & Intimate Care", **row}],
-            "source_brand_impact": [{"source_medium": "google / cpc", "item_brand": "Sexwell", **row}],
-            "campaign_item_impact": [{"campaign_name": "ROI - Performance Max", "item_name": "Lube", **row}],
-            "campaign_category_impact": [{"campaign_name": "ROI - Performance Max", "item_category": "Lubricants & Intimate Care", **row}],
-            "campaign_brand_impact": [{"campaign_name": "ROI - Performance Max", "item_brand": "Sexwell", **row}],
-            "source_note": "GA4 impact note",
-        }
-
-    def get_ga4_funnel_data(self, **_: object) -> dict[str, object]:
-        return {
-            "scope": self._ga4_scope(),
-            "summary": self._ga4_summary(),
-            "previous_summary": self._ga4_previous_summary(),
-            "channel_funnel": [{"channel_group": "Google Ads", "revenue": 4200.0, "orders": 60, "items_viewed": 1600, "items_added_to_cart": 120, "items_purchased": 84, "view_to_atc_rate": 0.075, "view_to_order_rate": 0.0375, "atc_to_order_rate": 0.5}],
-            "source_funnel": [{"channel_group": "Google Ads", "sessionSourceMedium": "google / cpc", "revenue": 4200.0, "orders": 60, "items_viewed": 1600, "items_added_to_cart": 120, "items_purchased": 84, "view_to_atc_rate": 0.075, "view_to_order_rate": 0.0375, "atc_to_order_rate": 0.5}],
-            "funnel_note": "GA4 funnel note",
-        }
-
-    def get_ga4_timing_data(self, **_: object) -> dict[str, object]:
-        return {
-            "scope": self._ga4_scope(),
-            "summary": self._ga4_summary(),
-            "previous_summary": self._ga4_previous_summary(),
-            "hourly_summary": [{"report_hour": 22, "revenue": 620.0, "orders": 10, "items_added_to_cart": 18, "items_purchased": 14, "items_viewed": 220, "aov": 62.0}],
-            "day_window_summary": [{"period_group": "Day 07-23h", "revenue": 11800.0, "orders": 170, "items_added_to_cart": 360, "items_purchased": 232, "items_viewed": 5000, "aov": 69.41}],
-            "revenue_matrix": [{"report_date": "2026-03-23", "day_label": "2026-03-23 Mon", "h00": 0.0, "h22": 620.0}],
-            "orders_matrix": [{"report_date": "2026-03-23", "day_label": "2026-03-23 Mon", "h00": 0, "h22": 10}],
-            "timing_highlights": [{"title": "Best revenue hour", "detail": "22:00 leads."}],
-            "timing_note": "GA4 timing note",
         }
 
     def get_creative_data(self, **_: object) -> dict[str, object]:
@@ -396,14 +241,6 @@ class FakeReportingService:
     def get_report_data(self, report_name: str, **_: object) -> dict[str, object]:
         if report_name == "overview":
             return self.get_overview_data()
-        if report_name == "ga4-overview":
-            return self.get_ga4_overview_data()
-        if report_name == "ga4-impact":
-            return self.get_ga4_impact_data()
-        if report_name == "ga4-funnel":
-            return self.get_ga4_funnel_data()
-        if report_name == "ga4-timing":
-            return self.get_ga4_timing_data()
         if report_name == "keywords":
             return self.get_keywords_data()
         if report_name == "timing":
@@ -414,8 +251,6 @@ class FakeReportingService:
             return self.get_efficiency_data()
         if report_name == "coverage":
             return self.get_coverage_data()
-        if report_name == "auction":
-            return self.get_auction_data()
         if report_name == "creative":
             return self.get_creative_data()
         raise ValueError("Unknown report")
@@ -501,30 +336,7 @@ def test_keywords_page_renders_advanced_filters() -> None:
     assert "Higher than or equal" in response.text
 
 
-def test_new_report_pages_render() -> None:
-    response = client.get("/reports/ga4-overview")
-    assert response.status_code == 200
-    assert "GA4 Overview" in response.text
-    assert "Revenue impact by source" in response.text
-    assert "Top items by revenue" in response.text
-    assert 'id="ga4-top-products-brand-filter-toggle"' in response.text
-    assert 'id="ga4-top-products-category-filter-toggle"' in response.text
-    assert "Monthly channel share" in response.text
-
-    response = client.get("/reports/ga4-impact")
-    assert response.status_code == 200
-    assert "Product impact by source" in response.text
-    assert "Category impact by source" in response.text
-    assert "Brand impact by source" in response.text
-
-    response = client.get("/reports/ga4-funnel")
-    assert response.status_code == 200
-    assert "Funnel by channel" in response.text
-
-    response = client.get("/reports/ga4-timing")
-    assert response.status_code == 200
-    assert "Revenue by date and hour" in response.text
-
+def test_report_pages_render() -> None:
     response = client.get("/reports/efficiency")
     assert response.status_code == 200
     assert "Zero-conversion campaigns" in response.text
@@ -532,15 +344,6 @@ def test_new_report_pages_render() -> None:
     response = client.get("/reports/coverage")
     assert response.status_code == 200
     assert "Converting terms not yet covered" in response.text
-
-    response = client.get("/reports/auction")
-    assert response.status_code == 200
-    assert "Monthly auction insights" in response.text
-    assert "Daily auction insights" in response.text
-    assert "Weekly auction insights" in response.text
-    assert 'id="auction-monthly-account-filter-toggle"' in response.text
-    assert 'id="auction-monthly-metric-select"' in response.text
-    assert 'id="auction-daily-account-filter-toggle"' in response.text
 
     response = client.get("/reports/creative")
     assert response.status_code == 200
@@ -551,11 +354,11 @@ def test_filter_options_endpoint_works() -> None:
     response = client.get("/api/options")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["defaults"]["account_id"] == "1200697994"
+    assert payload["defaults"]["account_id"] == "1111111111"
 
 
 def test_freshness_endpoint_works() -> None:
-    response = client.get("/api/freshness", params={"client_id": "sexwell", "account_id": "1200697994"})
+    response = client.get("/api/freshness", params={"client_id": "acme", "account_id": "1111111111"})
     assert response.status_code == 200
     payload = response.json()
     assert payload["freshness_status"] == "stale"
@@ -599,8 +402,8 @@ def test_auth_callback_sets_session_on_matching_state(monkeypatch) -> None:
         lambda email, settings: UserSession(
             email=email,
             role="viewer",
-            allowed_clients=["sexwell"],
-            allowed_accounts={"sexwell": ["__all__"]},
+            allowed_clients=["acme"],
+            allowed_accounts={"acme": ["__all__"]},
         ),
     )
 
@@ -635,8 +438,8 @@ def test_auth_callback_marks_session_cookie_secure_for_forwarded_https(monkeypat
         lambda email, settings: UserSession(
             email=email,
             role="viewer",
-            allowed_clients=["sexwell"],
-            allowed_accounts={"sexwell": ["__all__"]},
+            allowed_clients=["acme"],
+            allowed_accounts={"acme": ["__all__"]},
         ),
     )
 
@@ -655,8 +458,8 @@ def test_dashboard_endpoint_accepts_campaign_regex() -> None:
     response = client.get(
         "/api/dashboard",
         params={
-            "client_id": "sexwell",
-            "account_id": "1200697994",
+            "client_id": "acme",
+            "account_id": "1111111111",
             "date_from": "2026-02-22",
             "date_to": "2026-03-22",
             "campaign_regex": "brand",
@@ -685,34 +488,14 @@ def test_timing_endpoint_works() -> None:
     assert payload["budget_flags_definition"] == "This is only a pacing heuristic."
 
 
-def test_new_report_endpoints_work() -> None:
-    response = client.get("/api/reports/ga4-overview")
-    assert response.status_code == 200
-    assert response.json()["source_summary"][0]["sessionSourceMedium"] == "google / cpc"
-
-    response = client.get("/api/reports/ga4-impact")
-    assert response.status_code == 200
-    assert response.json()["campaign_item_impact"][0]["item_name"] == "Lube"
-
-    response = client.get("/api/reports/ga4-funnel")
-    assert response.status_code == 200
-    assert response.json()["channel_funnel"][0]["channel_group"] == "Google Ads"
-
-    response = client.get("/api/reports/ga4-timing")
-    assert response.status_code == 200
-    assert response.json()["hourly_summary"][0]["report_hour"] == 22
-
+def test_report_endpoints_work() -> None:
     response = client.get("/api/reports/efficiency")
     assert response.status_code == 200
     assert response.json()["campaign_winners"][0]["campaign_name"] == "Brand"
 
     response = client.get("/api/reports/coverage")
     assert response.status_code == 200
-    assert response.json()["coverage_opportunities"][0]["search_term"] == "sexwell promo"
-
-    response = client.get("/api/reports/auction")
-    assert response.status_code == 200
-    assert response.json()["auction_weekly"][0]["display_url_domain"] == "competitor.bg"
+    assert response.json()["coverage_opportunities"][0]["search_term"] == "acme promo"
 
     response = client.get("/api/reports/creative")
     assert response.status_code == 200
@@ -744,3 +527,53 @@ def test_resolve_date_window_rejects_inverted_ranges() -> None:
         assert "date_from" in str(exc)
     else:
         raise AssertionError("Expected ValueError for inverted date range")
+
+
+MOVED_TO_SEXWELL_REPORTING = [
+    "/clients/sexwell",
+    "/business-results",
+    "/business-results/assets/sexwell_category_dynamics_2026-09-17_v11.html",
+    "/reports/ga4-overview",
+    "/reports/ga4-impact",
+    "/reports/ga4-funnel",
+    "/reports/ga4-timing",
+]
+
+
+def test_moved_pages_redirect_to_their_new_home() -> None:
+    for path in MOVED_TO_SEXWELL_REPORTING:
+        response = client.get(path, follow_redirects=False)
+        assert response.status_code == 302, path
+        assert response.headers["location"] == f"https://sexwell-reporting.idconsult.bg{path}"
+
+
+def test_moved_page_redirect_keeps_the_query_string() -> None:
+    response = client.get("/reports/ga4-overview?date_from=2026-08-01&date_to=2026-08-31", follow_redirects=False)
+    assert response.headers["location"] == (
+        "https://sexwell-reporting.idconsult.bg/reports/ga4-overview?date_from=2026-08-01&date_to=2026-08-31"
+    )
+
+
+def test_moved_pages_redirect_before_sign_in(monkeypatch) -> None:
+    # With OAuth on and no session, other pages go to login; moved ones go straight to their new home.
+    monkeypatch.setattr(main_module, "get_settings", _auth_test_settings)
+    client.cookies.clear()
+    assert client.get("/reports/overview", follow_redirects=False).headers["location"] == "/auth/login"
+    response = client.get("/business-results", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "https://sexwell-reporting.idconsult.bg/business-results"
+
+
+def test_ads_is_the_hub() -> None:
+    response = client.get("/ads?client_id=acme&account_id=1111111111")
+    assert response.status_code == 200
+    assert client.get("/").text == response.text
+
+
+def test_removed_reports_are_gone() -> None:
+    assert client.get("/reports/auction").status_code == 404
+    assert client.get("/api/reports/auction").status_code == 400
+    assert client.get("/api/reports/ga4-overview").status_code == 400
+    hub = client.get("/").text
+    assert "/reports/ga4-" not in hub and "/reports/auction" not in hub
+
