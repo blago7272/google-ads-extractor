@@ -1481,6 +1481,21 @@ function syncFeatureFlags() {
     const feature = link.dataset.feature;
     link.style.display = activeFeatures[feature] ? "" : "none";
   });
+
+  syncClientHomeLink(clientId);
+}
+
+function syncClientHomeLink(clientId) {
+  // A client with its own reporting app gets a way back to it (cfg_accounts.client_home_url).
+  const link = document.getElementById("client-home-link");
+  if (!link) {
+    return;
+  }
+  const client = (state.options?.clients || []).find((item) => item.client_id === clientId);
+  const url = client?.client_home_url || "";
+  const isWebUrl = /^https?:\/\//i.test(url);
+  link.hidden = !isWebUrl;
+  link.href = isWebUrl ? url : "#";
 }
 
 function syncAccountOptions() {

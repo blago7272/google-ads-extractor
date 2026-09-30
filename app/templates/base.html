@@ -54,6 +54,8 @@
       </header>
 
       <nav class="top-nav panel-lite">
+        {# Shown by reporting.js when the selected client has its own reporting home (cfg_accounts.client_home_url). #}
+        <a id="client-home-link" class="nav-link" href="#" hidden>Client home</a>
         <a id="hub-link" class="nav-link{% if page_kind == 'hub' %} is-active{% endif %}" href="/">Hub</a>
         {% for key, page in report_pages.items() %}
           <a

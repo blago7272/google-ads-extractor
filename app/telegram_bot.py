@@ -792,7 +792,7 @@ def serve_polling():
                 elif text.startswith("/detail"):
                     parts = text.split()
                     if len(parts) < 2:
-                        response = "Usage: /detail <account\\_id> \\[all\\]\n\nExample: /detail 1200697994\nExample: /detail 1200697994 all"
+                        response = "Usage: /detail <account\\_id> \\[all\\]\n\nExample: /detail 1234567890\nExample: /detail 1234567890 all"
                     else:
                         acct_id = parts[1].strip()
                         sev = "all" if len(parts) > 2 and parts[2].strip().lower() == "all" else "high"

@@ -62,19 +62,6 @@ REPORT_PAGES = {
 app = FastAPI(title="Google Ads Signal Board")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
-# SexWell's own reporting (client home, Business results, GA4 reports) moved to
-# a standalone app. Old links land there instead of on a 404; the query string
-# is kept. SexWell's Google Ads reporting stays here (/ads).
-MOVED_REPORTING_ORIGIN = "https://sexwell-reporting.idconsult.bg"
-MOVED_PATHS = {
-    "/clients/sexwell",
-    "/business-results",
-    "/reports/ga4-overview",
-    "/reports/ga4-impact",
-    "/reports/ga4-funnel",
-    "/reports/ga4-timing",
-}
-MOVED_PREFIXES = ("/business-results/assets/",)
 SESSION_COOKIE_NAME = "session"
 OAUTH_STATE_COOKIE_NAME = "oauth_state"
 OAUTH_STATE_MAX_AGE_SECONDS = 600
@@ -84,17 +71,17 @@ PUBLIC_PATHS = {"/auth/login", "/auth/callback", "/auth/denied", "/healthz"}
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if path in MOVED_PATHS or path.startswith(MOVED_PREFIXES):
-            # Before auth: the redirect reveals nothing, and a signed-out user
-            # should not have to sign in here just to be sent elsewhere.
-            target = MOVED_REPORTING_ORIGIN + path
+        settings = get_settings()
+        moved_to = settings.moved_path_target(path)
+        if moved_to:
+            # Pages that moved to another host (MOVED_PATHS_JSON). Before auth:
+            # the redirect reveals nothing, and a signed-out user should not
+            # have to sign in here just to be sent elsewhere.
             if request.url.query:
-                target += "?" + request.url.query
-            return RedirectResponse(url=target, status_code=302)
+                moved_to += "?" + request.url.query
+            return RedirectResponse(url=moved_to, status_code=302)
         if path in PUBLIC_PATHS or path.startswith("/static"):
             return await call_next(request)
-
-        settings = get_settings()
 
         # Local/dev convenience: if OAuth is not configured, bypass auth.
         if not settings.oauth_client_id or not settings.oauth_client_secret:

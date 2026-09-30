@@ -58,6 +58,7 @@ seeds:
         has_auction_insights: boolean
         has_ga4: boolean
         notes: string
+        client_home_url: string
     cfg_account_groups:
       +column_types:
         group_id: string

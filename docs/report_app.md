@@ -51,7 +51,7 @@ The current app structure intentionally pulls from the original workbook pattern
 
 Items still deferred are the blended Ads + GA4 sheets and any landing-page/session-based analysis.
 
-SexWell's own reporting (client home, Business results and the GA4 report pack) moved to the standalone app at `sexwell-reporting.idconsult.bg` in September 2026; its old URLs here redirect there. SexWell's Google Ads reporting stays in this app. The source-local GA4 and Auction Insights pages were removed with that move: they read one client's external dataset regardless of the selected client scope.
+A client may also have its own reporting app next to its Google Ads reporting here. Two deployment-level settings support that without client-specific code (see "Client Reporting Homes" below). The source-local GA4 and Auction Insights pages were removed in September 2026: they read one client's external dataset regardless of the selected client scope.
 
 Persistent help-note content is documented in `docs/report_help_contract.md`.
 
@@ -116,7 +116,16 @@ Page visibility is controlled from `cfg_accounts`.
 - `has_auction_insights`
   controls whether the auction insights page appears in the navigation for the selected scope
 
-Rules:
+## Client Reporting Homes
+
+Some clients have their own reporting app elsewhere. This app supports that with configuration only; no client names appear in the code.
+
+- `cfg_accounts.client_home_url` (optional, http(s))
+  When the selected client has one, the navigation shows a "Client home" link to it. Clients without one get no link. All of a client's accounts should carry the same URL; if they disagree, no link is shown. The app reads the column defensively, so a deployed `cfg_accounts` that predates it just means no links until the seed is applied.
+- `MOVED_PATHS_JSON` (environment variable, optional)
+  Pages that moved to another host. The value is a JSON object mapping a bare origin to the paths that moved there, and a trailing `*` marks a prefix: `{"https://reports.client.example": ["/clients/client-a", "/business-results", "/business-results/assets/*"]}`. A matching request is redirected (302) before sign-in, with its path and query string unchanged. An invalid value is logged and ignored. The live value is set on the Cloud Run services, not in this repository.
+
+Feature-flag rules:
 
 - if a specific account is selected, the app uses that account's flags
 - if a client is selected with no specific account, the app enables a feature when any active account under that client has it

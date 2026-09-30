@@ -215,6 +215,11 @@ a:hover {
   background: rgba(255, 255, 255, 0.74);
 }
 
+/* .nav-link's display would otherwise override the hidden attribute. */
+.nav-link[hidden] {
+  display: none;
+}
+
 .nav-link.is-active {
   background: var(--accent);
   color: #fff;

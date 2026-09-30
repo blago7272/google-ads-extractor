@@ -9,7 +9,7 @@ import app.main as main_module
 from app.auth import UserSession
 from app.main import app
 from app.service import get_reporting_service, resolve_date_window
-from app.settings import ReportingAppSettings, get_settings
+from app.settings import ReportingAppSettings, get_settings, parse_moved_paths
 
 
 class FakeReportingService:
@@ -529,39 +529,122 @@ def test_resolve_date_window_rejects_inverted_ranges() -> None:
         raise AssertionError("Expected ValueError for inverted date range")
 
 
-MOVED_TO_SEXWELL_REPORTING = [
-    "/clients/sexwell",
+MOVED_CONFIG = (
+    '{"https://client-a-reports.example": '
+    '["/clients/client-a", "/business-results", "/business-results/assets/*", "/reports/ga4-overview"]}'
+)
+MOVED_TO_CLIENT_A = [
+    "/clients/client-a",
     "/business-results",
-    "/business-results/assets/sexwell_category_dynamics_2026-09-17_v11.html",
+    "/business-results/assets/dashboard_part.html",
     "/reports/ga4-overview",
-    "/reports/ga4-impact",
-    "/reports/ga4-funnel",
-    "/reports/ga4-timing",
 ]
 
 
-def test_moved_pages_redirect_to_their_new_home() -> None:
-    for path in MOVED_TO_SEXWELL_REPORTING:
+def _moved_settings(**overrides) -> ReportingAppSettings:
+    return ReportingAppSettings(moved_paths=parse_moved_paths(MOVED_CONFIG), **overrides)
+
+
+def test_moved_pages_redirect_to_their_new_home(monkeypatch) -> None:
+    monkeypatch.setattr(main_module, "get_settings", _moved_settings)
+    for path in MOVED_TO_CLIENT_A:
         response = client.get(path, follow_redirects=False)
         assert response.status_code == 302, path
-        assert response.headers["location"] == f"https://sexwell-reporting.idconsult.bg{path}"
+        assert response.headers["location"] == f"https://client-a-reports.example{path}"
 
 
-def test_moved_page_redirect_keeps_the_query_string() -> None:
+def test_moved_page_redirect_keeps_the_query_string(monkeypatch) -> None:
+    monkeypatch.setattr(main_module, "get_settings", _moved_settings)
     response = client.get("/reports/ga4-overview?date_from=2026-08-01&date_to=2026-08-31", follow_redirects=False)
     assert response.headers["location"] == (
-        "https://sexwell-reporting.idconsult.bg/reports/ga4-overview?date_from=2026-08-01&date_to=2026-08-31"
+        "https://client-a-reports.example/reports/ga4-overview?date_from=2026-08-01&date_to=2026-08-31"
     )
 
 
 def test_moved_pages_redirect_before_sign_in(monkeypatch) -> None:
     # With OAuth on and no session, other pages go to login; moved ones go straight to their new home.
-    monkeypatch.setattr(main_module, "get_settings", _auth_test_settings)
+    monkeypatch.setattr(
+        main_module,
+        "get_settings",
+        lambda: _moved_settings(
+            oauth_client_id="test-client-id",
+            oauth_client_secret="test-client-secret",
+            oauth_redirect_uri="http://testserver/auth/callback",
+            session_secret_key="test-session-secret",
+        ),
+    )
     client.cookies.clear()
     assert client.get("/reports/overview", follow_redirects=False).headers["location"] == "/auth/login"
     response = client.get("/business-results", follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["location"] == "https://sexwell-reporting.idconsult.bg/business-results"
+    assert response.headers["location"] == "https://client-a-reports.example/business-results"
+
+
+def test_nothing_redirects_without_configuration() -> None:
+    # Moved paths are deployment configuration; none are built in.
+    assert ReportingAppSettings(moved_paths=()).moved_path_target("/business-results") is None
+    response = client.get("/reports/ga4-overview", follow_redirects=False)
+    assert response.status_code == 404
+
+
+def test_moved_paths_parsing() -> None:
+    rules = parse_moved_paths('{"https://new.example/": ["/a", "/b/*"]}')
+    settings = ReportingAppSettings(moved_paths=rules)
+    assert settings.moved_path_target("/a") == "https://new.example/a"
+    assert settings.moved_path_target("/b/c") == "https://new.example/b/c"
+    assert settings.moved_path_target("/b") is None
+    assert settings.moved_path_target("/a/b") is None
+
+
+def test_invalid_moved_paths_are_ignored_not_fatal() -> None:
+    for raw in (
+        "not json",
+        '["/a"]',
+        '{"javascript:alert(1)": ["/a"]}',
+        '{"https://new.example/some/path": ["/a"]}',
+        '{"https://new.example": ["relative"]}',
+        '{"https://new.example": "/a"}',
+    ):
+        assert parse_moved_paths(raw) == (), raw
+    assert parse_moved_paths("") == ()
+
+
+def test_client_home_link_is_in_the_nav_and_hidden_by_default() -> None:
+    hub = client.get("/").text
+    assert '<a id="client-home-link" class="nav-link" href="#" hidden>Client home</a>' in hub
+
+
+def test_filter_options_carry_each_clients_home_url() -> None:
+    from app.service import BigQueryReportingService
+
+    service = BigQueryReportingService.__new__(BigQueryReportingService)
+    service.settings = ReportingAppSettings()
+    service.options_cache = type("NoCache", (), {"get_or_set": staticmethod(lambda key, loader: loader())})()
+
+    def account(client_id, account_id, home):
+        return {
+            "client_id": client_id, "account_id": account_id, "account_name": account_id,
+            "timezone": "Europe/Sofia", "currency": "EUR", "has_auction_insights": False, "has_ga4": False,
+            "client_home_url": home, "min_report_date": "2026-01-01", "max_report_date": "2026-01-31",
+        }
+
+    rows = [
+        account("client_a", "1", "https://client-a-reports.example/home"),
+        account("client_a", "2", None),
+        account("client_b", "3", None),
+        account("client_c", "4", "https://one.example"),
+        account("client_c", "5", "https://two.example"),
+        account("client_d", "6", "javascript:alert(1)"),
+    ]
+    service._run_query = lambda sql, parameters=None: [dict(row) for row in rows]
+
+    clients = {c["client_id"]: c["client_home_url"] for c in service.get_filter_options()["clients"]}
+    assert clients == {
+        "client_a": "https://client-a-reports.example/home",
+        "client_b": None,
+        "client_c": None,  # ambiguous: two different URLs
+        "client_d": None,  # not an http(s) URL
+    }
 
 
 def test_ads_is_the_hub() -> None:

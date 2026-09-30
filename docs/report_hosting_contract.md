@@ -81,7 +81,7 @@ The hosted reporting app may read:
 - `gads_reporting_cfg`
 - `gads_reporting_mart`
 
-It no longer reads source-local tables outside these datasets. SexWell's own reporting (client home, Business results and the GA4 report pack) moved to the standalone app at `sexwell-reporting.idconsult.bg` in September 2026; its old URLs here redirect there. SexWell's Google Ads reporting stays in this app.
+It no longer reads source-local tables outside these datasets.
 
 The app must not require the developer laptop, local credentials outside the runtime service account, or any local process to serve end users.
 
@@ -111,6 +111,10 @@ Both environments should:
 - run the same application codebase
 - use explicit environment variables
 - use commit-SHA-tagged images
+
+Deployment-level configuration that is not in the repository:
+
+- `MOVED_PATHS_JSON`: pages that moved to another host, such as a client's own reporting app (format in `docs/report_app.md`, "Client Reporting Homes"). It is set on the Cloud Run service. `deploy/cloud_run/deploy_reporting_app.sh` only changes the image, so the value persists across deploys.
 
 Environment data isolation is required:
 

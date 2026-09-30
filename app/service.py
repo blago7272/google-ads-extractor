@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from functools import lru_cache
 from typing import Any
+from urllib.parse import urlsplit
 
 from google.cloud import bigquery
 
@@ -22,6 +23,17 @@ def _serialize_value(value: Any) -> Any:
 
 def _serialize_rows(rows: list[bigquery.table.Row]) -> list[dict[str, Any]]:
     return [{key: _serialize_value(value) for key, value in dict(row).items()} for row in rows]
+
+
+def _safe_home_url(value: Any) -> str | None:
+    """Only absolute http(s) URLs may become a navigation link."""
+
+    if not isinstance(value, str):
+        return None
+    parts = urlsplit(value.strip())
+    if parts.scheme in {"http", "https"} and parts.netloc:
+        return value.strip()
+    return None
 
 
 def _as_float(value: Any) -> float:
@@ -181,8 +193,11 @@ with active_accounts as (
     timezone,
     currency,
     coalesce(has_auction_insights, false) as has_auction_insights,
-    coalesce(has_ga4, false) as has_ga4
-  from {self.cfg_table('cfg_accounts')}
+    coalesce(has_ga4, false) as has_ga4,
+    -- Optional; read through JSON so the query still works while a deployed
+    -- cfg_accounts predates the column (seeds are applied to prod manually).
+    nullif(json_value(to_json_string(c), '$.client_home_url'), '') as client_home_url
+  from {self.cfg_table('cfg_accounts')} as c
   where is_active = true
 ),
 account_windows as (
@@ -201,6 +216,7 @@ select
   a.currency,
   a.has_auction_insights,
   a.has_ga4,
+  a.client_home_url,
   w.min_report_date,
   w.max_report_date
 from active_accounts a
@@ -208,6 +224,8 @@ left join account_windows w using (account_id)
 order by a.client_id, a.account_name
 """
             accounts = self._run_query(sql)
+            for account in accounts:
+                account["client_home_url"] = _safe_home_url(account.get("client_home_url"))
             if not accounts:
                 raise ValueError("No active accounts are configured for the reporting app")
 
@@ -233,7 +251,17 @@ order by a.client_id, a.account_name
                 if row["client_id"] in seen_clients:
                     continue
                 seen_clients.add(row["client_id"])
-                clients.append({"client_id": row["client_id"]})
+                home_urls = {
+                    account["client_home_url"]
+                    for account in valid_accounts
+                    if account["client_id"] == row["client_id"] and account["client_home_url"]
+                }
+                clients.append({
+                    "client_id": row["client_id"],
+                    # A client's own reporting app, if it has one; rendered as a
+                    # navigation link. Ambiguous (several different URLs) means none.
+                    "client_home_url": home_urls.pop() if len(home_urls) == 1 else None,
+                })
 
             return {
                 "clients": clients,

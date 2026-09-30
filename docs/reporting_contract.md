@@ -325,12 +325,7 @@ Feature-flag meanings:
 - `has_auction_insights`
   whether the selected account participates in the standalone auction insights report
 
-Current active accounts:
-
-- `1200697994`
-- `Sexwell.bg (EUR)`
-- `4848659150`
-- `Matraci (EUR)`
+Current active accounts: the `is_active = true` rows of `seeds/cfg_accounts.csv`.
 
 ## Currency Contract
 

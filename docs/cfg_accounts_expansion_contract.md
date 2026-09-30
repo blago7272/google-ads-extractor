@@ -31,13 +31,7 @@ Current repo seed:
 
 - `94` curated accounts
 - `40` active accounts
-- client groups:
-  - `idconsult`
-  - `MV3`
-  - `ITF`
-  - `sexwell`
-  - `matraci.bg`
-  - `external`
+- client groups: see the distinct `client_id` values in the seed
 
 Current seed file:
 
@@ -54,6 +48,7 @@ Current implemented columns:
 - `has_auction_insights`
 - `has_ga4`
 - `notes`
+- `client_home_url` (optional): the client's own reporting app, shown as a "Client home" link in the navigation; see `docs/report_app.md`
 
 ## Target Outcome
 
