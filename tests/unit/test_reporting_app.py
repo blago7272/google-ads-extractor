@@ -609,6 +609,51 @@ def test_invalid_moved_paths_are_ignored_not_fatal() -> None:
     assert parse_moved_paths("") == ()
 
 
+def test_unsafe_origins_are_skipped_and_the_rest_still_apply(caplog) -> None:
+    raw = (
+        '{"https://ok.example": ["/a"],'
+        ' "https://user:secret@bad.example": ["/b"],'
+        ' "https://bad.example?x=1": ["/c"],'
+        ' "https://bad.example?": ["/d"],'
+        ' "https://bad.example#frag": ["/e"],'
+        ' "https://bad.example/some/path": ["/f"]}'
+    )
+    with caplog.at_level("WARNING", logger="app.settings"):
+        rules = parse_moved_paths(raw)
+
+    assert [rule.origin for rule in rules] == ["https://ok.example"]
+    settings = ReportingAppSettings(moved_paths=rules)
+    assert settings.moved_path_target("/a") == "https://ok.example/a"
+    assert all(settings.moved_path_target(p) is None for p in ("/b", "/c", "/d", "/e", "/f"))
+    for reason in ("contains credentials", "contains a query string", "contains a fragment", "contains a path"):
+        assert reason in caplog.text
+    assert "secret@" in caplog.text  # the offending origin is named so it can be fixed
+
+
+NEVER_MOVED = ["/auth/login", "/auth/callback", "/static/reporting.css", "/healthz", "/_ah/health"]
+
+
+def test_auth_static_and_health_paths_are_never_redirected(monkeypatch, caplog) -> None:
+    with caplog.at_level("WARNING", logger="app.settings"):
+        rules = parse_moved_paths('{"https://everything.example": ["/*", "/auth/*", "/healthz"]}')
+    assert "overlap paths that are never redirected" in caplog.text
+    monkeypatch.setattr(main_module, "get_settings", lambda: ReportingAppSettings(moved_paths=rules))
+
+    for path in NEVER_MOVED:
+        response = client.get(path, follow_redirects=False)
+        assert not response.headers.get("location", "").startswith("https://everything.example"), path
+    # Everything else under the broad rule still moves, including look-alikes of protected paths.
+    for path in ("/reports/overview", "/authorize", "/statics", "/healthz-report"):
+        response = client.get(path, follow_redirects=False)
+        assert response.headers["location"] == f"https://everything.example{path}", path
+
+
+def test_a_normal_configuration_logs_no_overlap_warning(caplog) -> None:
+    with caplog.at_level("WARNING", logger="app.settings"):
+        parse_moved_paths(MOVED_CONFIG)
+    assert caplog.text == ""
+
+
 def test_client_home_link_is_in_the_nav_and_hidden_by_default() -> None:
     hub = client.get("/").text
     assert '<a id="client-home-link" class="nav-link" href="#" hidden>Client home</a>' in hub

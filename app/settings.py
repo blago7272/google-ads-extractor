@@ -10,6 +10,16 @@ from urllib.parse import urlsplit
 logger = logging.getLogger(__name__)
 
 
+# Never redirected, whatever MOVED_PATHS_JSON says: sign-in, the app's own
+# assets, and health checks must keep working even with an over-broad rule.
+NEVER_MOVED_PREFIXES = ("/auth/", "/static/")
+NEVER_MOVED_PATHS = frozenset({"/healthz", "/_ah/health"})
+
+
+def is_never_moved(path: str) -> bool:
+    return path in NEVER_MOVED_PATHS or path.startswith(NEVER_MOVED_PREFIXES)
+
+
 @dataclass(frozen=True)
 class MovedPaths:
     """Paths whose pages now live on another host, e.g. a client's own reporting app.
@@ -23,42 +33,82 @@ class MovedPaths:
     prefixes: tuple[str, ...]
 
     def target_for(self, path: str) -> str | None:
+        if is_never_moved(path):
+            return None
         if path in self.exact or path.startswith(self.prefixes):
             return self.origin + path
         return None
 
 
+def _origin_problem(origin: str) -> str | None:
+    """Why ``origin`` is not a bare http(s) origin, or None if it is one."""
+
+    parts = urlsplit(origin)
+    if parts.scheme not in {"http", "https"} or not parts.hostname:
+        return "not an http(s) origin"
+    if parts.username is not None or parts.password is not None:
+        return "contains credentials"
+    # Check the characters, not the parsed parts: "https://host?" parses with an
+    # empty query but would still produce "https://host?/path".
+    if "?" in origin:
+        return "contains a query string"
+    if "#" in origin:
+        return "contains a fragment"
+    if parts.path not in {"", "/"}:
+        return "contains a path"
+    return None
+
+
 def parse_moved_paths(raw: str) -> tuple[MovedPaths, ...]:
     """Parse ``MOVED_PATHS_JSON``: ``{"https://new.host": ["/path", "/prefix/*"], ...}``.
 
-    A value that is not valid is logged and ignored rather than failing startup:
-    a typo here must not take the whole reporting app down.
+    Nothing here fails startup: a typo must not take the reporting app down.
+    Unparseable JSON, or anything but an object, is logged and ignored as a
+    whole. An origin that is not a bare http(s) origin (credentials, query,
+    fragment, path), or whose path list is malformed, is logged and skipped;
+    the other origins still apply.
     """
 
     if not raw.strip():
         return ()
     try:
         config = json.loads(raw)
-        if not isinstance(config, dict):
-            raise ValueError("expected a JSON object of origin -> list of paths")
-        rules = []
-        for origin, paths in config.items():
-            parts = urlsplit(origin)
-            if parts.scheme not in {"http", "https"} or not parts.netloc or parts.path not in {"", "/"}:
-                raise ValueError(f"{origin!r} is not a bare http(s) origin")
-            if not isinstance(paths, list) or not all(isinstance(p, str) and p.startswith("/") for p in paths):
-                raise ValueError(f"paths for {origin!r} must be a list of strings starting with '/'")
-            rules.append(
-                MovedPaths(
-                    origin=origin.rstrip("/"),
-                    exact=frozenset(p for p in paths if not p.endswith("*")),
-                    prefixes=tuple(p[:-1] for p in paths if p.endswith("*")),
-                )
-            )
-        return tuple(rules)
     except ValueError as exc:  # json.JSONDecodeError is a ValueError
         logger.error("Ignoring MOVED_PATHS_JSON: %s", exc)
         return ()
+    if not isinstance(config, dict):
+        logger.error("Ignoring MOVED_PATHS_JSON: expected a JSON object of origin -> list of paths")
+        return ()
+
+    rules = []
+    for origin, paths in config.items():
+        problem = _origin_problem(origin)
+        if problem:
+            logger.warning("Skipping MOVED_PATHS_JSON origin %r: %s", origin, problem)
+            continue
+        if not isinstance(paths, list) or not all(isinstance(p, str) and p.startswith("/") for p in paths):
+            logger.warning(
+                "Skipping MOVED_PATHS_JSON origin %r: paths must be a list of strings starting with '/'", origin
+            )
+            continue
+        rule = MovedPaths(
+            origin=origin.rstrip("/"),
+            exact=frozenset(p for p in paths if not p.endswith("*")),
+            prefixes=tuple(p[:-1] for p in paths if p.endswith("*")),
+        )
+        protected = (*NEVER_MOVED_PREFIXES, *NEVER_MOVED_PATHS)
+        shadowed = sorted(
+            {p for p in rule.exact if is_never_moved(p)}
+            # A prefix rule overlaps if it lies inside, or contains, a protected path.
+            | {f"{q}*" for q in rule.prefixes if is_never_moved(q) or any(n.startswith(q) for n in protected)}
+        )
+        if shadowed:
+            logger.warning(
+                "MOVED_PATHS_JSON rules %s for %r overlap paths that are never redirected (%s, %s)",
+                shadowed, origin, ", ".join(NEVER_MOVED_PREFIXES), ", ".join(sorted(NEVER_MOVED_PATHS)),
+            )
+        rules.append(rule)
+    return tuple(rules)
 
 
 @dataclass(frozen=True)
