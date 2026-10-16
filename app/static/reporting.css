@@ -1238,36 +1238,6 @@ a:hover {
   white-space: nowrap;
 }
 
-[data-table-shell="ga4RevenueMatrix"] .data-table,
-[data-table-shell="ga4OrdersMatrix"] .data-table {
-  min-width: 0;
-  table-layout: fixed;
-  font-size: 0.74rem;
-}
-
-[data-table-shell="ga4RevenueMatrix"] .data-table th,
-[data-table-shell="ga4RevenueMatrix"] .data-table td,
-[data-table-shell="ga4OrdersMatrix"] .data-table th,
-[data-table-shell="ga4OrdersMatrix"] .data-table td {
-  padding: 6px 6px;
-}
-
-[data-table-shell="ga4RevenueMatrix"] .data-table th:nth-child(1),
-[data-table-shell="ga4RevenueMatrix"] .data-table td:nth-child(1),
-[data-table-shell="ga4OrdersMatrix"] .data-table th:nth-child(1),
-[data-table-shell="ga4OrdersMatrix"] .data-table td:nth-child(1) {
-  width: 102px;
-  white-space: nowrap;
-}
-
-[data-table-shell="ga4RevenueMatrix"] .data-table th:nth-child(n+2),
-[data-table-shell="ga4RevenueMatrix"] .data-table td:nth-child(n+2),
-[data-table-shell="ga4OrdersMatrix"] .data-table th:nth-child(n+2),
-[data-table-shell="ga4OrdersMatrix"] .data-table td:nth-child(n+2) {
-  width: 48px;
-  text-align: center;
-}
-
 .data-table th button {
   padding: 0;
   border: none;

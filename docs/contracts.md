@@ -26,7 +26,6 @@ Required fields:
 - `currency`
 - `is_active`
 - `has_auction_insights`
-- `has_ga4`
 
 Optional fields:
 

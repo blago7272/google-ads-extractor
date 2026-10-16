@@ -193,7 +193,6 @@ with active_accounts as (
     timezone,
     currency,
     coalesce(has_auction_insights, false) as has_auction_insights,
-    coalesce(has_ga4, false) as has_ga4,
     -- Optional; read through JSON so the query still works while a deployed
     -- cfg_accounts predates the column (seeds are applied to prod manually).
     nullif(json_value(to_json_string(c), '$.client_home_url'), '') as client_home_url
@@ -215,7 +214,6 @@ select
   a.timezone,
   a.currency,
   a.has_auction_insights,
-  a.has_ga4,
   a.client_home_url,
   w.min_report_date,
   w.max_report_date

@@ -46,7 +46,6 @@ Current implemented columns:
 - `currency`
 - `is_active`
 - `has_auction_insights`
-- `has_ga4`
 - `notes`
 - `client_home_url` (optional): the client's own reporting app, shown as a "Client home" link in the navigation; see `docs/report_app.md`
 
@@ -57,9 +56,7 @@ After this pass:
 - every intended managed Google Ads account exists in `cfg_accounts`
 - each account is assigned to the correct `client_id`
 - each account has approved display name, timezone, and currency
-- each account has approved feature flags for:
-  - `has_ga4`
-  - `has_auction_insights`
+- each account has an approved `has_auction_insights` feature flag
 - the expanded seed is deployed to stage and prod
 - the app selectors reflect the curated registry
 
@@ -85,8 +82,6 @@ Each account row must be curated for:
   account native currency
 - `is_active`
   whether the account should appear in the live reporting app
-- `has_ga4`
-  whether GA4 pages should be visible for that account
 - `has_auction_insights`
   whether auction insights page should be visible for that account
 - `notes`
@@ -98,7 +93,6 @@ Unless explicitly approved otherwise:
 
 - `account_id` is stored as digits only
 - `is_active` defaults to `true` only for accounts approved for the live app
-- `has_ga4` defaults to `false` unless a GA4-backed source is confirmed
 - `has_auction_insights` defaults to `false` unless an auction source is confirmed
 - `notes` may be blank
 
@@ -111,7 +105,6 @@ The following were approved during the Phase 1 and Phase 2 review:
 - final `timezone`
 - final `currency`
 - final `is_active`
-- final `has_ga4`
 - final `has_auction_insights`
 
 ## Implementation Plan
@@ -146,7 +139,6 @@ The following were approved during the Phase 1 and Phase 2 review:
 ### Phase 5. Post-Seed Validation
 
 - verify the account selector shows the curated list
-- verify GA4 pages only appear where `has_ga4 = true`
 - verify Auction page only appears where `has_auction_insights = true`
 - verify no inactive account appears in the live selector
 

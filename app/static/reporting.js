@@ -1473,7 +1473,6 @@ function syncFeatureFlags() {
   });
 
   const activeFeatures = {
-    has_ga4: relevantAccounts.some((account) => account.has_ga4),
     has_auction_insights: relevantAccounts.some((account) => account.has_auction_insights),
   };
 

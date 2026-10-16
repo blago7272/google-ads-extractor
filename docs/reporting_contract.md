@@ -315,13 +315,10 @@ Required fields:
 - `currency`
 - `is_active`
 - `has_auction_insights`
-- `has_ga4`
 - `notes`
 
 Feature-flag meanings:
 
-- `has_ga4`
-  whether the selected account participates in the standalone GA4 report pack
 - `has_auction_insights`
   whether the selected account participates in the standalone auction insights report
 

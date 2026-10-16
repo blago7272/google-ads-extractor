@@ -669,7 +669,7 @@ def test_filter_options_carry_each_clients_home_url() -> None:
     def account(client_id, account_id, home):
         return {
             "client_id": client_id, "account_id": account_id, "account_name": account_id,
-            "timezone": "Europe/Sofia", "currency": "EUR", "has_auction_insights": False, "has_ga4": False,
+            "timezone": "Europe/Sofia", "currency": "EUR", "has_auction_insights": False,
             "client_home_url": home, "min_report_date": "2026-01-01", "max_report_date": "2026-01-31",
         }
 

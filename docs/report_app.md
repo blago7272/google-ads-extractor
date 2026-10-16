@@ -111,8 +111,6 @@ The current app layer also includes:
 
 Page visibility is controlled from `cfg_accounts`.
 
-- `has_ga4`
-  controls whether GA4 report pages appear in the navigation for the selected scope
 - `has_auction_insights`
   controls whether the auction insights page appears in the navigation for the selected scope
 
