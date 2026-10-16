@@ -4,12 +4,15 @@ set -euo pipefail
 # Deploy the reporting web app to Cloud Run (stage + prod).
 #
 # Usage:
-#   deploy/cloud_run/deploy_reporting_app.sh [commit_sha]
+#   deploy/cloud_run/deploy_reporting_app.sh <commit_sha>
 #
-# If commit_sha is omitted, uses the current HEAD.
+# commit_sha is required. The image is built from a clean export of that
+# commit (git archive), never from the working tree: `gcloud builds submit`
+# uploads whatever directory it is given, so building from the checkout
+# would ship uncommitted local changes under the commit's tag.
 #
 # Steps:
-#   1. Build the image via Cloud Build
+#   1. Build the image via Cloud Build from a clean export of the commit
 #   2. Update stage Cloud Run service
 #   3. Update prod Cloud Run service
 #   4. Verify the prod revision and /healthz
@@ -21,16 +24,33 @@ STAGE_SERVICE="reporting-app-stage"
 PROD_SERVICE="reporting-app-prod"
 PROD_URL="https://reporting.idconsult.bg/healthz"
 
-commit_sha="${1:-$(git rev-parse --short HEAD)}"
+if [[ $# -lt 1 || -z "${1}" ]]; then
+  echo "Usage: $0 <commit_sha>" >&2
+  echo "A commit is required; the image is built from that commit, not the working tree." >&2
+  exit 1
+fi
+
+repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+
+if ! full_sha="$(git -C "${repo_root}" rev-parse --verify --quiet "${1}^{commit}")"; then
+  echo "ERROR: '${1}' is not a commit in ${repo_root} (fetch first?)" >&2
+  exit 1
+fi
+commit_sha="$(git -C "${repo_root}" rev-parse --short "${full_sha}")"
 image="${REPO}:${commit_sha}"
 
+build_dir="$(mktemp -d "${TMPDIR:-/tmp}/reporting-app-build.XXXXXX")"
+trap 'rm -rf "${build_dir}"' EXIT
+
 echo "=== Deploying reporting app ==="
-echo "  Commit:  ${commit_sha}"
+echo "  Commit:  ${commit_sha} (${full_sha})"
 echo "  Image:   ${image}"
+echo "  Source:  clean export in ${build_dir}"
 echo ""
 
 echo "--- Step 1: Build image via Cloud Build ---"
-gcloud builds submit \
+git -C "${repo_root}" archive --format=tar "${full_sha}" | tar -x -C "${build_dir}"
+gcloud builds submit "${build_dir}" \
   --project="${PROJECT_ID}" \
   --tag="${image}"
 
