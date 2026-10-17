@@ -241,6 +241,20 @@ Minimum alert payload:
 - expected last date and observed last raw date for freshness failures
 - link to logs
 
+### What is implemented
+
+- **Failed release → ops Telegram chat.** Every failure path of the orchestrator logs
+  `release_failed` (ERROR) and posts the failing step, the error and the Cloud Run
+  execution name to the ops chat (`TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`,
+  `orchestration/ops_telegram.py`). That covers a failed step, an unexpected exception,
+  invalid job arguments, and an import error in the orchestrator itself (caught by
+  `scripts/release_orchestrator.py`). A crash that kills the container outright (out of
+  memory, a timeout) never reaches this code; the Cloud Monitoring policies cover that.
+- **Cloud Monitoring.** `scripts/create_monitoring_alert_policies.sh` creates the
+  log-based alert policies; see `docs/skipped_accounts_alerting.md`.
+- **ECB fallback.** A warning to the same chat when the ECB API is down and the release
+  keeps the stored rates; see `docs/fx_rates_operations.md`.
+
 ## Logging
 
 Keep logs in Cloud Logging with searchable fields for:

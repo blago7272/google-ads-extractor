@@ -15,6 +15,7 @@ from google.cloud import bigquery
 from orchestration.dbt_cli import DbtRuntimeConfig, parse_select_tokens, run_dbt_build, run_dbt_seeds, run_dbt_tests
 from orchestration.ecb_fx_refresh import EcbFxRefreshConfig, EcbFxRefreshResult, run_ecb_fx_refresh
 from orchestration.logging_utils import emit_log
+from orchestration.ops_telegram import report_release_failed
 from orchestration.raw_freshness import (
     AccountFreshnessResult,
     RawFreshnessConfig,
@@ -397,10 +398,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
-    parser = build_arg_parser()
-    args = parser.parse_args()
-
+def _build_config(args: argparse.Namespace) -> ReleaseOrchestratorConfig:
     execution_ts = (
         parse_timestamp(args.execution_ts)
         if args.execution_ts
@@ -434,7 +432,7 @@ def main() -> int:
         report_timezone=args.report_timezone,
         max_allowed_lag_days=args.max_allowed_lag_days,
     )
-    config = ReleaseOrchestratorConfig(
+    return ReleaseOrchestratorConfig(
         raw_freshness=raw_freshness,
         dbt_runtime=dbt_runtime,
         stage_target=args.stage_target,
@@ -445,16 +443,29 @@ def main() -> int:
         skipped_accounts_alert=skipped_accounts_alert,
     )
 
+
+def main(argv: list[str] | None = None) -> int:
+    """Run a release. Every failure is logged as `release_failed` and sent to the ops chat."""
+
+    parser = build_arg_parser()
     try:
-        run_release(config)
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        # Bad job arguments (e.g. after a deploy) would otherwise fail silently.
+        if exc.code not in (0, None):
+            report_release_failed(step="argument_parsing", reason=f"invalid arguments (exit {exc.code})")
+        raise
+
+    try:
+        run_release(_build_config(args))
     except ReleaseStepFailed as exc:
-        emit_log("release_failed", level="ERROR", step=exc.step_name, reason=exc.reason)
+        report_release_failed(step=exc.step_name, reason=exc.reason)
         return 1
     except subprocess.CalledProcessError as exc:
-        emit_log("release_failed", level="ERROR", error_type="CalledProcessError", returncode=exc.returncode)
+        report_release_failed(error_type="CalledProcessError", returncode=exc.returncode)
         return exc.returncode or 1
     except Exception as exc:  # noqa: BLE001
-        emit_log("release_failed", level="ERROR", error_type=type(exc).__name__, error_message=str(exc))
+        report_release_failed(error_type=type(exc).__name__, error_message=str(exc))
         return 1
 
     return 0

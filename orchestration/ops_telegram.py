@@ -56,3 +56,30 @@ def send_ops_message(text: str, *, event: str = "ops_telegram") -> bool:
 
     emit_log(f"{event}_sent", chat_id=chat_id)
     return True
+
+
+def report_release_failed(**fields: object) -> None:
+    """Log `release_failed` and alert the ops chat with the error details.
+
+    `fields` go into the log line unchanged (step/reason, or error_type/
+    error_message, ...). The Cloud Monitoring policy matches on the event name.
+    """
+
+    emit_log("release_failed", level="ERROR", **fields)
+
+    lines = ["🔴 Google Ads reporting release FAILED"]
+    labels = {
+        "step": "Step",
+        "reason": "Error",
+        "error_type": "Error type",
+        "error_message": "Error",
+        "returncode": "Exit code",
+    }
+    for key, label in labels.items():
+        if fields.get(key) not in (None, ""):
+            lines.append(f"{label}: {fields[key]}")
+    execution = os.getenv("CLOUD_RUN_EXECUTION")
+    if execution:
+        lines.append(f"Execution: {execution}")
+    lines.append("The marts may still show the previous run's data. Check the job logs.")
+    send_ops_message("\n".join(lines), event="release_failed_telegram")
