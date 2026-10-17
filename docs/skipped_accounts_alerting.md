@@ -67,6 +67,12 @@ alone.
 
 ### Cloud Logging alert policy
 
+`scripts/create_monitoring_alert_policies.sh` creates these policies (plus one on any
+failed execution of the job) with an email notification channel. `--check` (the default)
+only prints them; `--apply --email ADDRESS` creates them, or updates them in place by
+display name. The "still excluded" policy is opt-in (`--include-still-excluded`): it
+matches every run while any account is excluded, which today means every day.
+
 For paging independent of Telegram, alert on the log filter:
 
 ```
