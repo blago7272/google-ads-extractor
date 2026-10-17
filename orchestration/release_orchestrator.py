@@ -115,6 +115,7 @@ def run_release(
     dbt_test_runner: Callable[[str, DbtRuntimeConfig], None] = run_dbt_tests,
     skipped_accounts_alert_runner: Callable[..., object] = run_skipped_accounts_alert,
     daily_summary_pusher: Callable[[], None] | None = None,
+    ecb_fx_refresher: Callable[..., EcbFxRefreshResult] = run_ecb_fx_refresh,
 ) -> ReleaseOutcome:
     emit_log(
         "release_started",
@@ -190,12 +191,16 @@ def run_release(
     ecb_fx_config = EcbFxRefreshConfig(project_id=config.raw_freshness.project_id)
 
     def ecb_fx_refresh_step() -> None:
-        result = run_ecb_fx_refresh(ecb_fx_config, client=bq_client)
+        # A transient ECB outage does not fail this step: run_ecb_fx_refresh retries,
+        # then keeps the stored rates and warns the ops chat (fallback_reason set).
+        result = ecb_fx_refresher(ecb_fx_config, client=bq_client)
         emit_log(
             "ecb_fx_refresh_summary",
             rows_fetched=result.rows_fetched,
             rows_loaded=result.rows_loaded,
             date_range=result.date_range,
+            fallback_reason=result.fallback_reason,
+            latest_stored_date=result.latest_stored_date,
         )
 
     _run_step("ecb_fx_refresh", ecb_fx_refresh_step, completed_steps)

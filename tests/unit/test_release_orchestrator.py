@@ -4,8 +4,14 @@ from datetime import datetime, timezone
 import unittest
 
 from orchestration.dbt_cli import DbtRuntimeConfig
+from orchestration.ecb_fx_refresh import EcbFxRefreshResult
 from orchestration.raw_freshness import RawFreshnessConfig, RawFreshnessSummary
 from orchestration.release_orchestrator import ReleaseOrchestratorConfig, run_release
+
+
+def _fake_ecb_refresh(*_args: object, **_kwargs: object) -> EcbFxRefreshResult:
+    # Never let a unit test call the ECB API or write the prod FX table.
+    return EcbFxRefreshResult(rows_fetched=0, rows_loaded=0, date_range=None)
 
 
 class ReleaseOrchestratorTest(unittest.TestCase):
@@ -57,6 +63,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=fake_probe,
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=fake_alert,
             daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
@@ -110,6 +117,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=fake_probe,
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=fake_alert,
             daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
@@ -153,6 +161,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=lambda _c: ([], summary),
             dbt_build_runner=lambda target, _r: calls.append(("build", target)),
             dbt_test_runner=lambda target, _r: calls.append(("test", target)),
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=lambda *_a, **_k: None,
             daily_summary_pusher=exploding_pusher,
         )
@@ -189,6 +198,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=fake_probe,
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=fake_alert,
             daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
@@ -218,6 +228,7 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=lambda _c: ([], summary),
             dbt_build_runner=lambda target, _r: calls.append(("build", target)),
             dbt_test_runner=lambda target, _r: calls.append(("test", target)),
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=lambda *_a, **_k: None,
             daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
