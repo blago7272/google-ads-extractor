@@ -3,12 +3,16 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 import unittest
 
+from google.api_core.exceptions import NotFound
+
 from orchestration.raw_freshness import AccountFreshnessResult
 from orchestration.skipped_accounts_alert import (
     SkippedAccount,
+    SkippedAccountsAlertConfig,
     build_alert_message,
     classify_skipped_accounts,
     diff_against_previous,
+    load_previous_account_ids,
 )
 
 
@@ -21,8 +25,7 @@ def _result(
     return AccountFreshnessResult(
         client_id="idconsult",
         account_id=account_id,
-        account_timezone="Europe/Sofia",
-        expected_last_date=date(2026, 7, 31),
+        report_date=date(2026, 8, 1),  # EXECUTION_TS in Europe/Sofia
         last_raw_date=last_raw_date,
         max_allowed_lag_days=3,
         account_name=account_name,
@@ -33,20 +36,17 @@ EXECUTION_TS = datetime(2026, 8, 1, 3, 30, tzinfo=timezone.utc)
 
 
 class ClassifySkippedAccountsTest(unittest.TestCase):
+    """The alert takes the probe's own verdict (is_stale); it has no rule of its own."""
+
     def _classify(self, results: list[AccountFreshnessResult]):
-        return classify_skipped_accounts(
-            results,
-            execution_ts=EXECUTION_TS,
-            report_timezone="Europe/Sofia",
-            max_allowed_lag_days=3,
-        )
+        return classify_skipped_accounts(results)
 
     def test_fresh_account_is_not_skipped(self) -> None:
         self.assertEqual(self._classify([_result("1", date(2026, 7, 31))]), ())
 
     def test_account_at_the_threshold_is_not_skipped(self) -> None:
-        # Lag of exactly max_allowed_lag_days stays in the marts, matching
-        # stg_account_freshness which excludes only when lag > threshold.
+        # Lag of exactly max_allowed_lag_days stays in the marts: the rule
+        # excludes only when lag > threshold.
         self.assertEqual(self._classify([_result("1", date(2026, 7, 29))]), ())
 
     def test_account_past_the_threshold_is_skipped(self) -> None:
@@ -54,13 +54,13 @@ class ClassifySkippedAccountsTest(unittest.TestCase):
 
         self.assertEqual(len(skipped), 1)
         self.assertEqual(skipped[0].account_id, "1")
-        self.assertEqual(skipped[0].days_lag, 4)
+        self.assertEqual(skipped[0].lag_days, 4)
 
     def test_account_with_no_raw_data_is_skipped(self) -> None:
         skipped = self._classify([_result("1", None)])
 
         self.assertEqual(len(skipped), 1)
-        self.assertIsNone(skipped[0].days_lag)
+        self.assertIsNone(skipped[0].lag_days)
 
     def test_long_running_regression_reports_full_lag(self) -> None:
         # Onesleep RS: last raw 2026-06-15, evaluated 2026-08-01.
@@ -68,18 +68,18 @@ class ClassifySkippedAccountsTest(unittest.TestCase):
             [_result("5304022952", date(2026, 6, 15), account_name="Onesleep RS")]
         )
 
-        self.assertEqual(skipped[0].days_lag, 47)
+        self.assertEqual(skipped[0].lag_days, 47)
         self.assertEqual(skipped[0].account_name, "Onesleep RS")
 
 
 class DiffAgainstPreviousTest(unittest.TestCase):
-    def _account(self, account_id: str, days_lag: int = 10) -> SkippedAccount:
+    def _account(self, account_id: str, lag_days: int = 10) -> SkippedAccount:
         return SkippedAccount(
             account_id=account_id,
             client_id="idconsult",
             account_name=f"Account {account_id}",
             last_raw_date=date(2026, 7, 1),
-            days_lag=days_lag,
+            lag_days=lag_days,
         )
 
     def test_first_run_is_a_baseline_and_raises_no_new_alert(self) -> None:
@@ -119,11 +119,62 @@ class DiffAgainstPreviousTest(unittest.TestCase):
 
     def test_current_is_ordered_by_worst_lag_first(self) -> None:
         diff = diff_against_previous(
-            [self._account("1", days_lag=5), self._account("2", days_lag=47)],
+            [self._account("1", lag_days=5), self._account("2", lag_days=47)],
             ["1", "2"],
         )
 
         self.assertEqual([a.account_id for a in diff.current], ["2", "1"])
+
+
+class _Rows:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def result(self):
+        return self._rows
+
+
+class _FakeClient:
+    """Serves canned rows for the new and the legacy state table; None means NotFound."""
+
+    def __init__(self, freshness_rows, legacy_rows):
+        self.freshness_rows = freshness_rows
+        self.legacy_rows = legacy_rows
+
+    def query(self, sql, job_config=None):
+        rows = self.freshness_rows if "ops_account_freshness" in sql else self.legacy_rows
+        if rows is None:
+            raise NotFound("table not found")
+        return _Rows(rows)
+
+
+class LoadPreviousAccountIdsTest(unittest.TestCase):
+    def _load(self, freshness_rows, legacy_rows):
+        return load_previous_account_ids(
+            _FakeClient(freshness_rows, legacy_rows),
+            SkippedAccountsAlertConfig(),
+            run_ts=EXECUTION_TS,
+        )
+
+    def test_previous_run_stale_accounts_come_from_ops_account_freshness(self) -> None:
+        rows = [
+            {"account_id": "1", "status": "stale"},
+            {"account_id": "2", "status": "healthy"},
+        ]
+        self.assertEqual(self._load(rows, legacy_rows=None), ["1"])
+
+    def test_a_previous_run_with_nothing_stale_is_not_a_baseline(self) -> None:
+        self.assertEqual(self._load([{"account_id": "2", "status": "healthy"}], None), [])
+
+    def test_first_run_on_the_new_table_reads_the_legacy_state(self) -> None:
+        legacy = [{"account_id": "1"}, {"account_id": "3"}]
+        self.assertEqual(self._load([], legacy), ["1", "3"])
+
+    def test_legacy_sentinel_means_nothing_was_skipped(self) -> None:
+        self.assertEqual(self._load(None, [{"account_id": "__none__"}]), [])
+
+    def test_no_history_anywhere_is_a_baseline(self) -> None:
+        self.assertIsNone(self._load(None, None))
 
 
 class AlertMessageTest(unittest.TestCase):
@@ -134,7 +185,7 @@ class AlertMessageTest(unittest.TestCase):
                 client_id="idconsult",
                 account_name="Onesleep RS",
                 last_raw_date=date(2026, 6, 15),
-                days_lag=47,
+                lag_days=47,
             )
         ]
         message = build_alert_message(diff_against_previous(current, []))

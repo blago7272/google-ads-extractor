@@ -10,6 +10,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from orchestration.logging_utils import emit_log
 from orchestration.raw_freshness import (  # noqa: E402
+    default_max_allowed_lag_days,
     failing_accounts_payload,
     parse_timestamp,
     run_raw_freshness_probe,
@@ -27,7 +28,12 @@ def main() -> int:
     parser.add_argument("--cfg-accounts-table", default="cfg_accounts")
     parser.add_argument("--raw-dataset", default="gads_raw")
     parser.add_argument("--raw-account-stats-pattern", default="p_ads_AccountStats_*")
-    parser.add_argument("--max-allowed-lag-days", type=int, default=0)
+    parser.add_argument(
+        "--max-allowed-lag-days",
+        type=int,
+        default=None,
+        help="Default: the project threshold (dbt_project.yml, or RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS).",
+    )
     parser.add_argument("--execution-ts", help="Optional ISO-8601 timestamp override.")
     parser.add_argument("--verbose", action="store_true", help="Emit per-account results.")
     args = parser.parse_args()
@@ -43,7 +49,11 @@ def main() -> int:
         cfg_accounts_table=args.cfg_accounts_table,
         raw_dataset=args.raw_dataset,
         raw_account_stats_pattern=args.raw_account_stats_pattern,
-        max_allowed_lag_days=args.max_allowed_lag_days,
+        max_allowed_lag_days=(
+            args.max_allowed_lag_days
+            if args.max_allowed_lag_days is not None
+            else default_max_allowed_lag_days()
+        ),
         execution_ts=execution_ts,
     )
 
@@ -63,10 +73,9 @@ def main() -> int:
                 "raw_freshness_account",
                 client_id=result.client_id,
                 account_id=result.account_id,
-                account_timezone=result.account_timezone,
-                expected_last_date=result.expected_last_date,
+                report_date=result.report_date,
                 last_raw_date=result.last_raw_date,
-                days_lag=result.days_lag,
+                lag_days=result.lag_days,
                 freshness_status=result.freshness_status,
             )
 
