@@ -15,13 +15,16 @@ an hour of building.
 
 ## What it does
 
-1. **Classifies** every active account using the same rule as
-   `stg_account_freshness` — `date_diff(current_date(report_timezone),
-   last_raw_date) > max_allowed_lag_days` — so the alert set is identical to
-   `mart_skipped_accounts` rather than drifting from it.
-2. **Diffs** that set against the previous release's set, stored in
-   `<cfg_dataset>.ops_skipped_accounts_state` (day-partitioned, written with a
-   load job so it costs nothing and avoids the streaming buffer).
+1. **Takes the stale accounts** from the `raw_freshness_gate` step's results: the one
+   freshness rule (`docs/operations_design.md`, Account Freshness), the same verdicts
+   `stg_account_freshness` reads. The alert set is therefore exactly what the marts
+   exclude (`mart_skipped_accounts`); the alert has no rule of its own.
+2. **Diffs** that set against the previous release's, read from
+   `<cfg_dataset>.ops_account_freshness`. The gate step appends every account's
+   verdict there (day-partitioned, written with a load job so it costs nothing and
+   avoids the streaming buffer). It replaced `ops_skipped_accounts_state`, which is
+   no longer written; the first run after the switch reads it once instead of
+   starting a new baseline.
 3. **Emits** structured logs:
 
    | Event | Severity | Meaning |
@@ -37,7 +40,7 @@ an hour of building.
 
 ### First run is a baseline
 
-With no prior state, the first run records the current set and reports
+With no prior state in either table, the first run reports
 `is_baseline: true` without firing `skipped_accounts_alert`. Deploying this does
 not page for the five accounts that were already stale; the next run diffs
 against that baseline normally.
@@ -90,13 +93,13 @@ original alert was missed or acknowledged.
 
 | Setting | Source | Default |
 |---|---|---|
-| Lag threshold | `RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS` / `--max-allowed-lag-days` | `3` in prod |
-| Report timezone | `DBT_REPORT_TIMEZONE` / `--report-timezone` | `Europe/Sofia` |
+| Lag threshold | `raw_freshness_max_allowed_lag_days` in `dbt_project.yml`; `RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS` overrides it (dbt too); `--max-allowed-lag-days` for one run | `3` |
+| Report timezone | `report_timezone` in `dbt_project.yml` | `Europe/Sofia` |
 | State table dataset | `CFG_DATASET` / `--cfg-dataset` | `gads_reporting_cfg` |
 | Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | unset (step is inert) |
 
-The report timezone must match the dbt `report_timezone` var, otherwise the
-alert set can drift from `mart_skipped_accounts` by a day.
+The threshold and timezone have one definition shared by the orchestrator and dbt,
+so the alert set cannot drift from `mart_skipped_accounts`.
 
 ## Currently excluded (as of 2026-08-01)
 

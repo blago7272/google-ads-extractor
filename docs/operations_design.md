@@ -16,7 +16,7 @@ This document defines the recommended scheduling, monitoring, backfill, and oper
 - `gads_raw.p_ads_AccountStats_*` is the canonical daily raw-presence source for release gating
 - Google Ads raw transfer is expected to complete by `05:00-06:00` `Europe/Sofia` for the current pilot
 - the scheduled reporting release starts at `06:30`, leaving a `30-90` minute buffer after the expected raw import window
-- if the raw transfer completion window shifts later for `3` consecutive operating days, move the release window rather than weakening the freshness gate
+- if the raw transfer completion window shifts later for `3` consecutive operating days, move the release window rather than raising the freshness threshold
 - the current pilot account runs in `Europe/Sofia`
 
 ## Daily Release Window
@@ -32,19 +32,22 @@ Recommended default release window in `Europe/Sofia` time:
 
 The orchestrator runs these steps in order:
 
-1. raw freshness gate
-2. stage build
-3. stage tests
-4. prod build
-5. prod tests
-6. post-release freshness snapshot refresh
+1. `raw_freshness_gate`: applies the freshness rule to every active account and records
+   the verdicts (see Account Freshness). Never blocks: stale accounts are excluded from
+   the marts instead.
+2. `skipped_accounts_alert`: announces accounts that dropped out of or rejoined the marts
+3. `ecb_fx_refresh`: refreshes ECB exchange rates (retries, then keeps stored rates)
+4. `stage_build` and `stage_test`: only with `--include-stage` (or `--skip-prod`)
+5. `prod_build`
+6. `prod_test`
+7. `telegram_daily_summary`
 
 Rules:
 
 - each step starts only after the previous step succeeds
 - prod never starts from a fixed clock gap after stage
 - the same container or image revision must be used from stage validation through prod release
-- the release stops on the first failing gate and alerts immediately
+- the release stops on the first failing step and alerts the ops chat (see Monitoring And Alerts)
 
 Why one daily cycle first:
 
@@ -98,123 +101,79 @@ Failure policy:
 - if prod build fails, alert immediately
 - if prod tests fail after build, mark the release unhealthy and alert immediately
 
-## Raw Freshness Gate
+## Account Freshness
 
-Phase-1 implementation uses a custom BigQuery probe, not `dbt source freshness`.
+### The rule
 
-Rationale:
+One rule decides whether an account's data is current, everywhere it is used: the
+release log, the skipped-accounts alert, which accounts the marts include, and the
+user-facing `mart_data_freshness`.
 
-- the raw Google Ads tables are wildcarded by transfer suffix
-- release gating is account-specific, not only table-specific
-- the gate must answer "do all active accounts have T-1 raw data yet?" before `dbt` starts
-
-Canonical source:
-
-- `gads_raw.p_ads_AccountStats_*`
-
-Current phase-1 rule:
-
-- every active account in `cfg_accounts` must have raw data through its expected `T-1` date
-- expected `T-1` is computed in the account timezone from `cfg_accounts.timezone`
-- inactive or intentionally paused accounts are excluded by `cfg_accounts.is_active = false`
-
-Recommended probe outputs by account:
-
-- `client_id`
-- `account_id`
-- `account_timezone`
-- `expected_last_date`
-- `last_raw_date`
-- `days_lag`
-- `freshness_status`
-- `checked_at`
-
-Gate behavior:
-
-- pass when every active account has `last_raw_date >= expected_last_date`
-- fail when any active account is behind its expected `T-1` date
-- emit the failing account list in the alert payload
-
-Recommended query shape:
-
-```sql
-with active_accounts as (
-  select
-    client_id,
-    cast(account_id as string) as account_id,
-    timezone as account_timezone
-  from `gads-export-all.gads_reporting_cfg.cfg_accounts`
-  where is_active = true
-),
-raw_max_dates as (
-  select
-    cast(customer_id as string) as account_id,
-    max(segments_date) as last_raw_date
-  from `gads-export-all.gads_raw.p_ads_AccountStats_*`
-  group by 1
-)
-select
-  a.client_id,
-  a.account_id,
-  a.account_timezone,
-  date_sub(current_date(a.account_timezone), interval 1 day) as expected_last_date,
-  r.last_raw_date,
-  date_diff(
-    date_sub(current_date(a.account_timezone), interval 1 day),
-    r.last_raw_date,
-    day
-  ) as days_lag,
-  case
-    when r.last_raw_date is null then 'backfilling'
-    when timestamp_diff(current_timestamp(), timestamp(r.last_raw_date), hour) > 72 then 'error'
-    when timestamp_diff(current_timestamp(), timestamp(r.last_raw_date), hour) > 36 then 'stale'
-    else 'ok'
-  end as freshness_status,
-  current_timestamp() as checked_at
-from active_accounts a
-left join raw_max_dates r using (account_id);
+```
+lag_days = today in report_timezone - last raw date (max segments_date in gads_raw.p_ads_AccountStats_*)
+stale    = lag_days > threshold, or no raw data at all
 ```
 
-Persistence and visibility:
+- `report_timezone` (`Europe/Sofia`) and the threshold (`raw_freshness_max_allowed_lag_days`,
+  `3`) are the `vars` in `dbt_project.yml`. `orchestration/raw_freshness.py` reads that
+  file, so dbt and the orchestrator cannot drift. `RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS`
+  overrides the threshold for both; `--max-allowed-lag-days` overrides it for one run
+  and is passed on to dbt.
+- Only active accounts (`cfg_accounts.is_active = true`) are evaluated.
+- A stale account is excluded from every mart; the release is not blocked. It rejoins
+  the marts automatically once its raw data resumes.
 
-- the pre-build gate writes structured results to `Cloud Logging`
-- the post-build reporting surface remains `mart_data_freshness` once that mart is implemented
-- if historical raw-freshness diagnostics become necessary, persist the same probe output to BigQuery without changing the gate contract
+### Where it is applied
 
-## Freshness Monitoring
+1. **`raw_freshness_gate` step** (`orchestration/raw_freshness.py`): applies the rule to
+   every active account, logs `raw_freshness_summary` (and `raw_freshness_gate_warning`
+   listing stale accounts), and appends one row per account to
+   `gads_reporting_cfg.ops_account_freshness`.
+2. **`skipped_accounts_alert` step**: takes the same results, diffs the stale set against
+   the previous run in `ops_account_freshness`, and announces changes
+   (`docs/skipped_accounts_alerting.md`).
+3. **`stg_account_freshness`** (a table): reads this run's rows from
+   `ops_account_freshness` (the orchestrator passes `ACCOUNT_FRESHNESS_RUN_TS` to dbt).
+   With no usable recorded run it applies the rule in SQL; `freshness_source` says which
+   (`ops_account_freshness` or `computed_in_dbt`). That happens when the write failed, or
+   on a manual dbt run when no run is recorded for today's report date. Every mart joins
+   it and keeps only `healthy` accounts.
+4. **`mart_data_freshness`** (a view): the user-facing status, below.
 
-Recommended freshness outputs by account:
+### `ops_account_freshness` (audit trail)
 
-- `last_data_date`
-- `hours_since_last_data`
-- `freshness_status`
-- `last_successful_build_at`
-- `last_successful_test_at`
+Append-only, never truncated; partitioned by day on `run_timestamp`, clustered by
+`account_id`. One row per active account per release:
 
-Recommended freshness states:
+| Column | Meaning |
+|---|---|
+| `run_timestamp` | The release's execution timestamp; identifies the run |
+| `report_date` | Today in `report_timezone` at run time |
+| `account_id`, `client_id`, `account_name` | From `cfg_accounts` |
+| `last_raw_date` | Latest raw date, NULL if none |
+| `lag_days` | `report_date - last_raw_date`, NULL if no raw data |
+| `status` | `healthy` (in the marts) or `stale` (excluded) |
+| `max_allowed_lag_days`, `report_timezone` | The settings the verdict used |
 
-- `ok`
-- `stale`
-- `error`
-- `backfilling`
+It replaces `ops_skipped_accounts_state`, which is no longer written; the alert reads it
+once, on the first run after the switch, so that run is not treated as a baseline.
 
-Recommended thresholds:
+### User-facing status: `mart_data_freshness`
 
-- `ok`: up to `36h`
-- `stale`: more than `36h`
-- `error`: more than `72h`
-- `backfilling`: no mart data yet for the active account
+A view over `mart_account_freshness_snapshot` (the verdicts this build's marts were built
+with). `lag_days` is measured when the view is read, so if a release fails the status
+keeps degrading instead of freezing at the last build.
 
-Recommended checks:
+| Status | Condition |
+|---|---|
+| `ok` | lag ≤ 1 day (data through yesterday) |
+| `stale` | 1 < lag ≤ threshold (behind, still in the marts) |
+| `error` | lag > threshold (excluded from the marts) |
+| `backfilling` | no raw data at all |
 
-- raw freshness by account
-- mart freshness by account
-- missing-date gaps inside active account ranges
-
-Recommended ownership split:
-
-- the raw freshness gate blocks the daily release before `dbt`
-- `mart_data_freshness` is the user-facing diagnostic surface after the release
+`excluded_from_marts` says whether the current marts were built without the account.
+Between midnight and the morning release every account shows lag 2 (`stale`) until that
+day's data is built; the reporting app and the Telegram summary are read after it.
 
 ## Monitoring And Alerts
 
