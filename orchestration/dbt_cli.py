@@ -5,7 +5,7 @@ import shlex
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from orchestration.logging_utils import emit_log
 
@@ -47,6 +47,9 @@ class DbtRuntimeConfig:
     test_select: tuple[str, ...] = field(default_factory=tuple)
     seed_select: tuple[str, ...] = field(default_factory=tuple)
     required_seed_tables: tuple[str, ...] = field(default_factory=lambda: tuple(DEFAULT_REQUIRED_SEED_TABLES))
+    # Set by the release for each dbt command, e.g. which ops_account_freshness run
+    # stg_account_freshness should read.
+    extra_env: Mapping[str, str] = field(default_factory=dict)
 
 
 def build_dbt_seed_command(target: str, config: DbtRuntimeConfig) -> list[str]:
@@ -82,6 +85,7 @@ def run_dbt_command(command: Sequence[str], config: DbtRuntimeConfig, *, step_na
     env = os.environ.copy()
     if config.profiles_dir is not None:
         env["DBT_PROFILES_DIR"] = str(config.profiles_dir)
+    env.update(config.extra_env)
 
     emit_log(
         "dbt_command_started",

@@ -103,13 +103,15 @@ models:
 
   - name: stg_account_freshness
     description: >
-      Per-account raw-data freshness classification for the current run. Healthy
-      accounts have lag <= RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS; stale accounts are
-      excluded from mart builds.
+      Per-account freshness verdict for this build. lag_days = today in report_timezone
+      minus the last raw date; stale (excluded from every mart) when lag_days >
+      raw_freshness_max_allowed_lag_days or there is no raw data. Read from the
+      orchestrator's ops_account_freshness rows for this run, or computed here with
+      the same rule when no usable run is recorded (see freshness_source).
     tests:
       - not_null_columns:
           arguments:
-            columns: [account_id, client_id, account_name, freshness_status]
+            columns: [account_id, client_id, account_name, freshness_status, report_date, evaluated_at, freshness_source]
     columns:
       - name: account_id
         tests: [unique]
@@ -118,6 +120,11 @@ models:
           - accepted_values:
               arguments:
                 values: ['healthy', 'stale']
+      - name: freshness_source
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['ops_account_freshness', 'computed_in_dbt']
 
   - name: stg_exchange_rates_latest
     description: Latest configured EUR exchange rate per currency.

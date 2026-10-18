@@ -4,8 +4,19 @@ from datetime import datetime, timezone
 import unittest
 
 from orchestration.dbt_cli import DbtRuntimeConfig
+from orchestration.ecb_fx_refresh import EcbFxRefreshResult
 from orchestration.raw_freshness import RawFreshnessConfig, RawFreshnessSummary
 from orchestration.release_orchestrator import ReleaseOrchestratorConfig, run_release
+
+
+def _fake_freshness_writer(*_args: object, **_kwargs: object) -> int:
+    # Never let a unit test append to the prod ops_account_freshness table.
+    return 0
+
+
+def _fake_ecb_refresh(*_args: object, **_kwargs: object) -> EcbFxRefreshResult:
+    # Never let a unit test call the ECB API or write the prod FX table.
+    return EcbFxRefreshResult(rows_fetched=0, rows_loaded=0, date_range=None)
 
 
 class ReleaseOrchestratorTest(unittest.TestCase):
@@ -57,6 +68,8 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=fake_probe,
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
+            account_freshness_writer=_fake_freshness_writer,
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=fake_alert,
             daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
@@ -110,6 +123,8 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=fake_probe,
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
+            account_freshness_writer=_fake_freshness_writer,
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=fake_alert,
             daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
@@ -153,6 +168,8 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=lambda _c: ([], summary),
             dbt_build_runner=lambda target, _r: calls.append(("build", target)),
             dbt_test_runner=lambda target, _r: calls.append(("test", target)),
+            account_freshness_writer=_fake_freshness_writer,
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=lambda *_a, **_k: None,
             daily_summary_pusher=exploding_pusher,
         )
@@ -189,6 +206,8 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=fake_probe,
             dbt_build_runner=fake_build,
             dbt_test_runner=fake_test,
+            account_freshness_writer=_fake_freshness_writer,
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=fake_alert,
             daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
@@ -218,6 +237,8 @@ class ReleaseOrchestratorTest(unittest.TestCase):
             freshness_probe=lambda _c: ([], summary),
             dbt_build_runner=lambda target, _r: calls.append(("build", target)),
             dbt_test_runner=lambda target, _r: calls.append(("test", target)),
+            account_freshness_writer=_fake_freshness_writer,
+            ecb_fx_refresher=_fake_ecb_refresh,
             skipped_accounts_alert_runner=lambda *_a, **_k: None,
             daily_summary_pusher=lambda: calls.append(("push", "telegram")),
         )
@@ -252,6 +273,54 @@ class ReleaseOrchestratorTest(unittest.TestCase):
         calls, _ = self._run()
 
         self.assertNotIn("stage", [target for _action, target in calls])
+
+
+class DbtFreshnessHandoffTest(unittest.TestCase):
+    """dbt must apply the probe's threshold and read exactly this run's verdicts."""
+
+    EXECUTION_TS = datetime(2026, 10, 18, 3, 30, tzinfo=timezone.utc)
+
+    def _run(self, writer):
+        runtimes: list[DbtRuntimeConfig] = []
+        summary = RawFreshnessSummary(
+            account_count=0,
+            ready_count=0,
+            failing_count=0,
+            max_allowed_lag_days=3,
+            checked_at=self.EXECUTION_TS,
+            failing_accounts=(),
+        )
+        config = ReleaseOrchestratorConfig(
+            raw_freshness=RawFreshnessConfig(execution_ts=self.EXECUTION_TS, max_allowed_lag_days=5),
+            dbt_runtime=DbtRuntimeConfig(bootstrap_missing_seeds=False),
+        )
+        outcome = run_release(
+            config,
+            freshness_probe=lambda _c: ([], summary),
+            dbt_build_runner=lambda _target, runtime: runtimes.append(runtime),
+            dbt_test_runner=lambda _target, _runtime: None,
+            skipped_accounts_alert_runner=lambda *_a, **_k: None,
+            daily_summary_pusher=lambda: None,
+            ecb_fx_refresher=_fake_ecb_refresh,
+            account_freshness_writer=writer,
+        )
+        return outcome, runtimes[0].extra_env
+
+    def test_dbt_gets_the_run_timestamp_and_the_threshold(self) -> None:
+        _outcome, env = self._run(_fake_freshness_writer)
+
+        self.assertEqual(env["ACCOUNT_FRESHNESS_RUN_TS"], "2026-10-18T03:30:00+00:00")
+        self.assertEqual(env["RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS"], "5")
+
+    def test_a_failed_write_does_not_fail_the_release_and_dbt_computes_the_rule(self) -> None:
+        def broken_writer(*_args: object, **_kwargs: object) -> int:
+            raise RuntimeError("BigQuery load failed")
+
+        outcome, env = self._run(broken_writer)
+
+        self.assertIn("prod_build", outcome.completed_steps)
+        self.assertNotIn("ACCOUNT_FRESHNESS_RUN_TS", env)
+        self.assertEqual(env["RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS"], "5")
 
 
 if __name__ == "__main__":

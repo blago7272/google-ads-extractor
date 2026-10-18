@@ -291,8 +291,9 @@ order by a.client_id, a.account_name
                 "account_id": None,
                 "account_name": None,
                 "freshness_status": None,
-                "last_data_date": None,
-                "hours_since_last_data": None,
+                "last_raw_date": None,
+                "lag_days": None,
+                "excluded_from_marts": None,
                 "checked_at": None,
                 "message": "Select an account to see reporting freshness.",
             }
@@ -303,9 +304,10 @@ select
   client_id,
   account_id,
   account_name,
-  last_data_date,
-  hours_since_last_data,
+  last_raw_date,
+  lag_days,
   freshness_status,
+  excluded_from_marts,
   checked_at
 from {self.mart_table('mart_data_freshness')}
 where account_id = @account_id
@@ -326,8 +328,9 @@ limit 1
                     "account_id": account_id,
                     "account_name": None,
                     "freshness_status": "backfilling",
-                    "last_data_date": None,
-                    "hours_since_last_data": None,
+                    "last_raw_date": None,
+                    "lag_days": None,
+                    "excluded_from_marts": None,
                     "checked_at": None,
                     "message": "Freshness is not available yet for this account.",
                 }

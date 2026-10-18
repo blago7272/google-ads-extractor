@@ -3,6 +3,12 @@
 Fetches the latest ECB reference rates for the configured currencies and
 upserts them into the `ecb_exchange_rates_daily` table in BigQuery.
 Uses a 7-day lookback window to fill any gaps from weekends or holidays.
+
+The ECB API has transient outages (HTTP 500 on 2026-09-18, 504 on 2026-10-04,
+each of which used to fail the whole release). A transient error is retried
+with backoff; if the API is still down, the release keeps the rates already in
+BigQuery and the marts carry the latest one forward (see
+`stg_account_fx_rates_daily`, `fx_carry_forward_days`).
 """
 
 from __future__ import annotations
@@ -10,18 +16,27 @@ from __future__ import annotations
 import csv
 import io
 import json
+import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 
 import requests
 from google.cloud import bigquery
 
 from orchestration.logging_utils import emit_log
+from orchestration.ops_telegram import send_ops_message
 
 ECB_API_URL = (
     "https://data-api.ecb.europa.eu/service/data/EXR/D.{currencies}.EUR.SP00.A"
 )
+
+# Waits before each retry of a transient failure: four attempts in all.
+RETRY_BACKOFF_SECONDS = (2, 4, 8)
+
+
+class EcbFetchFailed(RuntimeError):
+    """The ECB API could not be read, after any retries."""
 
 
 @dataclass(frozen=True)
@@ -36,6 +51,10 @@ class EcbFxRefreshConfig:
     watermark_overlap_days: int = 2
     # Ceiling on a catch-up window, so a corrupt watermark cannot trigger a huge fetch.
     max_catchup_days: int = 400
+    # Fall back to the stored rates only while they are this fresh. Keep it at or
+    # below the dbt var `fx_carry_forward_days` (30): past that, the marts cannot
+    # carry the stored rate forward and cost_eur goes NULL, so failing is better.
+    fallback_max_age_days: int = 30
 
     @property
     def full_table(self) -> str:
@@ -90,12 +109,58 @@ class EcbFxRefreshResult:
     rows_fetched: int
     rows_loaded: int
     date_range: tuple[str, str] | None
+    # Set when the ECB API was unreachable and the stored rates were kept.
+    fallback_reason: str | None = None
+    latest_stored_date: date | None = None
+
+
+def _is_transient(exc: requests.RequestException) -> bool:
+    if isinstance(exc, (requests.Timeout, requests.ConnectionError)):
+        return True
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        return exc.response.status_code >= 500
+    return False
+
+
+def _get_with_retry(
+    url: str,
+    *,
+    params: dict[str, str],
+    headers: dict[str, str],
+    sleep: Callable[[float], None] = time.sleep,
+) -> requests.Response:
+    """GET, retrying timeouts, connection errors and 5xx with exponential backoff.
+
+    Anything else (a 4xx means the request itself is wrong) fails at once.
+    """
+    for attempt, delay in enumerate((*RETRY_BACKOFF_SECONDS, None), start=1):
+        try:
+            resp = requests.get(url, params=params, headers=headers, timeout=60)
+            resp.raise_for_status()
+            return resp
+        except requests.RequestException as exc:
+            if delay is None or not _is_transient(exc):
+                raise EcbFetchFailed(
+                    f"ECB fetch failed after {attempt} attempt(s): {exc}"
+                ) from exc
+            emit_log(
+                "ecb_fx_fetch_retry",
+                level="WARNING",
+                attempt=attempt,
+                retry_in_seconds=delay,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+            sleep(delay)
+    raise AssertionError("unreachable")
 
 
 def _fetch_ecb_rates(
     currencies: tuple[str, ...],
     start_date: str,
     end_date: str,
+    *,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> list[dict[str, Any]]:
     currency_key = "+".join(currencies)
     url = ECB_API_URL.format(currencies=currency_key)
@@ -106,8 +171,7 @@ def _fetch_ecb_rates(
     }
     headers = {"User-Agent": "gads-fx-refresh/1.0"}
 
-    resp = requests.get(url, params=params, headers=headers, timeout=60)
-    resp.raise_for_status()
+    resp = _get_with_retry(url, params=params, headers=headers, sleep=sleep)
 
     reader = csv.DictReader(io.StringIO(resp.text))
     now = datetime.now(timezone.utc)
@@ -168,12 +232,59 @@ def _latest_loaded_date(
     return rows[0]["latest_loaded"]
 
 
+def _fall_back_to_stored_rates(
+    error: EcbFetchFailed,
+    latest_loaded: date | None,
+    end_date: date,
+    config: EcbFxRefreshConfig,
+    notifier: Callable[[str], object],
+) -> EcbFxRefreshResult:
+    """Keep the stored rates if they are fresh enough to carry forward, else re-raise."""
+    age_days = None if latest_loaded is None else (end_date - latest_loaded).days
+    if age_days is None or age_days > config.fallback_max_age_days:
+        emit_log(
+            "ecb_fx_refresh_fallback_unavailable",
+            level="ERROR",
+            latest_stored_date=latest_loaded,
+            age_days=age_days,
+            fallback_max_age_days=config.fallback_max_age_days,
+        )
+        raise error
+
+    emit_log(
+        "ecb_fx_refresh_fallback",
+        level="WARNING",
+        reason=str(error),
+        latest_stored_date=latest_loaded,
+        age_days=age_days,
+    )
+    notifier(
+        "⚠️ ECB FX refresh: the ECB API is unreachable, so today's release keeps the "
+        f"rates already stored in BigQuery (latest {latest_loaded}, {age_days} day(s) old). "
+        "Reports carry that rate forward; the next run fetches the missing days.\n\n"
+        f"{error}"
+    )
+    return EcbFxRefreshResult(
+        rows_fetched=0,
+        rows_loaded=0,
+        date_range=None,
+        fallback_reason=str(error),
+        latest_stored_date=latest_loaded,
+    )
+
+
 def run_ecb_fx_refresh(
     config: EcbFxRefreshConfig,
     *,
     client: bigquery.Client | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    notifier: Callable[[str], object] | None = None,
 ) -> EcbFxRefreshResult:
-    """Fetch latest ECB rates and upsert into BigQuery."""
+    """Fetch latest ECB rates and upsert into BigQuery.
+
+    If the ECB API stays down after retries, keep the stored rates (and warn the
+    ops chat) instead of failing, as long as they are recent enough to carry forward.
+    """
     bq_client = client or bigquery.Client(project=config.project_id)
 
     end_date = date.today()
@@ -200,7 +311,16 @@ def run_ecb_fx_refresh(
         catchup_days=(end_date - start_date).days,
     )
 
-    rows = _fetch_ecb_rates(config.currencies, str(start_date), str(end_date))
+    try:
+        rows = _fetch_ecb_rates(config.currencies, str(start_date), str(end_date), sleep=sleep)
+    except EcbFetchFailed as exc:
+        return _fall_back_to_stored_rates(
+            exc,
+            latest_loaded,
+            end_date,
+            config,
+            notifier or (lambda text: send_ops_message(text, event="ecb_fx_fallback_telegram")),
+        )
 
     if not rows:
         emit_log("ecb_fx_refresh_no_new_rates", level="WARNING")

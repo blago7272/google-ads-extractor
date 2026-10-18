@@ -694,7 +694,13 @@ models:
         tests: [not_null]
 
   - name: mart_data_freshness
-    description: Data freshness metadata mart showing the last available data date per active account and whether it is ok, stale, error, or backfilling.
+    description: >
+      User-facing data freshness per active account, read by the reporting app and the
+      Telegram bot. A view: lag_days is measured when queried (today in report_timezone
+      minus the last raw date the current marts were built with), so the status keeps
+      degrading if a release fails. ok = lag <= 1; stale = 1 < lag <= the freshness
+      threshold (raw_freshness_max_allowed_lag_days); error = lag > threshold, i.e.
+      excluded from the marts; backfilling = no raw data at all.
     columns:
       - name: client_id
         data_type: string
@@ -705,10 +711,12 @@ models:
       - name: account_name
         data_type: string
         tests: [not_null]
-      - name: last_data_date
+      - name: last_raw_date
         data_type: date
-      - name: hours_since_last_data
+        description: Latest raw Google Ads date for the account when the marts were built.
+      - name: lag_days
         data_type: int64
+        description: Days from last_raw_date to today in report_timezone, at query time. NULL with no raw data.
       - name: freshness_status
         data_type: string
         tests:
@@ -716,9 +724,58 @@ models:
           - accepted_values:
               arguments:
                 values: ['ok', 'stale', 'error', 'backfilling']
+      - name: excluded_from_marts
+        data_type: boolean
+        description: True when the current marts were built without this account (stale at build time).
+        tests: [not_null]
+      - name: evaluated_at
+        data_type: timestamp
+        description: When the verdict the marts were built with was evaluated (the release's run timestamp).
+        tests: [not_null]
       - name: checked_at
         data_type: timestamp
+        description: Query time.
         tests: [not_null]
+
+  - name: mart_account_freshness_snapshot
+    description: >
+      The freshness verdict this build's marts were built with, one row per active
+      account (a copy of stg_account_freshness in the mart dataset, so readers of
+      mart_data_freshness need no access to staging).
+    columns:
+      - name: client_id
+        data_type: string
+        tests: [not_null]
+      - name: account_id
+        data_type: string
+        tests: [not_null, unique]
+      - name: account_name
+        data_type: string
+        tests: [not_null]
+      - name: last_raw_date
+        data_type: date
+      - name: lag_days
+        data_type: int64
+      - name: freshness_status
+        data_type: string
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['healthy', 'stale']
+      - name: report_date
+        data_type: date
+        tests: [not_null]
+      - name: evaluated_at
+        data_type: timestamp
+        tests: [not_null]
+      - name: freshness_source
+        data_type: string
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ops_account_freshness', 'computed_in_dbt']
 
   - name: mart_ads_ad_performance_daily
     description: Daily ad-level performance mart for ad explorer and creative review.

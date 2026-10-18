@@ -97,7 +97,7 @@ Comment:
 - implement a freshness metadata mart
 - do not rely only on standard dbt source freshness if wildcarded source shapes make that brittle
 - use `ok / stale / error / backfilling` as the user-facing freshness states
-- use `36h` as the stale threshold and `72h` as the error threshold
+- thresholds follow the account freshness rule in `docs/operations_design.md` (Account Freshness): lag in days from the last raw date, `ok` up to 1 day, `stale` up to the threshold (3 days), `error` beyond it
 
 ### 5. Client Data Access And Isolation
 
@@ -822,27 +822,30 @@ Operational expectation:
 - standard reporting latency is T-1
 - new-account backfills may take 2-3 days
 
-Planned metadata mart:
+Metadata mart (a view, so the lag is measured when it is read):
 
 - `mart_data_freshness`
 
-Planned outputs:
+Outputs:
 
-- `client_id`
-- `account_id`
-- `last_data_date`
+- `client_id`, `account_id`, `account_name`
+- `last_raw_date`
+- `lag_days`
 - `freshness_status`
-- `checked_at`
+- `excluded_from_marts`
+- `evaluated_at`, `checked_at`
 
-Planned SLA thresholds:
+Thresholds, per the account freshness rule in `docs/operations_design.md` (Account Freshness):
 
-- warn after 36 hours
-- error after 72 hours
+- `ok`: lag ≤ 1 day
+- `stale`: lag up to the threshold (3 days)
+- `error`: lag beyond the threshold; the account is excluded from the marts
+- `backfilling`: no raw data at all
 
-Planned UI surface:
+UI surface:
 
 - show reporting freshness for the selected account in the shared page shell
-- show `last_data_date` next to the freshness badge
+- show `last_raw_date` and the lag in days next to the freshness badge
 - show a warning banner for `stale`, `error`, and `backfilling`
 - if no account is selected, show a neutral prompt to select one
 

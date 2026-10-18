@@ -78,6 +78,23 @@ EUR/BGN rows written once by the backfill script, which stop at whatever date th
 covered (currently 2026-04-14); letting those set the watermark would drag every refresh
 back ~110 days and re-fetch the same window forever.
 
+## ECB API outages
+
+The ECB API has short outages (HTTP 500 on 2026-09-18, 504 on 2026-10-04). Each used to
+fail the whole release, so the marts were not rebuilt that day.
+
+- **Retry.** Timeouts, connection errors and 5xx responses are retried after 2s, 4s and
+  8s (four attempts). A 4xx is not retried: the request itself is wrong.
+- **Fallback.** If the API is still down, the step keeps the rates already in
+  `ecb_exchange_rates_daily`, logs `ecb_fx_refresh_fallback` (WARNING), sends a warning to
+  the ops Telegram chat, and the release continues. `stg_account_fx_rates_daily` carries
+  the latest stored rate forward, and the next successful run fetches the missing days
+  through the watermark window above.
+- **No fallback when the stored rates are too old.** Past `fallback_max_age_days` (30,
+  matching the dbt var `fx_carry_forward_days`) the marts could not carry them forward and
+  `cost_eur` would go NULL, so the step fails as before (`ecb_fx_refresh_fallback_unavailable`).
+  Keep the two settings in step if either changes.
+
 ## Known non-issues
 
 **40 "missing" business days per currency** are ECB holidays — Good Friday and Easter

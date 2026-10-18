@@ -53,10 +53,12 @@ Freshness indicators:
 
 | Icon | Status | Condition |
 |------|--------|-----------|
-| ✅ | ok | Data within 36 hours |
-| 🟡 | stale | Data 36-168 hours old |
-| 🔴 | error | Data older than 168 hours |
-| 🔄 | backfilling | No data yet (awaiting backfill) |
+| ✅ | ok | Last raw data at most 1 day old |
+| 🟡 | stale | 2 days up to the freshness threshold (3 days) |
+| 🔴 | error | Beyond the threshold: excluded from the marts |
+| 🔄 | backfilling | No raw data at all |
+
+Read from `mart_data_freshness`; the rule is in `docs/operations_design.md` (Account Freshness).
 
 ## Interactive Commands
 

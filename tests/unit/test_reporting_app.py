@@ -47,8 +47,9 @@ class FakeReportingService:
                 "account_id": None,
                 "account_name": None,
                 "freshness_status": None,
-                "last_data_date": None,
-                "hours_since_last_data": None,
+                "last_raw_date": None,
+                "lag_days": None,
+                "excluded_from_marts": None,
                 "checked_at": None,
                 "message": "Select an account to see reporting freshness.",
             }
@@ -58,8 +59,9 @@ class FakeReportingService:
             "account_id": account_id,
             "account_name": "Acme.bg (EUR)",
             "freshness_status": "stale",
-            "last_data_date": "2026-03-22",
-            "hours_since_last_data": 44,
+            "last_raw_date": "2026-03-21",
+            "lag_days": 2,
+            "excluded_from_marts": False,
             "checked_at": "2026-03-23T08:15:00+00:00",
             "message": None,
         }
@@ -362,7 +364,8 @@ def test_freshness_endpoint_works() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["freshness_status"] == "stale"
-    assert payload["last_data_date"] == "2026-03-22"
+    assert payload["last_raw_date"] == "2026-03-21"
+    assert payload["lag_days"] == 2
 
 
 def test_auth_login_sets_state_cookie() -> None:

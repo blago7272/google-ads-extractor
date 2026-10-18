@@ -11,13 +11,25 @@ Requires:
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
+
 from google.cloud import bigquery
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from orchestration.raw_freshness import (  # noqa: E402
+    default_max_allowed_lag_days,
+    default_report_timezone,
+)
 
 PROJECT = "gads-export-all"
 RAW_DATASET = "gads_raw"
 CFG_DATASET = "gads_reporting_cfg"
 MART_DATASET = "gads_reporting_mart"
+# The shared freshness rule (orchestration/raw_freshness.py).
+TODAY = f"current_date('{default_report_timezone()}')"
+MAX_LAG = default_max_allowed_lag_days()
 
 QUERY = f"""
 with active_accounts as (
@@ -52,13 +64,13 @@ select
   a.currency,
   r.last_raw_date,
   m.last_mart_date,
-  date_diff(current_date(), r.last_raw_date, day) as raw_lag_days,
-  date_diff(current_date(), m.last_mart_date, day) as mart_lag_days,
+  date_diff({TODAY}, r.last_raw_date, day) as raw_lag_days,
+  date_diff({TODAY}, m.last_mart_date, day) as mart_lag_days,
   case
     when r.last_raw_date is null then 'NO_RAW_DATA'
     when m.last_mart_date is null then 'RAW_OK_MART_MISSING'
     when r.last_raw_date > m.last_mart_date then 'RAW_AHEAD_OF_MART'
-    when date_diff(current_date(), r.last_raw_date, day) > 3 then 'RAW_STALE'
+    when date_diff({TODAY}, r.last_raw_date, day) > {MAX_LAG} then 'RAW_STALE'
     else 'OK'
   end as diagnosis
 from active_accounts a
@@ -69,7 +81,7 @@ order by
     when r.last_raw_date is null then 0
     when m.last_mart_date is null then 1
     when r.last_raw_date > m.last_mart_date then 2
-    when date_diff(current_date(), r.last_raw_date, day) > 3 then 3
+    when date_diff({TODAY}, r.last_raw_date, day) > {MAX_LAG} then 3
     else 4
   end,
   a.client_id, a.account_name

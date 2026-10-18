@@ -254,8 +254,8 @@ Data freshness requirements:
 
 Freshness baseline for phase 1:
 
-- stale threshold: data older than `36h`
-- error threshold: data older than `72h`
+- thresholds follow the account freshness rule in `docs/operations_design.md` (Account Freshness): `stale` when the last raw date is more than 1 day old,
+  `error` (and excluded from the marts) beyond 3 days
 
 ## Recommended First Production Rollout
 

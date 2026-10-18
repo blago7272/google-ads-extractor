@@ -134,8 +134,8 @@ def get_freshness(client_id: str | None = None) -> list[dict]:
         where = "WHERE client_id = @client_id"
         params = [bigquery.ScalarQueryParameter("client_id", "STRING", client_id)]
     sql = f"""
-        SELECT client_id, account_id, account_name, last_data_date,
-               hours_since_last_data, freshness_status
+        SELECT client_id, account_id, account_name, last_raw_date,
+               lag_days, freshness_status
         FROM `{s.project_id}.{s.mart_dataset}.mart_data_freshness`
         {where}
         ORDER BY client_id, account_name
@@ -247,7 +247,7 @@ def format_daily_summary(
             emoji = _freshness_emoji(f["freshness_status"])
             acct_alerts = [a for a in alerts if a["account_id"] == f["account_id"]]
             alert_note = f", {len(acct_alerts)} alerts" if acct_alerts else ""
-            date_label = "awaiting backfill" if f["freshness_status"] == "backfilling" else f"data to {f['last_data_date']}"
+            date_label = "awaiting backfill" if f["freshness_status"] == "backfilling" else f"data to {f['last_raw_date']}"
             safe_name = _escape_md(str(f['account_name']))
             acct_id = f['account_id']
             lines.append(
@@ -286,7 +286,7 @@ def format_freshness(freshness: list[dict]) -> str:
         if f["freshness_status"] == "backfilling":
             detail = "awaiting backfill"
         else:
-            detail = f"Last data: {f['last_data_date']} ({f['hours_since_last_data']}h ago)"
+            detail = f"Last data: {f['last_raw_date']} ({f['lag_days']}d ago)"
         safe_name = _escape_md(str(f['account_name']))
         acct_id = f['account_id']
         lines.append(

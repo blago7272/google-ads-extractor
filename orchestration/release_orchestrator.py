@@ -4,7 +4,7 @@ import argparse
 import os
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
@@ -15,13 +15,17 @@ from google.cloud import bigquery
 from orchestration.dbt_cli import DbtRuntimeConfig, parse_select_tokens, run_dbt_build, run_dbt_seeds, run_dbt_tests
 from orchestration.ecb_fx_refresh import EcbFxRefreshConfig, EcbFxRefreshResult, run_ecb_fx_refresh
 from orchestration.logging_utils import emit_log
+from orchestration.ops_telegram import report_release_failed
 from orchestration.raw_freshness import (
+    LAG_DAYS_ENV_VAR,
     AccountFreshnessResult,
     RawFreshnessConfig,
     RawFreshnessSummary,
+    default_max_allowed_lag_days,
     failing_accounts_payload,
     parse_timestamp,
     run_raw_freshness_probe,
+    write_account_freshness,
 )
 from orchestration.schema_mapping import resolve_schema_name
 from orchestration.skipped_accounts_alert import (
@@ -115,6 +119,8 @@ def run_release(
     dbt_test_runner: Callable[[str, DbtRuntimeConfig], None] = run_dbt_tests,
     skipped_accounts_alert_runner: Callable[..., object] = run_skipped_accounts_alert,
     daily_summary_pusher: Callable[[], None] | None = None,
+    ecb_fx_refresher: Callable[..., EcbFxRefreshResult] = run_ecb_fx_refresh,
+    account_freshness_writer: Callable[..., int] = write_account_freshness,
 ) -> ReleaseOutcome:
     emit_log(
         "release_started",
@@ -128,10 +134,11 @@ def run_release(
     completed_steps: list[str] = []
     freshness_results: list[AccountFreshnessResult] = []
     freshness_summary: RawFreshnessSummary | None = None
+    freshness_recorded = False
     bq_client = bigquery.Client(project=config.raw_freshness.project_id)
 
     def raw_freshness_gate() -> None:
-        nonlocal freshness_results, freshness_summary
+        nonlocal freshness_results, freshness_summary, freshness_recorded
         freshness_results, freshness_summary = freshness_probe(config.raw_freshness)
         emit_log(
             "raw_freshness_summary",
@@ -153,6 +160,23 @@ def run_release(
                 failing_accounts=failing_accounts_payload(freshness_results),
             )
 
+        # Record this run's verdict for every account. stg_account_freshness reads
+        # exactly these rows (ACCOUNT_FRESHNESS_RUN_TS), and the table is the audit
+        # trail. If the write fails, dbt applies the same rule itself, so the
+        # release goes on.
+        try:
+            written = account_freshness_writer(bq_client, config.raw_freshness, freshness_results)
+        except Exception as exc:  # noqa: BLE001 - see above
+            emit_log(
+                "account_freshness_write_failed",
+                level="ERROR",
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+        else:
+            freshness_recorded = True
+            emit_log("account_freshness_recorded", rows=written, run_timestamp=config.raw_freshness.execution_ts)
+
     _run_step("raw_freshness_gate", raw_freshness_gate, completed_steps)
     assert freshness_summary is not None
 
@@ -163,8 +187,6 @@ def run_release(
         alert_config = config.skipped_accounts_alert or SkippedAccountsAlertConfig.from_env(
             project_id=config.raw_freshness.project_id,
             cfg_dataset=config.raw_freshness.cfg_dataset,
-            report_timezone=os.getenv("DBT_REPORT_TIMEZONE", "Europe/Sofia"),
-            max_allowed_lag_days=config.raw_freshness.max_allowed_lag_days,
         )
         try:
             skipped_accounts_alert_runner(
@@ -190,12 +212,16 @@ def run_release(
     ecb_fx_config = EcbFxRefreshConfig(project_id=config.raw_freshness.project_id)
 
     def ecb_fx_refresh_step() -> None:
-        result = run_ecb_fx_refresh(ecb_fx_config, client=bq_client)
+        # A transient ECB outage does not fail this step: run_ecb_fx_refresh retries,
+        # then keeps the stored rates and warns the ops chat (fallback_reason set).
+        result = ecb_fx_refresher(ecb_fx_config, client=bq_client)
         emit_log(
             "ecb_fx_refresh_summary",
             rows_fetched=result.rows_fetched,
             rows_loaded=result.rows_loaded,
             date_range=result.date_range,
+            fallback_reason=result.fallback_reason,
+            latest_stored_date=result.latest_stored_date,
         )
 
     _run_step("ecb_fx_refresh", ecb_fx_refresh_step, completed_steps)
@@ -203,10 +229,16 @@ def run_release(
         emit_log("release_completed", completed_steps=completed_steps, prod_skipped=True)
         return ReleaseOutcome(tuple(completed_steps), freshness_summary, True)
 
+    # dbt applies the same threshold as the probe, and reads this run's verdicts.
+    dbt_env = {LAG_DAYS_ENV_VAR: str(config.raw_freshness.max_allowed_lag_days)}
+    if freshness_recorded:
+        dbt_env["ACCOUNT_FRESHNESS_RUN_TS"] = config.raw_freshness.execution_ts.isoformat()
+    dbt_runtime = replace(config.dbt_runtime, extra_env={**config.dbt_runtime.extra_env, **dbt_env})
+
     def ensure_seed_state(target: str) -> None:
         if config.dbt_runtime.run_seeds:
             emit_log("seed_sync_requested", target=target)
-            dbt_seed_runner(target, config.dbt_runtime)
+            dbt_seed_runner(target, dbt_runtime)
             return
 
         if not config.dbt_runtime.bootstrap_missing_seeds:
@@ -228,7 +260,7 @@ def run_release(
                 cfg_schema=cfg_schema,
                 missing_tables=missing_tables,
             )
-            dbt_seed_runner(target, config.dbt_runtime)
+            dbt_seed_runner(target, dbt_runtime)
             emit_log("seed_bootstrap_completed", target=target, cfg_schema=cfg_schema)
 
     if config.runs_stage:
@@ -236,7 +268,7 @@ def run_release(
 
         _run_step(
             "stage_build",
-            lambda: dbt_build_runner(config.stage_target, config.dbt_runtime),
+            lambda: dbt_build_runner(config.stage_target, dbt_runtime),
             completed_steps,
         )
         if config.stop_after_step == "stage_build":
@@ -245,7 +277,7 @@ def run_release(
 
         _run_step(
             "stage_test",
-            lambda: dbt_test_runner(config.stage_target, config.dbt_runtime),
+            lambda: dbt_test_runner(config.stage_target, dbt_runtime),
             completed_steps,
         )
         if config.stop_after_step == "stage_test":
@@ -268,7 +300,7 @@ def run_release(
 
     _run_step(
         "prod_build",
-        lambda: dbt_build_runner(config.prod_target, config.dbt_runtime),
+        lambda: dbt_build_runner(config.prod_target, dbt_runtime),
         completed_steps,
     )
     if config.stop_after_step == "prod_build":
@@ -277,7 +309,7 @@ def run_release(
 
     _run_step(
         "prod_test",
-        lambda: dbt_test_runner(config.prod_target, config.dbt_runtime),
+        lambda: dbt_test_runner(config.prod_target, dbt_runtime),
         completed_steps,
     )
 
@@ -325,12 +357,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-allowed-lag-days",
         type=int,
-        default=int(os.getenv("RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS", "0")),
-    )
-    parser.add_argument(
-        "--report-timezone",
-        default=os.getenv("DBT_REPORT_TIMEZONE", "Europe/Sofia"),
-        help="Timezone used to measure account staleness; must match the dbt report_timezone var.",
+        default=None,
+        help=(
+            "Override the account freshness threshold for this run (probe and dbt). "
+            "Default: RAW_FRESHNESS_MAX_ALLOWED_LAG_DAYS, else "
+            "raw_freshness_max_allowed_lag_days in dbt_project.yml."
+        ),
     )
     parser.add_argument(
         "--execution-ts",
@@ -392,10 +424,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
-    parser = build_arg_parser()
-    args = parser.parse_args()
-
+def _build_config(args: argparse.Namespace) -> ReleaseOrchestratorConfig:
     execution_ts = (
         parse_timestamp(args.execution_ts)
         if args.execution_ts
@@ -408,7 +437,11 @@ def main() -> int:
         cfg_accounts_table=args.cfg_accounts_table,
         raw_dataset=args.raw_dataset,
         raw_account_stats_pattern=args.raw_account_stats_pattern,
-        max_allowed_lag_days=args.max_allowed_lag_days,
+        max_allowed_lag_days=(
+            args.max_allowed_lag_days
+            if args.max_allowed_lag_days is not None
+            else default_max_allowed_lag_days()
+        ),
         execution_ts=execution_ts,
     )
     dbt_runtime = DbtRuntimeConfig(
@@ -426,10 +459,8 @@ def main() -> int:
     skipped_accounts_alert = SkippedAccountsAlertConfig.from_env(
         project_id=args.project_id,
         cfg_dataset=args.cfg_dataset,
-        report_timezone=args.report_timezone,
-        max_allowed_lag_days=args.max_allowed_lag_days,
     )
-    config = ReleaseOrchestratorConfig(
+    return ReleaseOrchestratorConfig(
         raw_freshness=raw_freshness,
         dbt_runtime=dbt_runtime,
         stage_target=args.stage_target,
@@ -440,16 +471,29 @@ def main() -> int:
         skipped_accounts_alert=skipped_accounts_alert,
     )
 
+
+def main(argv: list[str] | None = None) -> int:
+    """Run a release. Every failure is logged as `release_failed` and sent to the ops chat."""
+
+    parser = build_arg_parser()
     try:
-        run_release(config)
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        # Bad job arguments (e.g. after a deploy) would otherwise fail silently.
+        if exc.code not in (0, None):
+            report_release_failed(step="argument_parsing", reason=f"invalid arguments (exit {exc.code})")
+        raise
+
+    try:
+        run_release(_build_config(args))
     except ReleaseStepFailed as exc:
-        emit_log("release_failed", level="ERROR", step=exc.step_name, reason=exc.reason)
+        report_release_failed(step=exc.step_name, reason=exc.reason)
         return 1
     except subprocess.CalledProcessError as exc:
-        emit_log("release_failed", level="ERROR", error_type="CalledProcessError", returncode=exc.returncode)
+        report_release_failed(error_type="CalledProcessError", returncode=exc.returncode)
         return exc.returncode or 1
     except Exception as exc:  # noqa: BLE001
-        emit_log("release_failed", level="ERROR", error_type=type(exc).__name__, error_message=str(exc))
+        report_release_failed(error_type=type(exc).__name__, error_message=str(exc))
         return 1
 
     return 0
