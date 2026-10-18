@@ -1865,13 +1865,13 @@ function renderFreshness(freshness) {
   badge.textContent = statusLabel;
 
   const detailParts = [];
-  if (freshness.last_data_date) {
-    detailParts.push(`Last data date ${formatDate(freshness.last_data_date)}`);
+  if (freshness.last_raw_date) {
+    detailParts.push(`Last data date ${formatDate(freshness.last_raw_date)}`);
   } else {
     detailParts.push("No report data is available yet.");
   }
-  if (freshness.hours_since_last_data != null) {
-    detailParts.push(`${formatInteger(freshness.hours_since_last_data)} hours since last data`);
+  if (freshness.lag_days != null) {
+    detailParts.push(`${formatInteger(freshness.lag_days)} day${freshness.lag_days === 1 ? "" : "s"} behind`);
   }
   detail.textContent = detailParts.join(" · ");
 
@@ -1885,15 +1885,15 @@ function renderFreshness(freshness) {
   banner.className = `freshness-banner ${status}`;
   if (status === "stale") {
     bannerTitle.textContent = "Reporting data is stale";
-    bannerDetail.textContent = freshness.last_data_date
-      ? `The selected account last has reporting data on ${formatDate(freshness.last_data_date)}. The page is still usable, but the numbers are older than expected.`
+    bannerDetail.textContent = freshness.last_raw_date
+      ? `The selected account last has reporting data on ${formatDate(freshness.last_raw_date)}. The page is still usable, but the numbers are older than expected.`
       : "The selected account is older than expected and should be checked.";
     return;
   }
   if (status === "error") {
     bannerTitle.textContent = "Reporting freshness needs attention";
-    bannerDetail.textContent = freshness.last_data_date
-      ? `The selected account last has reporting data on ${formatDate(freshness.last_data_date)}. This is beyond the error threshold and likely indicates a pipeline issue.`
+    bannerDetail.textContent = freshness.last_raw_date
+      ? `The selected account last has Google Ads data on ${formatDate(freshness.last_raw_date)}. That is beyond the freshness threshold, so ${freshness.excluded_from_marts ? "the account is excluded from the reports" : "the reports are out of date"}; the data feed for this account needs attention.`
       : "Freshness is in an error state for the selected account.";
     return;
   }

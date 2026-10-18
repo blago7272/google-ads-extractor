@@ -17,3 +17,18 @@ sources:
             description: Business date of the rate
           - name: eur_exchange_rate
             description: "Inverse ECB rate: 1 unit of currency = X EUR"
+      - name: ops_account_freshness
+        description: >
+          Per-run, per-account freshness verdicts written by the release orchestrator
+          (orchestration/raw_freshness.py) before dbt runs. Append-only audit trail:
+          one row per active account per release. stg_account_freshness reads the
+          current run's rows. Partitioned by run_timestamp (day), clustered by account_id.
+        columns:
+          - name: run_timestamp
+            description: The release's execution timestamp; identifies the run.
+          - name: report_date
+            description: Today in report_timezone at run time; lag is measured from it.
+          - name: lag_days
+            description: report_date - last_raw_date. NULL when the account has no raw data.
+          - name: status
+            description: "'healthy' (built into the marts) or 'stale' (excluded): stale when lag_days > max_allowed_lag_days or there is no raw data."

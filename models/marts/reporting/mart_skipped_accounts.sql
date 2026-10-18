@@ -3,9 +3,9 @@ select
     account_id,
     account_name,
     last_raw_date,
-    days_lag,
+    lag_days                  as days_lag,
     freshness_status,
-    'lag_exceeds_threshold' as exclusion_reason,
-    current_timestamp()    as evaluated_at
+    'lag_exceeds_threshold'   as exclusion_reason,
+    evaluated_at
 from {{ ref('stg_account_freshness') }}
 where freshness_status = 'stale'
